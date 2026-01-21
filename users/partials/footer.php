@@ -104,7 +104,7 @@
         color: white;
         padding: 40px 20px 0;
         margin: 50px auto 0;
-        max-width: 1200px;
+        max-width: 100%;
         border-radius: 20px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     }
@@ -134,7 +134,7 @@
         width: 60px;
         height: 60px;
         background: white;
-        border-radius: 50%;
+        border-radius: 60%;
         padding: 5px;
         object-fit: contain;
     }
@@ -279,7 +279,7 @@
     }
 
     /* Responsive Design */
-    @media (max-width: 768px) {
+    @media (max-width: 100%) {
         .footer {
             border-radius: 15px;
             margin: 30px 10px 0;
