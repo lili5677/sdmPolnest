@@ -1,13 +1,53 @@
 <?php
-session_start();
+// Koneksi database
+$host = 'localhost';
+$dbname = 'sdm_polnest';
+$username = 'root';
+$password = '';
 
-// Data kosong - nanti diisi dari database
-$stats = [
-    'users' => 0,
-    'applicants' => 0,
-    'active_jobs' => 0,
-    'pending_interviews' => 0
-];
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    die("Koneksi gagal: " . $e->getMessage());
+}
+
+// Query untuk mendapatkan data dashboard menggunakan view yang sudah ada
+$query_dashboard = "SELECT * FROM v_dashboard_admin";
+$stmt_dashboard = $pdo->query($query_dashboard);
+$data_dashboard = $stmt_dashboard->fetch(PDO::FETCH_ASSOC);
+
+// Data untuk card statistik
+$total_pegawai = $data_dashboard['total_pegawai_aktif'] ?? 0;
+$pegawai_kontrak = $data_dashboard['pegawai_kontrak'] ?? 0;
+$kontrak_habis = $data_dashboard['kontrak_akan_habis'] ?? 0;
+$lamaran_baru = $data_dashboard['lamaran_baru'] ?? 0;
+
+// Query untuk Monitoring Kuota Formasi
+$query_formasi = "SELECT nama_posisi, kuota_total, kuota_terisi, jumlah_pendaftar FROM kuota_formasi ORDER BY created_at DESC";
+$stmt_formasi = $pdo->query($query_formasi);
+$data_formasi = $stmt_formasi->fetchAll(PDO::FETCH_ASSOC);
+
+// Query untuk Status Pegawai (untuk pie chart)
+$query_status = "
+    SELECT 
+        jenis_kepegawaian,
+        COUNT(*) as jumlah,
+        ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM status_kepegawaian WHERE status_aktif = 'aktif')), 0) as persentase
+    FROM status_kepegawaian 
+    WHERE status_aktif = 'aktif'
+    GROUP BY jenis_kepegawaian
+";
+$stmt_status = $pdo->query($query_status);
+$data_status = $stmt_status->fetchAll(PDO::FETCH_ASSOC);
+
+// Query untuk Alert & Notifikasi
+$query_notif = "SELECT * FROM notifikasi_admin WHERE is_read = 0 ORDER BY created_at DESC LIMIT 4";
+$stmt_notif = $pdo->query($query_notif);
+$data_notif = $stmt_notif->fetchAll(PDO::FETCH_ASSOC);
+
+// Hitung persentase untuk pie chart
+$total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
 ?>
 
 <!DOCTYPE html>
@@ -15,7 +55,9 @@ $stats = [
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Admin - SDM Perusahaan</title>
+    <title>Dashboard Admin - Sistem SDM Polnest</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -24,662 +66,467 @@ $stats = [
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #f0f2f5;
-            color: #1c1e21;
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
         }
 
-        .container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar */
         .sidebar {
-            width: 280px;
-            background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
-            position: fixed;
+            width: 260px;
             height: 100vh;
-            padding: 0;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #111827;
+            color: #fff;
+            z-index: 1000;
         }
 
-        .sidebar-header {
-            padding: 30px 25px;
-            background: rgba(255, 255, 255, 0.05);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .sidebar-header h2 {
-            color: white;
-            font-size: 22px;
-            font-weight: 700;
-            margin: 0;
-        }
-
-        .sidebar-menu {
-            padding: 20px 0;
-        }
-
-        .menu-item {
-            padding: 14px 25px;
-            color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-            transition: all 0.3s;
-            font-size: 15px;
-            margin: 2px 15px;
-            border-radius: 8px;
-        }
-
-        .menu-item:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-        }
-
-        .menu-item.active {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            font-weight: 600;
-        }
-
-        .menu-icon {
-            width: 20px;
-            height: 20px;
-            margin-right: 12px;
-            display: inline-block;
-        }
-
-        /* Main Content */
         .main-content {
-            flex: 1;
-            margin-left: 280px;
-            padding: 0;
-            background: #f0f2f5;
+            padding: 30px;
+            margin-left: 260px;
         }
 
-        /* Top Bar */
-        .top-bar {
-            background: white;
-            padding: 20px 35px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .header {
+            margin-bottom: 30px;
         }
 
-        .page-title h1 {
-            font-size: 26px;
-            color: #1c1e21;
+        .header h1 {
+            font-size: 28px;
             font-weight: 700;
-            margin: 0;
+            color: #1a1a1a;
+            margin-bottom: 5px;
         }
 
-        .page-subtitle {
+        .header p {
             font-size: 14px;
-            color: #65676b;
-            margin-top: 4px;
+            color: #666;
         }
 
-        .user-section {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .notification-bell {
-            position: relative;
-            width: 40px;
-            height: 40px;
-            background: #f0f2f5;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .notification-bell:hover {
-            background: #e4e6eb;
-        }
-
-        .notification-badge {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 8px;
-            height: 8px;
-            background: #ef4444;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-
-        /* Dashboard Content */
-        .dashboard-content {
-            padding: 30px 35px;
-        }
-
-        /* Stats Grid */
-        .stats-container {
+        /* Card Statistics */
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
 
-        .stat-box {
+        .stat-card {
             background: white;
             border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-box::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-        }
-
-        .stat-box.blue::before { background: #3b82f6; }
-        .stat-box.yellow::before { background: #fbbf24; }
-        .stat-box.cyan::before { background: #06b6d4; }
-        .stat-box.red::before { background: #ef4444; }
-
-        .stat-header {
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
         }
 
         .stat-info h3 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1c1e21;
-            margin-bottom: 4px;
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+            margin-bottom: 8px;
         }
 
-        .stat-info p {
-            font-size: 13px;
-            color: #65676b;
-            font-weight: 500;
+        .stat-info .number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        .stat-info .subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
         }
 
         .stat-icon {
-            width: 48px;
-            height: 48px;
+            width: 50px;
+            height: 50px;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 24px;
         }
 
-        .stat-box.blue .stat-icon {
-            background: rgba(59, 130, 246, 0.1);
-            color: #3b82f6;
-        }
+        .icon-green { background-color: #d4f4dd; color: #22c55e; }
+        .icon-blue { background-color: #dbeafe; color: #3b82f6; }
+        .icon-yellow { background-color: #fef3c7; color: #f59e0b; }
+        .icon-red { background-color: #fee2e2; color: #ef4444; }
+        .icon-purple { background-color: #e9d5ff; color: #a855f7; }
 
-        .stat-box.yellow .stat-icon {
-            background: rgba(251, 191, 36, 0.1);
-            color: #fbbf24;
-        }
-
-        .stat-box.cyan .stat-icon {
-            background: rgba(6, 182, 212, 0.1);
-            color: #06b6d4;
-        }
-
-        .stat-box.red .stat-icon {
-            background: rgba(239, 68, 68, 0.1);
-            color: #ef4444;
-        }
-
-        .stat-trend {
-            display: flex;
-            align-items: center;
-            font-size: 13px;
-            margin-top: 10px;
-        }
-
-        .trend-up {
-            color: #10b981;
-        }
-
-        .trend-down {
-            color: #ef4444;
-        }
-
-        /* Two Column Layout */
-        .two-column {
+        /* Content Grid */
+        .content-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
             margin-bottom: 20px;
         }
 
-        /* Card */
         .card {
             background: white;
             border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            overflow: hidden;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
 
         .card-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 20px;
         }
 
-        .card-header h3 {
-            font-size: 16px;
+        .card-header h2 {
+            font-size: 18px;
             font-weight: 600;
-            color: #1c1e21;
-            margin: 0;
+            color: #1a1a1a;
         }
 
-        .card-body {
-            padding: 24px;
-        }
-
-        /* Progress Items */
+        /* Progress Bar */
         .progress-item {
-            margin-bottom: 24px;
+            margin-bottom: 16px;
         }
 
-        .progress-item:last-child {
-            margin-bottom: 0;
-        }
-
-        .progress-label {
+        .progress-header {
             display: flex;
             justify-content: space-between;
             margin-bottom: 8px;
-            font-size: 14px;
         }
 
-        .progress-label-text {
-            color: #1c1e21;
+        .progress-label {
+            font-size: 14px;
+            color: #333;
             font-weight: 500;
         }
 
-        .progress-label-value {
-            color: #65676b;
+        .progress-value {
+            font-size: 13px;
+            color: #666;
         }
 
         .progress-bar-container {
+            width: 100%;
             height: 8px;
-            background: #e5e7eb;
-            border-radius: 10px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
             overflow: hidden;
         }
 
-        .progress-bar-fill {
+        .progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, #3b82f6, #60a5fa);
-            border-radius: 10px;
-            width: 0%;
-            transition: width 1s ease;
+            background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
         }
 
-        /* Donut Chart */
+        /* Pie Chart */
         .chart-container {
+            position: relative;
+            height: 250px;
             display: flex;
-            justify-content: center;
             align-items: center;
-            padding: 20px 0;
+            justify-content: center;
         }
 
-        .chart-wrapper {
-            position: relative;
-            width: 220px;
-            height: 220px;
+        .empty-state {
+            text-align: center;
+            color: #999;
+            font-size: 14px;
         }
 
         /* Alert Section */
-        .alert-section {
-            margin-top: 20px;
-        }
-
         .alert-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
+            gap: 15px;
         }
 
-        .alert-box {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .alert-icon {
-            width: 48px;
-            height: 48px;
+        .alert-item {
+            padding: 16px;
             border-radius: 8px;
+            border-left: 4px solid;
+            background-color: #fafafa;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            flex-shrink: 0;
         }
 
-        .alert-box.danger .alert-icon {
-            background: #fee2e2;
-            color: #dc2626;
-        }
+        .alert-yellow { border-left-color: #f59e0b; background-color: #fffbeb; }
+        .alert-red { border-left-color: #ef4444; background-color: #fef2f2; }
+        .alert-blue { border-left-color: #3b82f6; background-color: #eff6ff; }
 
-        .alert-box.warning .alert-icon {
-            background: #fef3c7;
-            color: #d97706;
-        }
-
-        .alert-content {
-            flex: 1;
-        }
-
-        .alert-title {
+        .alert-content h3 {
             font-size: 14px;
             font-weight: 600;
-            color: #1c1e21;
+            color: #1a1a1a;
             margin-bottom: 4px;
         }
 
-        .alert-desc {
+        .alert-content p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .alert-badge {
+            min-width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 13px;
-            color: #65676b;
+            font-weight: 600;
+            color: white;
         }
 
-        .alert-count {
-            font-size: 24px;
-            font-weight: 700;
-            color: #1c1e21;
-        }
+        .badge-yellow { background-color: #f59e0b; }
+        .badge-red { background-color: #ef4444; }
+        .badge-blue { background-color: #3b82f6; }
 
-        @media (max-width: 1400px) {
-            .stats-container {
-                grid-template-columns: repeat(2, 1fr);
-            }
+        .full-width {
+            grid-column: 1 / -1;
         }
 
         @media (max-width: 1024px) {
-            .two-column {
+            .content-grid {
                 grid-template-columns: 1fr;
             }
+            
             .alert-grid {
                 grid-template-columns: 1fr;
             }
         }
 
         @media (max-width: 768px) {
-            .sidebar {
-                width: 0;
-                display: none;
-            }
-            .main-content {
-                margin-left: 0;
-            }
-            .stats-container {
+            .stats-grid {
                 grid-template-columns: 1fr;
+            }
+            
+            .main-content {
+                padding: 20px;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Sidebar -->
-        <?php include 'sidebar/sidebar.php'; ?>
-        
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Top Bar -->
-            <div class="top-bar">
-                <div class="page-title">
-                    <h1>Dashboard Admin</h1>
-                    <p class="page-subtitle">Monitoring Kualifikasi dan Rekrutmen</p>
+    <?php include 'sidebar/sidebar.php'; ?>
+    <div class="main-content">
+        <!-- Header -->
+        <div class="header">
+            <h1>Dashboard Admin</h1>
+            <p>Pusat Monitoring & Kendali Sistem HR</p>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Total Pegawai Aktif</h3>
+                    <div class="number"><?= $total_pegawai ?></div>
+                    <div class="subtitle">Semua status</div>
                 </div>
-                <div class="user-section">
-                    <div class="notification-bell">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                        </svg>
-                        <span class="notification-badge"></span>
-                    </div>
+                <div class="stat-icon icon-green">👥</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Pegawai Kontrak</h3>
+                    <div class="number"><?= $pegawai_kontrak ?></div>
+                    <div class="subtitle">Status kontrak</div>
+                </div>
+                <div class="stat-icon icon-blue">📋</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Kontrak Habis</h3>
+                    <div class="number"><?= $kontrak_habis ?></div>
+                    <div class="subtitle">30 hari ke depan</div>
+                </div>
+                <div class="stat-icon icon-yellow">⚠️</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Lamaran Menunggu</h3>
+                    <div class="number"><?= $lamaran_baru ?></div>
+                    <div class="subtitle">Menunggu verifikasi</div>
+                </div>
+                <div class="stat-icon icon-red">📨</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Sertifikasi Dosen Habis</h3>
+                    <div class="number">0</div>
+                    <div class="subtitle">Perlu diperpanjang</div>
+                </div>
+                <div class="stat-icon icon-purple">🎓</div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="content-grid">
+            <!-- Monitoring Kuota Formasi -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Monitoring Kuota Formasi</h2>
+                </div>
+                <div class="progress-list">
+                    <?php if (empty($data_formasi)): ?>
+                        <div class="empty-state">
+                            <p>Belum ada data kuota formasi</p>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($data_formasi as $formasi): ?>
+                            <?php 
+                                $persentase = $formasi['kuota_total'] > 0 
+                                    ? round(($formasi['kuota_terisi'] / $formasi['kuota_total']) * 100) 
+                                    : 0;
+                            ?>
+                            <div class="progress-item">
+                                <div class="progress-header">
+                                    <span class="progress-label"><?= htmlspecialchars($formasi['nama_posisi']) ?></span>
+                                    <span class="progress-value"><?= $formasi['kuota_terisi'] ?>/<?= $formasi['kuota_total'] ?></span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar" style="width: <?= $persentase ?>%"></div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
 
-            <!-- Dashboard Content -->
-            <div class="dashboard-content">
-                <!-- Stats -->
-                <div class="stats-container">
-                    <div class="stat-box blue">
-                        <div class="stat-header">
-                            <div class="stat-info">
-                                <h3><?php echo $stats['users']; ?></h3>
-                                <p>Users</p>
-                            </div>
-                            <div class="stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="9" cy="7" r="4"></circle>
-                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="stat-trend trend-up">
-                            <span>↑ 0%</span>
-                        </div>
-                    </div>
-
-                    <div class="stat-box yellow">
-                        <div class="stat-header">
-                            <div class="stat-info">
-                                <h3><?php echo $stats['applicants']; ?></h3>
-                                <p>Applicants</p>
-                            </div>
-                            <div class="stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="8.5" cy="7" r="4"></circle>
-                                    <polyline points="17 11 19 13 23 9"></polyline>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="stat-trend trend-up">
-                            <span>↑ 0%</span>
-                        </div>
-                    </div>
-
-                    <div class="stat-box cyan">
-                        <div class="stat-header">
-                            <div class="stat-info">
-                                <h3><?php echo $stats['active_jobs']; ?></h3>
-                                <p>Active Jobs</p>
-                            </div>
-                            <div class="stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="stat-trend trend-down">
-                            <span>↓ 0%</span>
-                        </div>
-                    </div>
-
-                    <div class="stat-box red">
-                        <div class="stat-header">
-                            <div class="stat-info">
-                                <h3><?php echo $stats['pending_interviews']; ?></h3>
-                                <p>Pending Interviews</p>
-                            </div>
-                            <div class="stat-icon">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                    <line x1="16" y1="2" x2="16" y2="6"></line>
-                                    <line x1="8" y1="2" x2="8" y2="6"></line>
-                                    <line x1="3" y1="10" x2="21" y2="10"></line>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="stat-trend trend-up">
-                            <span>↑ 0%</span>
-                        </div>
-                    </div>
+            <!-- Status Pegawai Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Status Pegawai</h2>
                 </div>
-
-                <!-- Two Column Section -->
-                <div class="two-column">
-                    <!-- Monitoring Kualifikasi Pelamar -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Monitoring Kualifikasi Pelamar</h3>
+                <div class="chart-container">
+                    <?php if (empty($data_status)): ?>
+                        <div class="empty-state">
+                            <p>Belum ada data pegawai</p>
                         </div>
-                        <div class="card-body">
-                            <div class="progress-item">
-                                <div class="progress-label">
-                                    <span class="progress-label-text">SMA Sederajat</span>
-                                    <span class="progress-label-value">0</span>
-                                </div>
-                                <div class="progress-bar-container">
-                                    <div class="progress-bar-fill" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div class="progress-item">
-                                <div class="progress-label">
-                                    <span class="progress-label-text">D3 Sederajat</span>
-                                    <span class="progress-label-value">0</span>
-                                </div>
-                                <div class="progress-bar-container">
-                                    <div class="progress-bar-fill" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Status Pelamar -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Status Pelamar</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <div class="chart-wrapper">
-                                    <canvas id="donutChart" width="220" height="220"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php else: ?>
+                        <canvas id="statusChart"></canvas>
+                    <?php endif; ?>
                 </div>
+            </div>
+        </div>
 
-                <!-- Alert & Notification -->
-                <div class="alert-section">
-                    <div class="card">
-                        <div class="card-header">
-                            <h3>Alert & Notifikasi</h3>
-                        </div>
-                        <div class="card-body">
-                            <div class="alert-grid">
-                                <div class="alert-box danger">
-                                    <div class="alert-icon">!</div>
-                                    <div class="alert-content">
-                                        <div class="alert-title">Verifikasi Pelamar Anda</div>
-                                        <div class="alert-desc">Menunggu Proses Verif</div>
-                                    </div>
-                                    <div class="alert-count">0</div>
-                                </div>
-                                <div class="alert-box warning">
-                                    <div class="alert-icon">!</div>
-                                    <div class="alert-content">
-                                        <div class="alert-title">Pengisian Formulir Anda</div>
-                                        <div class="alert-desc">Menunggu Proses Verif</div>
-                                    </div>
-                                    <div class="alert-count">0</div>
-                                </div>
+        <!-- Alert & Notifikasi -->
+        <div class="card full-width">
+            <div class="card-header">
+                <h2>Alert & Notifikasi</h2>
+            </div>
+            <div class="alert-grid">
+                <?php if (empty($data_notif)): ?>
+                    <div class="empty-state" style="grid-column: 1 / -1;">
+                        <p>Tidak ada notifikasi baru</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($data_notif as $notif): ?>
+                        <?php
+                            $alert_class = 'alert-blue';
+                            $badge_class = 'badge-blue';
+                            
+                            if ($notif['jenis_notifikasi'] == 'kontrak_habis') {
+                                $alert_class = 'alert-yellow';
+                                $badge_class = 'badge-yellow';
+                            } elseif ($notif['jenis_notifikasi'] == 'verifikasi_pegawai') {
+                                $alert_class = 'alert-red';
+                                $badge_class = 'badge-red';
+                            }
+                        ?>
+                        <div class="alert-item <?= $alert_class ?>">
+                            <div class="alert-content">
+                                <h3><?= htmlspecialchars($notif['judul']) ?></h3>
+                                <p><?= htmlspecialchars($notif['deskripsi']) ?></p>
+                            </div>
+                            <div class="alert-badge <?= $badge_class ?>">
+                                <?= $notif['jumlah_item'] ?>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
     <script>
-        // Donut Chart
-        window.addEventListener('load', function() {
-            const canvas = document.getElementById('donutChart');
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                const centerX = 110;
-                const centerY = 110;
-                const radius = 80;
-                const innerRadius = 55;
-                
-                // Data kosong - nanti dari database
-                const data = [
-                    {label: 'Lulus Adm', value: 0, color: '#60a5fa'},
-                    {label: 'Pengisian Form', value: 0, color: '#fbbf24'},
-                    {label: 'Lolos', value: 0, color: '#34d399'},
-                    {label: 'Tidak Lolos', value: 0, color: '#f87171'}
-                ];
-                
-                const total = data.reduce((sum, item) => sum + item.value, 0);
-                
-                if (total === 0) {
-                    // Draw empty circle
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                    ctx.arc(centerX, centerY, innerRadius, 2 * Math.PI, 0, true);
-                    ctx.closePath();
-                    ctx.fillStyle = '#e5e7eb';
-                    ctx.fill();
-                } else {
-                    let currentAngle = -Math.PI / 2;
-                    
-                    data.forEach(item => {
-                        const sliceAngle = (item.value / total) * 2 * Math.PI;
-                        
-                        ctx.beginPath();
-                        ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-                        ctx.arc(centerX, centerY, innerRadius, currentAngle + sliceAngle, currentAngle, true);
-                        ctx.closePath();
-                        ctx.fillStyle = item.color;
-                        ctx.fill();
-                        
-                        currentAngle += sliceAngle;
-                    });
-                }
-                
-                // Center circle
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, innerRadius, 0, 2 * Math.PI);
-                ctx.fillStyle = '#ffffff';
-                ctx.fill();
-                
-                // Center text
-                ctx.fillStyle = '#1c1e21';
-                ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(total, centerX, centerY - 5);
-                ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-                ctx.fillStyle = '#65676b';
-                ctx.fillText('Total', centerX, centerY + 18);
+        <?php if (!empty($data_status)): ?>
+        // Pie Chart untuk Status Pegawai
+        const ctx = document.getElementById('statusChart');
+        
+        const data_chart = {
+            labels: <?= json_encode(array_map(function($item) {
+                return ucfirst($item['jenis_kepegawaian']);
+            }, $data_status)) ?>,
+            datasets: [{
+                data: <?= json_encode(array_column($data_status, 'persentase')) ?>,
+                backgroundColor: [
+                    '#60a5fa', // Biru untuk Tetap
+                    '#fbbf24', // Kuning untuk Kontrak
+                    '#34d399', // Hijau
+                    '#f87171'  // Merah
+                ],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        };
+
+        const config = {
+            type: 'doughnut',
+            data: data_chart,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12,
+                                family: 'Inter'
+                            },
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    return data.labels.map((label, i) => {
+                                        const value = data.datasets[0].data[i];
+                                        return {
+                                            text: `${label} - ${value}%`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            hidden: false,
+                                            index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed + '%';
+                            }
+                        }
+                    }
+                },
+                cutout: '65%'
             }
-        });
+        };
+
+        new Chart(ctx, config);
+        <?php endif; ?>
     </script>
 </body>
 </html>
