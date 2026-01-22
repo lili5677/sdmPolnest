@@ -142,7 +142,7 @@
         .sidebar-menu {
             padding: 24px 0;
             flex: 1;
-            overflow-y: auto;
+            overflow-y: hidden;
             overflow-x: hidden;
             min-height: 0; 
         }
