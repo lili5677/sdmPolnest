@@ -56,7 +56,8 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Admin - Sistem SDM Polnest</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
@@ -66,7 +67,7 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Poppins', sans-serif;
             background-color: #f5f7fa;
             color: #333;
         }
@@ -330,7 +331,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $total_pegawai ?></div>
                     <div class="subtitle">Semua status</div>
                 </div>
-                <div class="stat-icon icon-green">👥</div>
+                <div class="stat-icon icon-green">
+                    <i class="bi bi-people-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -339,7 +342,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $pegawai_kontrak ?></div>
                     <div class="subtitle">Status kontrak</div>
                 </div>
-                <div class="stat-icon icon-blue">📋</div>
+                <div class="stat-icon icon-blue">
+                    <i class="bi bi-clipboard-check-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -348,7 +353,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $kontrak_habis ?></div>
                     <div class="subtitle">30 hari ke depan</div>
                 </div>
-                <div class="stat-icon icon-yellow">⚠️</div>
+                <div class="stat-icon icon-yellow">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -357,7 +364,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $lamaran_baru ?></div>
                     <div class="subtitle">Menunggu verifikasi</div>
                 </div>
-                <div class="stat-icon icon-red">📨</div>
+                <div class="stat-icon icon-red">
+                    <i class="bi bi-envelope-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -366,7 +375,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number">0</div>
                     <div class="subtitle">Perlu diperpanjang</div>
                 </div>
-                <div class="stat-icon icon-purple">🎓</div>
+                <div class="stat-icon icon-purple">
+                    <i class="bi bi-mortarboard-fill"></i>
+                </div>
             </div>
         </div>
 
@@ -494,7 +505,7 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                             padding: 15,
                             font: {
                                 size: 12,
-                                family: 'Inter'
+                                family: 'Poppins'
                             },
                             generateLabels: function(chart) {
                                 const data = chart.data;
