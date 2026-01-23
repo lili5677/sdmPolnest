@@ -584,16 +584,15 @@
         <div class="sidebar-menu">
             <?php 
                 // Deteksi halaman saat ini
-                $halaman_sekarang = $_SERVER['PHP_SELF'];
-
+                $halaman_sekarang = basename($_SERVER['PHP_SELF']);
             ?>
             <div class="menu-section">
                 <div class="menu-section-title">Menu Utama</div>
-                <a href="../index.php"class="menu-item <?= str_contains($halaman_sekarang, '/admin/index.php') ? 'active' : '' ?>"title="Dashboard">
+                <a href="dashboard.php" class="menu-item <?php echo $halaman_sekarang == 'dashboard.php' ? 'active' : ''; ?>" title="Dashboard">
                     <i class="fas fa-chart-line"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="../admin/manajemenloker/index.php" class="menu-item <?= str_contains($halaman_sekarang, 'admin/manajemenloker/index.php') ? 'active' : '' ?>"title="Manajemen Loker">
+                <a href="manajemen-loker.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-loker.php' ? 'active' : ''; ?>" title="Manajemen Loker">
                     <i class="fas fa-briefcase"></i>
                     <span>Manajemen Loker</span>
                 </a>
