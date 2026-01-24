@@ -187,13 +187,13 @@
 
         <!-- Navigation Menu -->
         <ul class="navbar-menu" id="navbarMenu">
-            <li><a href="dashboard.php">Beranda</a></li>
-            <li><a href="staff.php">Tim Kami</a></li>
-            <li><a href="pelamar/lowongan.php">Lowongan Pekerjaan</a></li>
+            <li><a href="<?php echo BASE_URL; ?>index.php">Beranda</a></li>
+            <li><a href="<?php echo BASE_URL; ?>users/staff.php">Tim Kami</a></li>
+            <li><a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php">Lowongan Pekerjaan</a></li>
         </ul>
 
         <!-- Login Button - Direct Link -->
-        <a href="auth/login_pegawai.php" class="btn-login">
+        <a href="<?php echo BASE_URL; ?>auth/login_pegawai.php" class="btn-login">
             Login untuk Pegawai
         </a>
     </div>
