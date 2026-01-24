@@ -3,6 +3,7 @@
  * Halaman: Edit Pegawai
  * File: admin/edit_pegawai.php
  * Deskripsi: Form dan proses edit data pegawai
+ * 
  */
 
 // Koneksi Database
@@ -12,8 +13,8 @@ require_once '../../config/database.php';
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if($id <= 0) {
-    header('Location: administrasiKepegawaian.php?tab=data-pegawai&success=1&message=' . urlencode('Data pegawai berhasil diperbarui'));
-exit;
+    header('Location: administrasiKepegawaian.php?tab=data-pegawai&error=1&message=' . urlencode('ID pegawai tidak valid'));
+    exit;
 }
 
 // Get data pegawai
@@ -37,7 +38,7 @@ $stmt->execute();
 $pegawai = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if(!$pegawai) {
-    header('Location: data_pegawai.php?error=1&message=' . urlencode('Data pegawai tidak ditemukan'));
+    header('Location: administrasiKepegawaian.php?tab=data-pegawai&error=1&message=' . urlencode('Data pegawai tidak ditemukan'));
     exit;
 }
 
@@ -45,6 +46,7 @@ if(!$pegawai) {
 if($_SERVER['REQUEST_METHOD'] == 'POST') {
     $errors = [];
     
+    // VALIDASI REQUIRED FIELDS
     if(empty($_POST['nama_lengkap'])) {
         $errors[] = 'Nama lengkap wajib diisi';
     }
@@ -53,6 +55,43 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         $errors[] = 'Email wajib diisi';
     } elseif(!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Format email tidak valid';
+    }
+    
+    if(empty($_POST['tanggal_lahir'])) {
+        $errors[] = 'Tanggal lahir wajib diisi';
+    }
+    
+    if(empty($_POST['jenis_kelamin'])) {
+        $errors[] = 'Jenis kelamin wajib diisi';
+    }
+    
+    if(empty($_POST['jenis_pegawai'])) {
+        $errors[] = 'Jenis pegawai wajib diisi';
+    }
+    
+    if(empty($_POST['jenis_kepegawaian'])) {
+        $errors[] = 'Jenis kepegawaian wajib diisi';
+    }
+    
+    if(empty($_POST['tanggal_mulai_kerja'])) {
+        $errors[] = 'Tanggal mulai kerja wajib diisi';
+    }
+    
+    // Validasi khusus kontrak
+    if($_POST['jenis_kepegawaian'] == 'kontrak') {
+        if(empty($_POST['masa_kontrak_mulai'])) {
+            $errors[] = 'Masa kontrak mulai wajib diisi untuk pegawai kontrak';
+        }
+        if(empty($_POST['masa_kontrak_selesai'])) {
+            $errors[] = 'Masa kontrak selesai wajib diisi untuk pegawai kontrak';
+        }
+    }
+    
+    // Validasi khusus dosen
+    if($_POST['jenis_pegawai'] == 'dosen') {
+        if(empty($_POST['prodi'])) {
+            $errors[] = 'Program studi wajib diisi untuk dosen';
+        }
     }
     
     // Cek email duplikat (kecuali email sendiri)
@@ -69,25 +108,24 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     // Jika tidak ada error, proses update
     if(empty($errors)) {
-        $nidn = $_POST['nidn'] ?? null;
-        if ($nidn === '') {
-            $nidn = null;
+        // Helper function untuk handle empty string -> NULL
+        function emptyToNull($value) {
+            return (empty($value)) ? null : $value;
         }
-
-        $masa_kontrak_mulai   = $_POST['masa_kontrak_mulai'] ?? null;
-        $masa_kontrak_selesai = $_POST['masa_kontrak_selesai'] ?? null;
-
-        $nip = $_POST['nip'] ?? null;
-        if ($nip === '') {
-            $nip = null;
-        }
-
-        if ($masa_kontrak_mulai === '') {
-            $masa_kontrak_mulai = null;
-        }
-        if ($masa_kontrak_selesai === '') {
-            $masa_kontrak_selesai = null;
-        }
+        
+        $nik = emptyToNull($_POST['nik']);
+        $nidn = emptyToNull($_POST['nidn']);
+        $nip = emptyToNull($_POST['nip']);
+        $tempat_lahir = emptyToNull($_POST['tempat_lahir']);
+        $no_telepon = emptyToNull($_POST['no_telepon']);
+        $alamat_domisili = emptyToNull($_POST['alamat_domisili']);
+        $alamat_ktp = emptyToNull($_POST['alamat_ktp']);
+        $prodi = emptyToNull($_POST['prodi']);
+        $jabatan = emptyToNull($_POST['jabatan']);
+        $unit_kerja = emptyToNull($_POST['unit_kerja']);
+        
+        $masa_kontrak_mulai = emptyToNull($_POST['masa_kontrak_mulai']);
+        $masa_kontrak_selesai = emptyToNull($_POST['masa_kontrak_selesai']);
 
         $conn->beginTransaction();
         
@@ -111,26 +149,18 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             WHERE pegawai_id = :pegawai_id";
             
             $pegawaiStmt = $conn->prepare($pegawaiQuery);
-            $pegawaiStmt->bindParam(':nik', $_POST['nik']);
+            $pegawaiStmt->bindValue(':nik', $nik, $nik === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $pegawaiStmt->bindParam(':nama_lengkap', $_POST['nama_lengkap']);
-            $pegawaiStmt->bindParam(':tempat_lahir', $_POST['tempat_lahir']);
+            $pegawaiStmt->bindValue(':tempat_lahir', $tempat_lahir, $tempat_lahir === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $pegawaiStmt->bindParam(':tanggal_lahir', $_POST['tanggal_lahir']);
             $pegawaiStmt->bindParam(':jenis_kelamin', $_POST['jenis_kelamin']);
             $pegawaiStmt->bindParam(':email', $_POST['email']);
-            $pegawaiStmt->bindParam(':no_telepon', $_POST['no_telepon']);
-            $pegawaiStmt->bindParam(':alamat_domisili', $_POST['alamat_domisili']);
-            $pegawaiStmt->bindParam(':alamat_ktp', $_POST['alamat_ktp']);
-            $pegawaiStmt->bindValue(
-                ':nidn',
-                $nidn,
-                $nidn === null ? PDO::PARAM_NULL : PDO::PARAM_STR
-            );
-            $pegawaiStmt->bindParam(':prodi', $_POST['prodi']);
-            $pegawaiStmt->bindValue(
-                ':nip',
-                $nip,
-                $nip === null ? PDO::PARAM_NULL : PDO::PARAM_STR
-            );
+            $pegawaiStmt->bindValue(':no_telepon', $no_telepon, $no_telepon === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $pegawaiStmt->bindValue(':alamat_domisili', $alamat_domisili, $alamat_domisili === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $pegawaiStmt->bindValue(':alamat_ktp', $alamat_ktp, $alamat_ktp === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $pegawaiStmt->bindValue(':nidn', $nidn, $nidn === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $pegawaiStmt->bindValue(':prodi', $prodi, $prodi === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $pegawaiStmt->bindValue(':nip', $nip, $nip === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $pegawaiStmt->bindParam(':jenis_pegawai', $_POST['jenis_pegawai']);
             $pegawaiStmt->bindParam(':pegawai_id', $id);
             
@@ -165,30 +195,23 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             $statusStmt = $conn->prepare($statusQuery);
             $statusStmt->bindParam(':pegawai_id', $id);
-            $statusStmt->bindParam(':jabatan', $_POST['jabatan']);
+            $statusStmt->bindValue(':jabatan', $jabatan, $jabatan === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $statusStmt->bindParam(':jenis_kepegawaian', $_POST['jenis_kepegawaian']);
             $statusStmt->bindParam(':status_aktif', $_POST['status_aktif']);
-            $statusStmt->bindParam(':unit_kerja', $_POST['unit_kerja']);
+            $statusStmt->bindValue(':unit_kerja', $unit_kerja, $unit_kerja === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $statusStmt->bindParam(':tanggal_mulai_kerja', $_POST['tanggal_mulai_kerja']);
-            $statusStmt->bindValue(
-                ':masa_kontrak_mulai',
-                $masa_kontrak_mulai,
-                $masa_kontrak_mulai === null ? PDO::PARAM_NULL : PDO::PARAM_STR
-            );
-
-            $statusStmt->bindValue(
-                ':masa_kontrak_selesai',
-                $masa_kontrak_selesai,
-                $masa_kontrak_selesai === null ? PDO::PARAM_NULL : PDO::PARAM_STR
-            );
+            $statusStmt->bindValue(':masa_kontrak_mulai', $masa_kontrak_mulai, 
+                $masa_kontrak_mulai === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+            $statusStmt->bindValue(':masa_kontrak_selesai', $masa_kontrak_selesai, 
+                $masa_kontrak_selesai === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             
             $statusStmt->execute();
             
             $conn->commit();
 
-// REDIRECT KE TAB DATA PEGAWAI
-header('Location: administrasiKepegawaian.php?tab=data-pegawai&success=1&message=' . urlencode('Data pegawai berhasil diperbarui'));
-exit;
+            // REDIRECT KE TAB DATA PEGAWAI
+            header('Location: administrasiKepegawaian.php?tab=data-pegawai&success=1&message=' . urlencode('Data pegawai berhasil diperbarui'));
+            exit;
             
         } catch(Exception $e) {
             $conn->rollBack();
@@ -374,7 +397,9 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
         <div class="page-header">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="administrasiKepegawaian.php?tab=data-pegawai">Data Pegawai</a></li>
+                    <li class="breadcrumb-item"><a href="administrasiKepegawaian.php?tab=data-pegawai">
+                        <i class=""></i> Kembali
+                    </a></li>
                     <li class="breadcrumb-item active">Edit Pegawai</li>
                 </ol>
             </nav>
@@ -421,15 +446,19 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
                             <input type="text" class="form-control" id="tempat_lahir" name="tempat_lahir" value="<?= htmlspecialchars($data['tempat_lahir'] ?? '') ?>">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="tanggal_lahir" class="form-label">Tanggal Lahir</label>
-                            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="<?= $data['tanggal_lahir'] ?? '' ?>">
+                            <label for="tanggal_lahir" class="form-label">
+                                Tanggal Lahir <span class="required">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="<?= $data['tanggal_lahir'] ?? '' ?>" required>
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="jenis_kelamin" class="form-label">Jenis Kelamin</label>
-                            <select class="form-select" id="jenis_kelamin" name="jenis_kelamin">
+                            <label for="jenis_kelamin" class="form-label">
+                                Jenis Kelamin <span class="required">*</span>
+                            </label>
+                            <select class="form-select" id="jenis_kelamin" name="jenis_kelamin" required>
                                 <option value="">-- Pilih --</option>
                                 <option value="L" <?= ($data['jenis_kelamin'] ?? '') == 'L' ? 'selected' : '' ?>>Laki-laki</option>
                                 <option value="P" <?= ($data['jenis_kelamin'] ?? '') == 'P' ? 'selected' : '' ?>>Perempuan</option>
@@ -468,8 +497,11 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
                     
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="jenis_pegawai" class="form-label">Jenis Pegawai</label>
-                            <select class="form-select" id="jenis_pegawai" name="jenis_pegawai" onchange="toggleDosenFields()">
+                            <label for="jenis_pegawai" class="form-label">
+                                Jenis Pegawai <span class="required">*</span>
+                            </label>
+                            <select class="form-select" id="jenis_pegawai" name="jenis_pegawai" required onchange="toggleDosenFields()">
+                                <option value="">-- Pilih --</option>
                                 <option value="dosen" <?= ($data['jenis_pegawai'] ?? '') == 'dosen' ? 'selected' : '' ?>>Dosen</option>
                                 <option value="staff" <?= ($data['jenis_pegawai'] ?? '') == 'staff' ? 'selected' : '' ?>>Staff</option>
                                 <option value="tendik" <?= ($data['jenis_pegawai'] ?? '') == 'tendik' ? 'selected' : '' ?>>Tendik</option>
@@ -489,7 +521,9 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
                                 <input type="text" class="form-control" id="nidn" name="nidn" value="<?= htmlspecialchars($data['nidn'] ?? '') ?>">
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="prodi" class="form-label">Program Studi</label>
+                                <label for="prodi" class="form-label">
+                                    Program Studi <span class="required">*</span>
+                                </label>
                                 <input type="text" class="form-control" id="prodi" name="prodi" value="<?= htmlspecialchars($data['prodi'] ?? '') ?>">
                             </div>
                         </div>
@@ -508,16 +542,20 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="jenis_kepegawaian" class="form-label">Jenis Kepegawaian</label>
-                            <select class="form-select" id="jenis_kepegawaian" name="jenis_kepegawaian" onchange="toggleKontrakFields()">
+                            <label for="jenis_kepegawaian" class="form-label">
+                                Jenis Kepegawaian <span class="required">*</span>
+                            </label>
+                            <select class="form-select" id="jenis_kepegawaian" name="jenis_kepegawaian" required onchange="toggleKontrakFields()">
                                 <option value="">-- Pilih --</option>
                                 <option value="tetap" <?= ($data['jenis_kepegawaian'] ?? '') == 'tetap' ? 'selected' : '' ?>>Tetap</option>
                                 <option value="kontrak" <?= ($data['jenis_kepegawaian'] ?? '') == 'kontrak' ? 'selected' : '' ?>>Kontrak</option>
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="status_aktif" class="form-label">Status</label>
-                            <select class="form-select" id="status_aktif" name="status_aktif">
+                            <label for="status_aktif" class="form-label">
+                                Status <span class="required">*</span>
+                            </label>
+                            <select class="form-select" id="status_aktif" name="status_aktif" required>
                                 <option value="aktif" <?= ($data['status_aktif'] ?? 'aktif') == 'aktif' ? 'selected' : '' ?>>Aktif</option>
                                 <option value="tidak_aktif" <?= ($data['status_aktif'] ?? '') == 'tidak_aktif' ? 'selected' : '' ?>>Tidak Aktif</option>
                             </select>
@@ -525,20 +563,26 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
                     </div>
 
                     <div class="mb-3">
-                        <label for="tanggal_mulai_kerja" class="form-label">Tanggal Mulai Kerja</label>
-                        <input type="date" class="form-control" id="tanggal_mulai_kerja" name="tanggal_mulai_kerja" value="<?= $data['tanggal_mulai_kerja'] ?? '' ?>">
+                        <label for="tanggal_mulai_kerja" class="form-label">
+                            Tanggal Mulai Kerja <span class="required">*</span>
+                        </label>
+                        <input type="date" class="form-control" id="tanggal_mulai_kerja" name="tanggal_mulai_kerja" value="<?= $data['tanggal_mulai_kerja'] ?? '' ?>" required>
                     </div>
 
                     <!-- Fields khusus Kontrak -->
                     <div id="kontrakFields" style="display: <?= ($data['jenis_kepegawaian'] ?? '') == 'kontrak' ? 'block' : 'none' ?>;">
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="masa_kontrak_mulai" class="form-label">Masa Kontrak Mulai</label>
-                                <input type="date" class="form-control" id="masa_kontrak_mulai" name="masa_kontrak_mulai" value="<?= $data['masa_kontrak_mulai'] ?? '' ?>">
+                                <label for="masa_kontrak_mulai" class="form-label">
+                                    Masa Kontrak Mulai <span class="required">*</span>
+                                </label>
+                                <input type="date" class="form-control kontrak-required" id="masa_kontrak_mulai" name="masa_kontrak_mulai" value="<?= $data['masa_kontrak_mulai'] ?? '' ?>">
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="masa_kontrak_selesai" class="form-label">Masa Kontrak Selesai</label>
-                                <input type="date" class="form-control" id="masa_kontrak_selesai" name="masa_kontrak_selesai" value="<?= $data['masa_kontrak_selesai'] ?? '' ?>">
+                                <label for="masa_kontrak_selesai" class="form-label">
+                                    Masa Kontrak Selesai <span class="required">*</span>
+                                </label>
+                                <input type="date" class="form-control kontrak-required" id="masa_kontrak_selesai" name="masa_kontrak_selesai" value="<?= $data['masa_kontrak_selesai'] ?? '' ?>">
                             </div>
                         </div>
                     </div>
@@ -563,26 +607,40 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
         function toggleDosenFields() {
             const jenisPegawai = document.getElementById('jenis_pegawai').value;
             const dosenFields = document.getElementById('dosenFields');
+            const prodiInput = document.getElementById('prodi');
             
             if(jenisPegawai === 'dosen') {
                 dosenFields.style.display = 'block';
+                prodiInput.setAttribute('required', 'required');
             } else {
                 dosenFields.style.display = 'none';
+                prodiInput.removeAttribute('required');
             }
         }
 
         function toggleKontrakFields() {
             const jenisKepegawaian = document.getElementById('jenis_kepegawaian').value;
             const kontrakFields = document.getElementById('kontrakFields');
+            const kontrakInputs = document.querySelectorAll('.kontrak-required');
             
             if(jenisKepegawaian === 'kontrak') {
                 kontrakFields.style.display = 'block';
+                kontrakInputs.forEach(input => {
+                    input.setAttribute('required', 'required');
+                });
             } else {
                 kontrakFields.style.display = 'none';
+                kontrakInputs.forEach(input => {
+                    input.removeAttribute('required');
+                });
             }
         }
 
-        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleDosenFields();
+            toggleKontrakFields();
+        });
     </script>
 </body>
 </html>

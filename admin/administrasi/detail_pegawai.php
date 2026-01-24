@@ -36,6 +36,61 @@ if(!$pegawai) {
     header('Location: administrasiKepegawaian.php?error=1&message=' . urlencode('Data pegawai tidak ditemukan'));
     exit;
 }
+
+// Hitung masa kontrak dan sisa kontrak
+$masa_kontrak_hari = 0;
+$masa_kontrak_text = '-';
+$sisa_kontrak_hari = 0;
+$sisa_kontrak_text = '-';
+$status_kontrak = '';
+
+if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] && $pegawai['masa_kontrak_selesai']) {
+    $mulai = new DateTime($pegawai['masa_kontrak_mulai']);
+    $selesai = new DateTime($pegawai['masa_kontrak_selesai']);
+    $sekarang = new DateTime();
+    
+    // Hitung masa kontrak (total durasi)
+    $interval_total = $mulai->diff($selesai);
+    $masa_kontrak_hari = $interval_total->days;
+    
+    $tahun = $interval_total->y;
+    $bulan = $interval_total->m;
+    $hari = $interval_total->d;
+    
+    $masa_parts = [];
+    if($tahun > 0) $masa_parts[] = $tahun . ' tahun';
+    if($bulan > 0) $masa_parts[] = $bulan . ' bulan';
+    if($hari > 0) $masa_parts[] = $hari . ' hari';
+    $masa_kontrak_text = !empty($masa_parts) ? implode(' ', $masa_parts) : '0 hari';
+    
+    // Hitung sisa kontrak
+    if($sekarang <= $selesai) {
+        $interval_sisa = $sekarang->diff($selesai);
+        $sisa_kontrak_hari = $interval_sisa->days;
+        
+        $tahun_sisa = $interval_sisa->y;
+        $bulan_sisa = $interval_sisa->m;
+        $hari_sisa = $interval_sisa->d;
+        
+        $sisa_parts = [];
+        if($tahun_sisa > 0) $sisa_parts[] = $tahun_sisa . ' tahun';
+        if($bulan_sisa > 0) $sisa_parts[] = $bulan_sisa . ' bulan';
+        if($hari_sisa > 0) $sisa_parts[] = $hari_sisa . ' hari';
+        $sisa_kontrak_text = !empty($sisa_parts) ? implode(' ', $sisa_parts) : '0 hari';
+        
+        // Tentukan status kontrak
+        if($sisa_kontrak_hari <= 30) {
+            $status_kontrak = 'segera-habis';
+        } elseif($sisa_kontrak_hari <= 90) {
+            $status_kontrak = 'mendekati';
+        } else {
+            $status_kontrak = 'normal';
+        }
+    } else {
+        $sisa_kontrak_text = 'Kontrak sudah berakhir';
+        $status_kontrak = 'habis';
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -72,6 +127,19 @@ if(!$pegawai) {
         .badge-dosen { background: #e0e7ff; color: #3730a3; }
         .badge-staff { background: #fce7f3; color: #831843; }
         .badge-tendik { background: #e0f2fe; color: #075985; }
+        .badge-kontrak-normal { background: #dcfce7; color: #166534; }
+        .badge-kontrak-mendekati { background: #fef3c7; color: #92400e; }
+        .badge-kontrak-segera { background: #fed7aa; color: #9a3412; }
+        .badge-kontrak-habis { background: #fee2e2; color: #991b1b; }
+        .kontrak-info-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-top: 15px; }
+        .kontrak-info-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .kontrak-info-item { display: flex; align-items: center; gap: 12px; }
+        .kontrak-info-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .icon-clock { background: #dbeafe; color: #1e40af; }
+        .icon-calendar { background: #fef3c7; color: #92400e; }
+        .kontrak-info-content { flex: 1; }
+        .kontrak-info-label { font-size: 12px; color: #6b7280; margin-bottom: 2px; }
+        .kontrak-info-value { font-size: 16px; font-weight: 600; color: #1f2937; }
         .btn-group { display: flex; gap: 10px; margin-top: 30px; padding-top: 30px; border-top: 1px solid #e5e7eb; }
         .btn-primary-custom { background: #1f2937; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
         .btn-primary-custom:hover { background: #374151; color: white; }
@@ -225,6 +293,49 @@ if(!$pegawai) {
                     <div class="detail-group">
                         <div class="detail-label">Masa Kontrak Selesai</div>
                         <div class="detail-value"><?= $pegawai['masa_kontrak_selesai'] ?? '-' ?></div>
+                    </div>
+                </div>
+                
+                <!-- Info Masa Kontrak dan Sisa Kontrak -->
+                <div class="kontrak-info-box">
+                    <div class="kontrak-info-row">
+                        <div class="kontrak-info-item">
+                            <div class="kontrak-info-icon icon-clock">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="kontrak-info-content">
+                                <div class="kontrak-info-label">Masa Kontrak</div>
+                                <div class="kontrak-info-value"><?= $masa_kontrak_text ?></div>
+                            </div>
+                        </div>
+                        <div class="kontrak-info-item">
+                            <div class="kontrak-info-icon icon-calendar">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <div class="kontrak-info-content">
+                                <div class="kontrak-info-label">Sisa Kontrak</div>
+                                <div class="kontrak-info-value">
+                                    <?= $sisa_kontrak_text ?>
+                                    <?php if($status_kontrak == 'segera-habis'): ?>
+                                        <span class="badge-custom badge-kontrak-segera ms-2">
+                                            <i class="fas fa-exclamation-triangle"></i> Segera Habis
+                                        </span>
+                                    <?php elseif($status_kontrak == 'mendekati'): ?>
+                                        <span class="badge-custom badge-kontrak-mendekati ms-2">
+                                            <i class="fas fa-info-circle"></i> Mendekati
+                                        </span>
+                                    <?php elseif($status_kontrak == 'habis'): ?>
+                                        <span class="badge-custom badge-kontrak-habis ms-2">
+                                            <i class="fas fa-times-circle"></i> Habis
+                                        </span>
+                                    <?php elseif($status_kontrak == 'normal'): ?>
+                                        <span class="badge-custom badge-kontrak-normal ms-2">
+                                            <i class="fas fa-check-circle"></i> Normal
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <?php endif; ?>

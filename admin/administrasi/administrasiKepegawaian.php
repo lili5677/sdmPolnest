@@ -3,13 +3,9 @@
  * Halaman: Administrasi Kepegawaian - Struktur Organisasi
  * File: admin/administrasi_kepegawaian.php
  * Versi: Tanpa API (All-in-One)
- * 
- * CATATAN:
- * - Authorization masih dicomment, akan diaktifkan setelah sistem login dibuat
- * - Sementara menggunakan admin_id = 1 (hardcode)
  */
 
-// ===== UNTUK AUTHORIZATION (DICOMMENT DULU) =====
+// ===== UNTUK AUTHORIZATION =====
 // session_start();
 // if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
 //     header('Location: ../login.php');
@@ -278,7 +274,8 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         sk.status_aktif,
                         sk.jenis_kepegawaian,
                         sk.masa_kontrak_mulai,
-                        sk.masa_kontrak_selesai
+                        sk.masa_kontrak_selesai,
+                        DATEDIFF(sk.masa_kontrak_selesai, CURDATE()) as sisa_hari_kontrak
                     FROM pegawai p
                     LEFT JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
                     ORDER BY p.nama_lengkap ASC";
@@ -336,6 +333,8 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             margin-left: 280px;
             padding: 40px;
             transition: margin-left 0.3s ease;
+            position: relative;
+        z-index: 1;
         }
 
         .page-header {
@@ -664,6 +663,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         @media (max-width: 968px) {
             .main-content {
                 margin-left: 80px;
+                 z-index: 1; 
             }
         }
 
@@ -672,6 +672,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 margin-left: 0;
                 padding: 20px;
                 padding-top: 90px;
+                z-index: 1;
             }
 
             .page-header h1 {
@@ -706,6 +707,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             .main-content {
                 padding: 15px;
                 padding-top: 85px;
+                z-index: 1;
             }
 
             .content-card {
@@ -715,7 +717,6 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
 
 
         /* STYLING UNTUK DATA PEGAWAI */
-
         /* Input Group Custom */
         .input-group-text {
             border-right: 0;
@@ -739,7 +740,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             margin-bottom: 0;
             font-size: 13px;
             width: 100%;
-            table-layout: fixed; /* PENTING: Agar kolom tidak melebar sendiri */
+            table-layout: fixed;
         }
 
         .table-pegawai thead {
@@ -779,9 +780,9 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
 
-        /* Badge Styling - LEBIH KECIL */
+        /* Badge Styling */
         .badge-custom {
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 12px;
             font-size: 10px;
             font-weight: 600;
@@ -791,33 +792,27 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             display: inline-block;
         }
 
+        .badge-kontrak {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .badge-tetap {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
         .badge-aktif {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
         }
 
-        .badge-nonaktif {
+        .badge-tidak-aktif {
             background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
-            font-size: 8px !important;
-            padding: 3px 6px !important;
         }
 
-        .badge-cuti {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-        }
-
-        .badge-jenis {
-            padding: 4px 9px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 600;
-            white-space: nowrap;
-            border: 1px solid;
-        }
-
-        /* Action Buttons - LEBIH KECIL */
+        /* Action Buttons */
         .action-buttons {
             display: flex;
             gap: 4px;
@@ -874,7 +869,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             font-weight: 600;
             color: #1f2937;
             display: block;
-            margin-bottom: 4px;
+            margin-bottom: 0;
         }
 
         /* No urut column */
@@ -889,6 +884,20 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         .aksi-column {
             width: 150px;
             text-align: center;
+        }
+
+        /* Sisa Kontrak Warning */
+        .sisa-kontrak-warning {
+            color: #dc2626 !important;
+            font-weight: 700 !important;
+            background: #fee2e2;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .sisa-kontrak-normal {
+            color: #374151;
         }
 
         /* Empty State Enhancement */
@@ -934,27 +943,25 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 padding: 8px 6px;
             }
             
-            /* responsive data tabel */
             .table-responsive {
                 width: 100%;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
             }
 
-                    .table-pegawai {
-                min-width: 1400px;
+            .table-pegawai {
+                min-width: 1200px;
             }
 
-                    .btn-action {
-                        padding: 5px 8px;
-                        font-size: 11px;
-                    }
-                    
-                    .badge-custom {
+            .btn-action {
+                padding: 5px 8px;
+                font-size: 11px;
+            }
+            
+            .badge-custom {
                 font-size: 9px;
                 padding: 3px 7px;
             }
-
         }
     </style>
 </head>
@@ -962,7 +969,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
     <?php 
         // Set halaman saat ini untuk sidebar active state
         $halaman_sekarang = basename($_SERVER['PHP_SELF']);
-        include '../sidebar/sidebar.php';  // UNCOMMENT INI JIKA SIDEBAR SUDAH DIBUAT
+        include '../sidebar/sidebar.php';  
     ?>
 
     <div class="main-content">
@@ -975,13 +982,13 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         <!-- Custom Tabs -->
         <ul class="nav custom-tabs" id="kepegawaianTab" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="data-pegawai-tab" data-bs-toggle="tab" data-bs-target="#data-pegawai" type="button" role="tab">
+                <button class="nav-link active" id="data-pegawai-tab" data-bs-toggle="tab" data-bs-target="#data-pegawai" type="button" role="tab">
                     <i class="fas fa-users"></i>
                     Data Pegawai
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="struktur-tab" data-bs-toggle="tab" data-bs-target="#struktur-organisasi" type="button" role="tab">
+                <button class="nav-link" id="struktur-tab" data-bs-toggle="tab" data-bs-target="#struktur-organisasi" type="button" role="tab">
                     <i class="fas fa-sitemap"></i>
                     Struktur Organisasi
                 </button>
@@ -992,34 +999,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         <div class="tab-content" id="kepegawaianTabContent">
             
             <!-- Tab Data Pegawai -->
-            <!-- <div class="tab-pane fade" id="data-pegawai" role="tabpanel">
-                <div class="content-card">
-                    <div class="card-header-custom">
-                        <div>
-                            <h3 class="card-title-custom">
-                                <i class="fas fa-address-book"></i>
-                                Data Pegawai
-                            </h3>
-                            <p class="card-description">Kelola informasi lengkap pegawai Anda</p>
-                        </div>
-                        <div>
-                            <button class="btn btn-primary-custom" onclick="tambahPegawai()">
-                                <i class="fas fa-plus"></i>
-                                Tambah Pegawai
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div class="empty-state">
-                        <i class="fas fa-user-friends"></i>
-                        <h4>Belum Ada Data Pegawai</h4>
-                        <p>Klik tombol "Tambah Pegawai" untuk mulai menambahkan data</p>
-                    </div>
-                </div>
-            </div> -->
-
-            <!-- Tab Data Pegawai -->
-            <div class="tab-pane fade" id="data-pegawai" role="tabpanel">
+            <div class="tab-pane fade show active" id="data-pegawai" role="tabpanel">
                 <div class="content-card">
                     <div class="card-header-custom">
                         <div>
@@ -1044,38 +1024,42 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                     <!-- Search & Filter -->
                     <div class="mb-4">
                         <div class="row g-3">
-                            <div class="col-md-5">
+                            <div class="col-md-3">
                                 <div class="input-group">
                                     <span class="input-group-text bg-white">
                                         <i class="fas fa-search text-muted"></i>
                                     </span>
                                     <input type="text" class="form-control border-start-0" id="searchPegawai" 
-                                        placeholder="Cari pegawai (nama, nip, atau email)..." 
+                                        placeholder="Cari nama pegawai..." 
                                         onkeyup="filterPegawai()">
                                 </div>
                             </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="filterJenis" onchange="filterPegawai()">
+                            <div class="col-md-2">
+                                <select class="form-select" id="filterJenisPegawai" onchange="filterPegawai()">
                                     <option value="">Semua Jenis Pegawai</option>
-                                    <option value="PNS">PNS</option>
-                                    <option value="PPPK">PPPK</option>
-                                    <option value="Kontrak">Kontrak</option>
+                                    <option value="dosen">Dosen</option>
+                                    <option value="staff">Staff</option>
+                                    <option value="tendik">Tendik</option>
                                 </select>
                             </div>
                             <div class="col-md-2">
-                                <select class="form-select" id="filterStatus" onchange="filterPegawai()">
+                                <select class="form-select" id="filterJenisKepegawaian" onchange="filterPegawai()">
+                                    <option value="">Semua Pegawai</option>
+                                    <option value="tetap">Tetap</option>
+                                    <option value="kontrak">Kontrak</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select class="form-select" id="filterStatusAktif" onchange="filterPegawai()">
                                     <option value="">Semua Status</option>
                                     <option value="aktif">Aktif</option>
-                                    <option value="non-aktif">Non Aktif</option>
-                                    <option value="cuti">Cuti</option>
+                                    <option value="tidak_aktif">Tidak Aktif</option>
                                 </select>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <select class="form-select" id="sortBy" onchange="sortPegawai()">
                                     <option value="nama_asc">Nama (A-Z)</option>
                                     <option value="nama_desc">Nama (Z-A)</option>
-                                    <option value="nip_asc">NIP (Asc)</option>
-                                    <option value="nip_desc">NIP (Desc)</option>
                                 </select>
                             </div>
                         </div>
@@ -1094,7 +1078,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             </div>
 
             <!-- Tab Struktur Organisasi -->
-            <div class="tab-pane fade show active" id="struktur-organisasi" role="tabpanel">
+            <div class="tab-pane fade" id="struktur-organisasi" role="tabpanel">
                 <div class="content-card">
                     <div class="card-header-custom">
                         <div>
@@ -1119,13 +1103,13 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                     <!-- Level Tabs -->
                     <div class="level-tabs">
                         <button class="level-tab active" onclick="gantiLevel(1)" data-level="1">
-                            <i class="fas fa-crown me-1"></i> Level 1 - Pimpinan Tertinggi
+                            <i class=""></i> Level 1 - Pimpinan Tertinggi
                         </button>
                         <button class="level-tab" onclick="gantiLevel(2)" data-level="2">
-                            <i class="fas fa-user-tie me-1"></i> Level 2 - Kepala Unit
+                            <i class=""></i> Level 2 - Kepala Unit
                         </button>
                         <button class="level-tab" onclick="gantiLevel(3)" data-level="3">
-                            <i class="fas fa-users me-1"></i> Level 3 - Anggota
+                            <i class=""></i> Level 3 - Anggota
                         </button>
                     </div>
 
@@ -1237,10 +1221,10 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             // Load parent list untuk dropdown
             loadParentList();
 
-            //  -Auto load data pegawai saat halaman dibuka
+            // Auto load data pegawai saat halaman dibuka
             loadDataPegawai();
 
-            //  -Cek jika ada parameter success dari redirect edit
+            // Cek jika ada parameter success dari redirect edit
             const urlParams = new URLSearchParams(window.location.search);
             if(urlParams.get('success') === '1') {
                 // Aktifkan tab Data Pegawai
@@ -1313,7 +1297,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 const response = await fetch(`?action=get_by_level&level=${level}`);
                 const result = await response.json();
                 
-                console.log('Response:', result); // Untuk debugging
+                console.log('Response:', result);
                 
                 if(result.success && result.data.length > 0) {
                     displayAnggota(result.data);
@@ -1643,19 +1627,8 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             });
         }
 
-        
-        // FUNGSI TAMBAH PEGAWAI (Placeholder)
-        // function tambahPegawai() {
-        //     Swal.fire({
-        //         icon: 'info',
-        //         title: 'Fitur Dalam Pengembangan',
-        //         text: 'Fitur tambah data pegawai akan segera tersedia',
-        //         confirmButtonColor: '#2563eb'
-        //     });
-        // }
+        // FUNGSI DATA PEGAWAI - FIXED VERSION
 
-
-        // FUNGSI DATA PEGAWAI
         // Load Data Pegawai
         async function loadDataPegawai() {
             const container = document.getElementById('data-pegawai-container');
@@ -1673,7 +1646,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 const response = await fetch('?action=get_all_pegawai');
                 const result = await response.json();
                 
-                console.log('Data Pegawai:', result); // Untuk debugging
+                console.log('Data Pegawai:', result);
                 
                 if(result.success && result.data.length > 0) {
                     displayDataPegawai(result.data);
@@ -1692,7 +1665,34 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             }
         }
 
-        // Display Data Pegawai dalam Tabel
+        // Helper function untuk menghitung sisa kontrak
+        function hitungSisaKontrak(sisaHari) {
+            if (!sisaHari || sisaHari <= 0) {
+                return {
+                    text: '-',
+                    isWarning: false
+                };
+            }
+            
+            const bulan = Math.floor(sisaHari / 30);
+            const hari = sisaHari % 30;
+            
+            let text = '';
+            if (bulan > 0 && hari > 0) {
+                text = `${bulan} Bulan ${hari} Hari`;
+            } else if (bulan > 0) {
+                text = `${bulan} Bulan`;
+            } else {
+                text = `${hari} Hari`;
+            }
+            
+            return {
+                text: text,
+                isWarning: sisaHari < 30 
+            };
+        }
+
+        // Display Data Pegawai dalam Tabel 
         function displayDataPegawai(data) {
             const container = document.getElementById('data-pegawai-container');
             
@@ -1702,13 +1702,12 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         <thead>
                             <tr>
                                 <th style="width: 40px;">NO</th>
-                                <th style="width: 120px;">NIK</th>
                                 <th style="width: 200px;">NAMA LENGKAP</th>
-                                <th style="width: 140px;">JABATAN</th>
-                                <th style="width: 80px;">JENIS</th>
-                                <th style="width: 90px;">STATUS</th>
+                                <th style="width: 150px;">JABATAN</th>
+                                <th style="width: 100px;">PEGAWAI</th>
+                                <th style="width: 100px;">STATUS</th>
                                 <th style="width: 130px;">UNIT KERJA</th>
-                                <th style="width: 100px;">MASA KONTRAK</th>
+                                <th style="width: 120px;">SISA KONTRAK</th>
                                 <th style="width: 140px;">AKSI</th>
                             </tr>
                         </thead>
@@ -1716,65 +1715,50 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             `;
             
             data.forEach((pegawai, index) => {
-                // Status Badge - LEBIH COMPACT
-                let statusBadge = '';
-                if(pegawai.status_aktif === 'aktif') {
-                    statusBadge = '<span class="badge-custom badge-aktif">Tetap</span>';
-                } else if(pegawai.status_aktif === 'Tetap' || pegawai.status_aktif === 'Tetap') {
-                    statusBadge = '<span class="badge-custom badge-nonaktif">Nonaktif</span>';
-                } else if(pegawai.jenis_kepegawaian === 'kontrak') {
-                    statusBadge = '<span class="badge-custom badge-cuti">Kontrak</span>';
+                // Badge Jenis Kepegawaian (Kontrak/Tetap)
+                let jenisKepegawaianBadge = '';
+                const jenisKepegawaian = (pegawai.jenis_kepegawaian || 'tetap').toLowerCase();
+                if(jenisKepegawaian === 'kontrak') {
+                    jenisKepegawaianBadge = '<span class="badge-custom badge-kontrak">Kontrak</span>';
                 } else {
-                    statusBadge = '<span class="badge-custom badge-aktif">Tetap</span>';
+                    jenisKepegawaianBadge = '<span class="badge-custom badge-tetap">Tetap</span>';
                 }
                 
-                // Jenis Pegawai Badge
-                let jenisBadge = '';
-                if(pegawai.jenis_pegawai === 'dosen') {
-                    jenisBadge = '<span class="badge-jenis" style="background: #dbeafe; color: #1e40af;">Dosen</span>';
-                } else if(pegawai.jenis_pegawai === 'staff') {
-                    jenisBadge = '<span class="badge-jenis" style="background: #e0e7ff; color: #4338ca;">Staff</span>';
-                } else if(pegawai.jenis_pegawai === 'tendik') {
-                    jenisBadge = '<span class="badge-jenis" style="background: #fce7f3; color: #9f1239;">Tendik</span>';
+                // Badge Status Aktif
+                let statusAktifBadge = '';
+                const statusAktif = (pegawai.status_aktif || 'aktif').toLowerCase();
+                if(statusAktif === 'aktif') {
+                    statusAktifBadge = '<span class="badge-custom badge-aktif">Aktif</span>';
                 } else {
-                    jenisBadge = '<span class="badge-jenis">-</span>';
+                    statusAktifBadge = '<span class="badge-custom badge-tidak-aktif">Tidak Aktif</span>';
                 }
                 
-                // Masa Kontrak - LEBIH SINGKAT
-                let masaKontrak = '-';
-                if(pegawai.jenis_kepegawaian === 'kontrak') {
-                    if(pegawai.masa_kontrak_mulai && pegawai.masa_kontrak_selesai) {
-                        const mulai = new Date(pegawai.masa_kontrak_mulai);
-                        const selesai = new Date(pegawai.masa_kontrak_selesai);
-                        const diffTime = Math.abs(selesai - mulai);
-                        const diffMonths = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30));
-                        
-                        if(diffMonths >= 12) {
-                            const years = Math.floor(diffMonths / 12);
-                            const months = diffMonths % 12;
-                            masaKontrak = `${years} Thn`;
-                            if(months > 0) masaKontrak += ` ${months} Bln`;
-                        } else {
-                            masaKontrak = `${diffMonths} Bulan`;
-                        }
-                    }
+                // Sisa Kontrak (hanya untuk pegawai kontrak)
+                let sisaKontrak = '-';
+                let sisaKontrakClass = 'sisa-kontrak-normal';
+                
+                if(jenisKepegawaian === 'kontrak' && pegawai.sisa_hari_kontrak) {
+                    const kontrakInfo = hitungSisaKontrak(pegawai.sisa_hari_kontrak);
+                    sisaKontrak = kontrakInfo.text;
+                    sisaKontrakClass = kontrakInfo.isWarning ? 'sisa-kontrak-warning' : 'sisa-kontrak-normal';
                 }
                 
                 html += `
                     <tr data-id="${pegawai.pegawai_id}" 
-                        data-jenis="${pegawai.jenis_pegawai || ''}" 
-                        data-status="${pegawai.status_aktif || ''}">
+                        data-jenis-pegawai="${(pegawai.jenis_pegawai || '').toLowerCase()}"
+                        data-jenis-kepegawaian="${jenisKepegawaian}" 
+                        data-status-aktif="${statusAktif}">
                         <td class="text-center" style="font-weight: 600; color: #6b7280;">${index + 1}</td>
-                        <td style="font-size: 12px;">${pegawai.nip || '-'}</td>
                         <td>
-                            <div style="font-weight: 600; color: #1f2937; font-size: 13px;">${pegawai.nama_lengkap}</div>
-                            <small class="text-muted" style="font-size: 11px;"><i class="fas fa-envelope me-1"></i>${pegawai.email || '-'}</small>
+                            <div class="nama-pegawai">${pegawai.nama_lengkap}</div>
                         </td>
                         <td style="font-size: 12px;">${pegawai.jabatan || '-'}</td>
-                        <td>${jenisBadge}</td>
-                        <td>${statusBadge}</td>
+                        <td class="text-center">${jenisKepegawaianBadge}</td>
+                        <td class="text-center">${statusAktifBadge}</td>
                         <td style="font-size: 12px;">${pegawai.unit_kerja || '-'}</td>
-                        <td class="text-center" style="font-size: 12px;">${masaKontrak}</td>
+                        <td class="text-center" style="font-size: 12px;">
+                            <span class="${sisaKontrakClass}">${sisaKontrak}</span>
+                        </td>
                         <td>
                             <div class="action-buttons">
                                 <button class="btn-action btn-view" 
@@ -1862,7 +1846,6 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             
             if(result.isConfirmed) {
                 try {
-                    // Show loading
                     Swal.fire({
                         title: 'Menghapus Data...',
                         text: 'Mohon tunggu sebentar',
@@ -1885,7 +1868,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                             timer: 2000,
                             timerProgressBar: true
                         }).then(() => {
-                            loadDataPegawai(); // Reload data
+                            loadDataPegawai();
                         });
                     } else {
                         Swal.fire({
@@ -1911,7 +1894,6 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         function refreshDataPegawai() {
             loadDataPegawai();
             
-            // Show toast notification
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
@@ -1926,26 +1908,28 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             });
         }
 
-        // Filter Pegawai (Search + Jenis + Status)
+        // Filter Pegawai - FIXED VERSION WITH JENIS PEGAWAI
         function filterPegawai() {
             const searchValue = document.getElementById('searchPegawai').value.toLowerCase();
-            const jenisValue = document.getElementById('filterJenis').value.toLowerCase();
-            const statusValue = document.getElementById('filterStatus').value.toLowerCase();
+            const jenisPegawaiValue = document.getElementById('filterJenisPegawai').value.toLowerCase();
+            const jenisKepegawaianValue = document.getElementById('filterJenisKepegawaian').value.toLowerCase();
+            const statusAktifValue = document.getElementById('filterStatusAktif').value.toLowerCase();
             
             const rows = document.querySelectorAll('#tbody-pegawai tr');
             let visibleCount = 0;
             
             rows.forEach(row => {
-                const namaEmail = row.cells[1].textContent.toLowerCase();
-                const nip = row.cells[4].textContent.toLowerCase();
-                const jenis = row.getAttribute('data-jenis').toLowerCase();
-                const status = row.getAttribute('data-status').toLowerCase();
+                const namaLengkap = row.cells[1].querySelector('.nama-pegawai').textContent.toLowerCase();
+                const jenisPegawai = row.getAttribute('data-jenis-pegawai').toLowerCase();
+                const jenisKepegawaian = row.getAttribute('data-jenis-kepegawaian').toLowerCase();
+                const statusAktif = row.getAttribute('data-status-aktif').toLowerCase();
                 
-                const matchSearch = namaEmail.includes(searchValue) || nip.includes(searchValue);
-                const matchJenis = !jenisValue || jenis === jenisValue;
-                const matchStatus = !statusValue || status === statusValue;
+                const matchSearch = namaLengkap.includes(searchValue);
+                const matchJenisPegawai = !jenisPegawaiValue || jenisPegawai === jenisPegawaiValue;
+                const matchJenisKepegawaian = !jenisKepegawaianValue || jenisKepegawaian === jenisKepegawaianValue;
+                const matchStatusAktif = !statusAktifValue || statusAktif === statusAktifValue;
                 
-                if(matchSearch && matchJenis && matchStatus) {
+                if (matchSearch && matchJenisPegawai && matchJenisKepegawaian && matchStatusAktif) {
                     row.style.display = '';
                     visibleCount++;
                 } else {
@@ -1953,12 +1937,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 }
             });
             
-            // Update counter
-            const container = document.getElementById('data-pegawai-container');
-            const counter = container.querySelector('.text-muted.small');
-            if(counter) {
-                counter.innerHTML = `<i class="fas fa-info-circle me-1"></i>Menampilkan <strong>${visibleCount}</strong> pegawai`;
-            }
+            updatePegawaiCounter();
         }
 
         // Sort Pegawai
@@ -1972,23 +1951,13 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 
                 switch(sortValue) {
                     case 'nama_asc':
-                        aValue = a.cells[1].textContent.toLowerCase();
-                        bValue = b.cells[1].textContent.toLowerCase();
+                        aValue = a.cells[1].querySelector('.nama-pegawai').textContent.toLowerCase();
+                        bValue = b.cells[1].querySelector('.nama-pegawai').textContent.toLowerCase();
                         return aValue.localeCompare(bValue);
                     
                     case 'nama_desc':
-                        aValue = a.cells[1].textContent.toLowerCase();
-                        bValue = b.cells[1].textContent.toLowerCase();
-                        return bValue.localeCompare(aValue);
-                    
-                    case 'nip_asc':
-                        aValue = a.cells[4].textContent;
-                        bValue = b.cells[4].textContent;
-                        return aValue.localeCompare(bValue);
-                    
-                    case 'nip_desc':
-                        aValue = a.cells[4].textContent;
-                        bValue = b.cells[4].textContent;
+                        aValue = a.cells[1].querySelector('.nama-pegawai').textContent.toLowerCase();
+                        bValue = b.cells[1].querySelector('.nama-pegawai').textContent.toLowerCase();
                         return bValue.localeCompare(aValue);
                     
                     default:
@@ -1996,21 +1965,37 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 }
             });
             
-            // Re-append sorted rows
             rows.forEach((row, index) => {
-                row.cells[0].textContent = index + 1; // Update nomor urut
+                row.cells[0].textContent = index + 1;
                 tbody.appendChild(row);
             });
+            
+            updatePegawaiCounter();
+        }
+
+        // Helper function untuk update counter
+        function updatePegawaiCounter() {
+            const rows = document.querySelectorAll('#tbody-pegawai tr');
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    visibleCount++;
+                }
+            });
+            
+            const container = document.getElementById('data-pegawai-container');
+            const counter = container.querySelector('.text-muted.small');
+            if(counter) {
+                counter.innerHTML = `<i class="fas fa-info-circle me-1"></i>Menampilkan <strong>${visibleCount}</strong> pegawai`;
+            }
         }
 
         // EVENT LISTENER - MODAL HIDDEN
         document.getElementById('modalAnggota').addEventListener('hidden.bs.modal', function() {
-            // Enable pegawai select saat modal ditutup
             document.getElementById('pegawai_id').disabled = false;
         });
-
 
     </script>
 </body>
 </html>
-
