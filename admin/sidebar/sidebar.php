@@ -19,7 +19,7 @@
         }
 
         .sidebar {
-            width: 280px;
+            width: 290px;
             height: 100vh; 
             max-height: 100vh; 
             background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 50%, #1e293b 100%);
@@ -27,7 +27,7 @@
             left: 0;
             top: 0;
             color: white;
-            overflow-y: auto;
+            overflow-y: hidden;
             overflow-x: hidden;
             box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
             display: flex;
@@ -142,7 +142,7 @@
         .sidebar-menu {
             padding: 24px 0;
             flex: 1;
-            overflow-y: auto;
+            overflow-y: hidden;
             overflow-x: hidden;
             min-height: 0; 
         }
@@ -332,10 +332,12 @@
             z-index: 999;
             opacity: 0;
             transition: opacity 0.3s ease;
+            pointer-events: none;
         }
 
         .sidebar-overlay.active {
             opacity: 1;
+            pointer-events: auto;
         }
 
         /*  RESPONSIVE - TABLET & MOBILE */
@@ -349,6 +351,7 @@
 
             .sidebar.expanded {
                 width: 280px;
+                z-index: 1000;
             }
 
             .sidebar-header {
@@ -393,11 +396,13 @@
             }
 
             .sidebar.expanded .menu-item {
-                padding: 14px 24px;
+                padding: 9px 16px 9px 8px;
                 justify-content: flex-start;
-                gap: 14px;
-                margin: 4px 0;
-            }
+                font-size: 12.5px; 
+                gap: 9px;
+                margin: 3px 0 3px 8px;
+                min-height: 46px;
+                        }
 
             .menu-item span {
                 opacity: 0;
@@ -414,6 +419,11 @@
             .menu-item.active {
                 margin: 4px 8px;
                 border-radius: 12px; 
+                white-space: normal; 
+                line-height: 1.35;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                overflow: visible; 
             }
 
             /* Active state di mode expanded */
@@ -499,7 +509,8 @@
             }
 
             .sidebar.expanded {
-                width: 260px;
+                width: 245px;
+                z-index: 1000;
             }
 
             .logo {
@@ -524,8 +535,9 @@
             }
 
             .sidebar.expanded .menu-item {
-                padding: 14px 20px;
-                margin: 4px 0;
+                padding: 8px 12px 8px 6px; 
+                font-size: 11.5px; 
+                gap: 7px;
             }
 
             .menu-item.active {
@@ -535,6 +547,11 @@
             .sidebar.expanded .menu-item.active {
                 margin-left: 10px;
                 margin-right: 0;
+            }
+            .sidebar.expanded .menu-item i {
+                font-size: 15px; 
+                width: 18px;
+                height: 18px;
             }
         }
 
@@ -568,7 +585,7 @@
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="tutupSidebar()"></div>
 
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar" onclick="toggleSidebar(event)">
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="logo-container">
                 <div class="logo">
@@ -585,18 +602,21 @@
             <?php 
                 // Deteksi halaman saat ini
                 $halaman_sekarang = basename($_SERVER['PHP_SELF']);
+
+                // Base URL
+                $base_url = '/sdmPolnest/admin';
             ?>
             <div class="menu-section">
                 <div class="menu-section-title">Menu Utama</div>
-                <a href="dashboard.php" class="menu-item <?php echo $halaman_sekarang == 'dashboard.php' ? 'active' : ''; ?>" title="Dashboard">
+                <a href="<?php echo $base_url; ?>/index.php" class="menu-item <?php echo $halaman_sekarang == 'index.php' ? 'active' : ''; ?>" title="Dashboard">
                     <i class="fas fa-chart-line"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="manajemen-loker.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-loker.php' ? 'active' : ''; ?>" title="Manajemen Loker">
+                <a href="<?php echo $base_url; ?>/manajemen-loker.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-loker.php' ? 'active' : ''; ?>" title="Manajemen Loker">
                     <i class="fas fa-briefcase"></i>
                     <span>Manajemen Loker</span>
                 </a>
-                <a href="manajemen-recruitment.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-recruitment.php' ? 'active' : ''; ?>" title="Manajemen Recruitment">
+                <a href="<?php echo $base_url; ?>/manajemen-recruitment.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-recruitment.php' ? 'active' : ''; ?>" title="Manajemen Recruitment">
                     <i class="fas fa-user-tie"></i>
                     <span>Manajemen Recruitment</span>
                 </a>
@@ -604,19 +624,19 @@
 
             <div class="menu-section">
                 <div class="menu-section-title">Manajemen SDM</div>
-                <a href="administrasiKepegawaian.php" class="menu-item <?php echo $halaman_sekarang == 'administrasiKepegawaian.php' ? 'active' : ''; ?>" title="Administrasi Kepegawaian">
+                <a href="<?php echo $base_url; ?>/administrasi/administrasiKepegawaian.php" class="menu-item <?php echo $halaman_sekarang == 'administrasiKepegawaian.php' ? 'active' : ''; ?>" title="Administrasi Kepegawaian">
                     <i class="fas fa-file-alt"></i>
                     <span>Administrasi Kepegawaian</span>
                 </a>
-                <a href="pengembangan-sdm.php" class="menu-item <?php echo $halaman_sekarang == 'pengembangan-sdm.php' ? 'active' : ''; ?>" title="Pengembangan SDM">
+                <a href="<?php echo $base_url; ?>/pengembanganSDM/pengembangan-sdm.php" class="menu-item <?php echo $halaman_sekarang == 'pengembangan-sdm.php' ? 'active' : ''; ?>" title="Pengembangan SDM">
                     <i class="fas fa-chalkboard-teacher"></i>
                     <span>Pengembangan SDM</span>
                 </a>
-                <a href="sertifikasi-dosen.php" class="menu-item <?php echo $halaman_sekarang == 'sertifikasi-dosen.php' ? 'active' : ''; ?>" title="Sertifikasi Dosen">
+                <a href="<?php echo $base_url; ?>/sertifikasi-dosen.php" class="menu-item <?php echo $halaman_sekarang == 'sertifikasi-dosen.php' ? 'active' : ''; ?>" title="Sertifikasi Dosen">
                     <i class="fas fa-certificate"></i>
                     <span>Sertifikasi Dosen</span>
                 </a>
-                <a href="penilaian-kinerja.php" class="menu-item <?php echo $halaman_sekarang == 'penilaian-kinerja.php' ? 'active' : ''; ?>" title="Penilaian Kinerja">
+                <a href="<?php echo $base_url; ?>/penilaian-kinerja.php" class="menu-item <?php echo $halaman_sekarang == 'penilaian-kinerja.php' ? 'active' : ''; ?>" title="Penilaian Kinerja">
                     <i class="fas fa-chart-bar"></i>
                     <span>Penilaian Kinerja</span>
                 </a>
@@ -644,67 +664,83 @@
     <script>
         let sidebarExpanded = false;
 
-        function toggleSidebar(event) {
-            // Hanya berfungsi di device kecil (mobile/tablet)
-            if (window.innerWidth <= 968) {
-                // Jangan toggle jika mengklik link
-                if (event.target.closest('a') || event.target.closest('button')) {
-                    return;
-                }
-
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebarOverlay');
-                
-                sidebarExpanded = !sidebarExpanded;
-                
-                if (sidebarExpanded) {
-                    sidebar.classList.add('expanded');
-                    overlay.classList.add('active');
-                } else {
-                    sidebar.classList.remove('expanded');
-                    overlay.classList.remove('active');
-                }
+    function toggleSidebar(event) {
+        // Hanya berfungsi di device kecil (mobile/tablet)
+        if (window.innerWidth <= 968) {
+            // Jangan toggle jika mengklik link atau button
+            if (event.target.closest('a') || event.target.closest('button')) {
+                return;
             }
-        }
 
-        function tutupSidebar() {
-            if (window.innerWidth <= 968) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebarOverlay');
-                
-                sidebar.classList.remove('expanded');
-                overlay.classList.remove('active');
-                sidebarExpanded = false;
-            }
-        }
-
-        function keluar(event) {
-            event.stopPropagation();
-            if (confirm('Apakah Anda yakin ingin keluar?')) {
-                window.location.href = 'logout.php';
-            }
-        }
-
-        // Tutup sidebar saat window di-resize ke desktop
-        window.addEventListener('resize', function() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
             
-            if (window.innerWidth > 968) {
+            sidebarExpanded = !sidebarExpanded;
+            
+            if (sidebarExpanded) {
+                sidebar.classList.add('expanded');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent scrolling
+            } else {
                 sidebar.classList.remove('expanded');
                 overlay.classList.remove('active');
-                sidebarExpanded = false;
+                document.body.style.overflow = ''; // Restore scrolling
+            }
+        }
+    }
+
+    function tutupSidebar() {
+        if (window.innerWidth <= 968) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.remove('expanded');
+            overlay.classList.remove('active');
+            sidebarExpanded = false;
+            document.body.style.overflow = ''; // Restore scrolling
+        }
+    }
+
+    function keluar(event) {
+        event.stopPropagation();
+        if (confirm('Apakah Anda yakin ingin keluar?')) {
+            window.location.href = 'logout.php';
+        }
+    }
+
+    // Tambahkan event listener hanya untuk area kosong sidebar
+    const sidebar = document.getElementById('sidebar');
+    sidebar.addEventListener('click', function(event) {
+        // Hanya toggle jika klik di area kosong (bukan menu/button/link)
+        if (event.target === sidebar || 
+            event.target.classList.contains('sidebar-menu') ||
+            event.target.classList.contains('sidebar-header')) {
+            toggleSidebar(event);
+        }
+    });
+
+    // Tutup sidebar saat window di-resize ke desktop
+    window.addEventListener('resize', function() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (window.innerWidth > 968) {
+            sidebar.classList.remove('expanded');
+            overlay.classList.remove('active');
+            sidebarExpanded = false;
+            document.body.style.overflow = '';
+        }
+    });
+
+    // Tutup sidebar saat klik menu item di mobile
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth <= 968) {
+                tutupSidebar();
             }
         });
+    });
 
-        // Tutup sidebar saat klik menu item di mobile
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.addEventListener('click', function() {
-                if (window.innerWidth <= 968) {
-                    tutupSidebar();
-                }
-            });
-        });
     </script>
 </body>
 </html>
