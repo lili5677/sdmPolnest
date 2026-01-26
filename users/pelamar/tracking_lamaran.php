@@ -1,5 +1,4 @@
 <?php
-require_once '../../includes/check_login.php';
 require_once '../../config/database.php';
 
 // Check if user is logged in
@@ -29,9 +28,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
                 allowOutsideClick: false
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.location.href = '<?php echo BASE_URL; ?>auth/login_pelamar.php';
+                    window.location.href = '<?php echo BASE_URL; ?>auth/login-pelamar.php';
                 } else {
-                    window.location.href = '<?php echo BASE_URL; ?>users/pelamar/dashboard.php';
+                    window.location.href = '<?php echo BASE_URL; ?>';
                 }
             });
         </script>
@@ -46,40 +45,58 @@ $email = $_SESSION['email'];
 $lamaran_list = [];
 $error = '';
 
+// Debug: Check email
+error_log("Tracking Lamaran - Email: " . $email);
+
 try {
-    // Query untuk mengambil semua lamaran berdasarkan email dari session
-    $query = "
-        SELECT 
-            l.lamaran_id,
-            l.status_lamaran,
-            l.tanggal_daftar,
-            l.tanggal_update,
-            l.catatan_admin,
-            lp.posisi,
-            lp.lowongan_id,
-            p.nama_lengkap,
-            p.email_aktif,
-            ji.tanggal_interview,
-            ji.lokasi_interview,
-            jp.tanggal_psikotes
-        FROM lamaran l
-        JOIN pelamar p ON l.pelamar_id = p.pelamar_id
-        JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
-        LEFT JOIN jadwal_interview ji ON l.lamaran_id = ji.lamaran_id
-        LEFT JOIN jadwal_psikotes jp ON l.lamaran_id = jp.lamaran_id
-        WHERE p.email_aktif = ?
-        ORDER BY l.tanggal_daftar DESC
-    ";
+    // First, check if pelamar exists
+    $check_pelamar = $conn->prepare("SELECT pelamar_id, email_aktif FROM pelamar WHERE email_aktif = ?");
+    $check_pelamar->execute([$email]);
+    $pelamar_data = $check_pelamar->fetch();
     
-    $stmt = $conn->prepare($query);
-    $stmt->execute([$email]);
-    $lamaran_list = $stmt->fetchAll();
-    
-    if (empty($lamaran_list)) {
-        $error = 'Anda belum memiliki lamaran yang terdaftar.';
+    if (!$pelamar_data) {
+        error_log("Pelamar not found for email: " . $email);
+        $error = 'Data pelamar tidak ditemukan. Email: ' . $email;
+    } else {
+        error_log("Pelamar found: " . $pelamar_data['pelamar_id']);
+        
+        // Query untuk mengambil semua lamaran berdasarkan email dari session
+        $query = "
+            SELECT 
+                l.lamaran_id,
+                l.status_lamaran,
+                l.tanggal_daftar,
+                l.tanggal_update,
+                l.catatan_admin,
+                lp.posisi,
+                lp.lowongan_id,
+                p.nama_lengkap,
+                p.email_aktif,
+                ji.tanggal_interview,
+                ji.lokasi AS lokasi_interview,
+                jp.tanggal_psikotes
+            FROM lamaran l
+            JOIN pelamar p ON l.pelamar_id = p.pelamar_id
+            JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
+            LEFT JOIN jadwal_interview ji ON l.lamaran_id = ji.lamaran_id
+            LEFT JOIN jadwal_psikotes jp ON l.lamaran_id = jp.lamaran_id
+            WHERE p.email_aktif = ?
+            ORDER BY l.tanggal_daftar DESC
+        ";
+        
+        $stmt = $conn->prepare($query);
+        $stmt->execute([$email]);
+        $lamaran_list = $stmt->fetchAll();
+        
+        error_log("Lamaran found: " . count($lamaran_list));
+        
+        if (empty($lamaran_list)) {
+            $error = 'Anda belum memiliki lamaran yang terdaftar.';
+        }
     }
 } catch (PDOException $e) {
-    $error = 'Terjadi kesalahan saat mengambil data.';
+    error_log("Database error: " . $e->getMessage());
+    $error = 'Terjadi kesalahan saat mengambil data: ' . $e->getMessage();
 }
 
 // Function untuk mendapatkan progress percentage
@@ -418,6 +435,198 @@ function getTimelineSteps($status, $lamaran) {
             color: white;
             transform: translateY(-2px);
         }
+        
+        /* Surat Penerimaan Box */
+        .surat-penerimaan-box {
+            background: white;
+            border: 2px solid #0D5E9D;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 20px;
+            box-shadow: 0 5px 20px rgba(13, 94, 157, 0.1);
+        }
+        
+        .surat-header {
+            background: linear-gradient(135deg, #0D5E9D, #0a4a7a);
+            color: white;
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .surat-viewer {
+            background: #f8f9fa;
+            padding: 20px;
+        }
+        
+        .file-info {
+            background: #e3f2fd;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #0D5E9D;
+        }
+        
+        .surat-actions {
+            display: flex;
+            gap: 15px;
+            padding: 20px;
+            background: white;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-action {
+            padding: 12px 30px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .btn-download {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-download:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+            color: white;
+        }
+        
+        .btn-login {
+            background: #0D5E9D;
+            color: white !important;
+        }
+        
+        .btn-login:hover {
+            background: #0a4a7a;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 94, 157, 0.3);
+            color: white !important;
+        }
+        
+        /* Token Info Box */
+        .token-info-box {
+            background: white;
+            border: 2px solid #F19BB8;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 25px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.15);
+        }
+        
+        .token-info-header {
+            background: linear-gradient(135deg, #F19BB8, #F6C35A);
+            color: white;
+            padding: 18px 25px;
+            font-size: 17px;
+            font-weight: 600;
+        }
+        
+        .token-info-content {
+            padding: 30px;
+        }
+        
+        .token-step {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 25px;
+            align-items: start;
+        }
+        
+        .token-step:last-of-type {
+            margin-bottom: 20px;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #F19BB8, #F6C35A);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-content strong {
+            color: #2c3e50;
+            font-size: 15px;
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        .step-content p {
+            margin: 0;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .step-content ol {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+        
+        .alert-note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #856404;
+            margin-top: 20px;
+        }
+        
+        .token-info-action {
+            padding: 25px;
+            background: #f8f9fa;
+            text-align: center;
+            border-top: 2px dashed #e0e0e0;
+        }
+        
+        .btn-login-pegawai {
+            display: inline-block;
+            background: linear-gradient(135deg, #F6C35A, #F19BB8);
+            color: white !important;
+            padding: 15px 40px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 16px;
+            text-decoration: none;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-login-pegawai:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            color: white !important;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
     </style>
 </head>
 <body>
@@ -442,7 +651,7 @@ function getTimelineSteps($status, $lamaran) {
             <?php echo htmlspecialchars($error); ?>
         </div>
         <div class="text-center mt-4">
-            <a href="<?php echo BASE_URL; ?>pelamar/lowongan.php" class="btn-form">
+            <a href="<?php echo BASE_URL; ?>users/pelamar/lowongan.php" class="btn-form">
                 <i class="fas fa-briefcase me-2"></i> Lihat Lowongan Tersedia
             </a>
         </div>
@@ -522,17 +731,143 @@ function getTimelineSteps($status, $lamaran) {
                 di <?php echo htmlspecialchars($lamaran['lokasi_interview']); ?>
                 <?php endif; ?>.
             </div>
-            <?php elseif ($lamaran['status_lamaran'] == 'diterima'): ?>
+            <?php elseif ($lamaran['status_lamaran'] == 'diterima'): 
+                // Fetch surat from database
+                $surat_query = "
+                    SELECT path_surat, created_at, ukuran_file
+                    FROM surat_keputusan_recruitment 
+                    WHERE lamaran_id = ? AND jenis_surat = 'penerimaan'
+                    LIMIT 1
+                ";
+                $stmt_surat = $conn->prepare($surat_query);
+                $stmt_surat->execute([$lamaran['lamaran_id']]);
+                $surat = $stmt_surat->fetch();
+            ?>
+            
             <div class="alert-box alert-success">
                 <i class="fas fa-check-circle me-2"></i>
-                Selamat! Anda telah lolos seleksi administrasi dan dapat melanjutkan ke tahap berikutnya.
+                <strong>Selamat!</strong> Anda telah diterima sebagai karyawan Politeknik NEST.
                 <?php if (!empty($lamaran['catatan_admin'])): ?>
                 <br><?php echo htmlspecialchars($lamaran['catatan_admin']); ?>
                 <?php endif; ?>
             </div>
-            <a href="../auth/login-pegawai.php" class="btn-form">
-                <i class="fas fa-sign-in-alt me-2"></i> Login ke Akun Pegawai
-            </a>
+            
+            <?php if ($surat): ?>
+            <!-- Surat Penerimaan dari Admin -->
+            <div class="surat-penerimaan-box">
+                <div class="surat-header">
+                    <i class="fas fa-file-pdf me-2"></i>
+                    <strong>Surat Penerimaan Resmi</strong>
+                    <span style="float: right; font-size: 12px; font-weight: normal;">
+                        <i class="fas fa-calendar me-1"></i>
+                        <?php echo date('d F Y', strtotime($surat['created_at'])); ?>
+                    </span>
+                </div>
+                
+                <div class="surat-viewer">
+                    <?php 
+                    $file_ext = strtolower(pathinfo($surat['path_surat'], PATHINFO_EXTENSION));
+                    $file_url = BASE_URL . $surat['path_surat'];
+                    ?>
+                    
+                    <?php if ($file_ext == 'pdf'): ?>
+                        <!-- PDF Viewer -->
+                        <iframe src="<?php echo $file_url; ?>" 
+                                width="100%" 
+                                height="600px"
+                                style="border: none; border-radius: 10px;">
+                        </iframe>
+                    <?php else: ?>
+                        <!-- For DOC/DOCX, show download only -->
+                        <div class="text-center py-5">
+                            <i class="fas fa-file-word" style="font-size: 80px; color: #2b579a; margin-bottom: 20px;"></i>
+                            <h5>Surat Penerimaan (<?php echo strtoupper($file_ext); ?>)</h5>
+                            <p class="text-muted">Klik tombol download di bawah untuk melihat surat</p>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <div class="file-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>
+                            File: <?php echo basename($surat['path_surat']); ?> 
+                            (<?php echo round($surat['ukuran_file'] / 1024, 2); ?> MB)
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="surat-actions">
+                    <a href="<?php echo $file_url; ?>" 
+                       download 
+                       class="btn-action btn-download">
+                        <i class="fas fa-download me-2"></i> Download Surat
+                    </a>
+                </div>
+            </div>
+            <?php else: ?>
+            <!-- Jika surat belum diupload admin -->
+            <div class="alert-box alert-warning">
+                <i class="fas fa-hourglass-half me-2"></i>
+                <strong>Surat penerimaan resmi sedang diproses oleh admin.</strong><br>
+                Anda akan menerima notifikasi setelah surat tersedia.
+            </div>
+            <?php endif; ?>
+            
+            <!-- Token Information Box -->
+            <div class="token-info-box">
+                <div class="token-info-header">
+                    <i class="fas fa-key me-2"></i>
+                    <strong>Informasi Login Sistem Kepegawaian</strong>
+                </div>
+                <div class="token-info-content">
+                    <div class="token-step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <strong>Token Login Telah Dikirim ke Email Anda</strong>
+                            <p>Silakan cek inbox atau folder spam di email: 
+                                <strong><?php echo htmlspecialchars($lamaran['email_aktif']); ?></strong>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="token-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <strong>Cara Login Sistem Kepegawaian</strong>
+                            <ol style="margin: 10px 0 0 0; padding-left: 20px;">
+                                <li>Klik tombol "Login ke Sistem Kepegawaian" di bawah</li>
+                                <li>Email Anda akan otomatis terisi</li>
+                                <li>Masukkan token dari email</li>
+                                <li>Anda akan diminta mengganti password pada login pertama</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <div class="token-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <strong>Belum Menerima Email?</strong>
+                            <p style="margin: 5px 0 0 0;">
+                                <i class="fas fa-envelope me-1"></i> Email: <strong>sdm@polnest.ac.id</strong><br>
+                                <i class="fas fa-phone me-1"></i> WhatsApp: <strong>+628112951003</strong>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="alert-note">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Penting:</strong> Token hanya berlaku untuk login pertama kali. 
+                        Setelah login, Anda <strong>wajib mengganti password</strong> untuk keamanan akun.
+                    </div>
+                </div>
+                
+                <div class="token-info-action">
+                    <a href="<?php echo BASE_URL; ?>auth/login_pegawai.php?email=<?php echo urlencode($lamaran['email_aktif']); ?>" 
+                       class="btn-login-pegawai">
+                        <i class="fas fa-sign-in-alt me-2"></i> Login ke Sistem Kepegawaian
+                    </a>
+                </div>
+            </div>
+            
             <?php endif; ?>
         </div>
         <?php endforeach; ?>
