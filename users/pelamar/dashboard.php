@@ -1,9 +1,4 @@
 <?php
-/**
- * DASHBOARD PELAMAR - GUEST FRIENDLY VERSION
- * File: users/pelamar/dashboard.php
- * Tampilan Lowongan Pekerjaan (Bisa diakses Guest & Pelamar)
- */
 
 // STEP 1: Start session
 if (session_status() === PHP_SESSION_NONE) {

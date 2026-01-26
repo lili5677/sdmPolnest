@@ -150,7 +150,7 @@ function formatTanggal($date) {
                     <h1 class="hero-title display-4 fw-bold text-white mb-4">
                         Manajemen & Pengembangan SDM Politeknik Nest
                     </h1>
-                    <a href="<?php echo BASE_URL; ?>users/pelamar/lowongan.php" class="btn btn-pink btn-lg rounded-pill px-5">
+                    <a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php" class="btn btn-pink btn-lg rounded-pill px-5">
                         Lihat Lowongan
                     </a>
                 </div>

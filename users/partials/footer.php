@@ -366,7 +366,7 @@ if (!defined('BASE_URL')) {
     @media (max-width: 768px) {
         .footer {
             border-radius: 15px 15px 0 0;
-            margin: 30px 10px 0;
+            margin: 30px 0 0;
             padding: 30px 15px 0;
         }
 
