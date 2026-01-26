@@ -369,7 +369,7 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
 
             <div class="navbar-right" id="navbarRight">
                 <ul class="navbar-menu">
-                    <li><a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php">Lowongan Pekerjaan</a></li>
+                    <li><a href="<?php echo BASE_URL; ?>users/pelamar/lowongan.php">Lowongan Pekerjaan</a></li>
                     <li><a href="<?php echo BASE_URL; ?>users/pelamar/tracking_lamaran.php">Tracking Lamaran</a></li>
                 </ul>
 
