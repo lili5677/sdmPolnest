@@ -87,7 +87,7 @@
     /* Login Button */
     .btn-login {
         background: white;
-        color: #F19BB8;
+        color: #F19BB8 !important;
         padding: 10px 30px;
         border: none;
         border-radius: 25px;
@@ -96,7 +96,7 @@
         cursor: pointer;
         transition: all 0.3s;
         box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
-        text-decoration: none;
+        text-decoration: none !important;
         display: inline-block;
     }
 
@@ -104,7 +104,7 @@
         background: #fff;
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(255, 255, 255, 0.4);
-        color: #F6C35A;
+        color: #F6C35A !important;
     }
 
     .btn-login:active {
@@ -121,6 +121,11 @@
         cursor: pointer;
         padding: 8px;
         border-radius: 8px;
+    }
+
+    /* Hide mobile login on desktop */
+    .mobile-login-item {
+        display: none;
     }
 
     /* Responsive */
@@ -163,10 +168,22 @@
             position: relative;
         }
         
-        .btn-login {
+        /* Hide desktop login button */
+        .desktop-login {
+            display: none;
+        }
+        
+        /* Show mobile login item */
+        .mobile-login-item {
+            display: block;
+        }
+        
+        /* Style login button in mobile menu */
+        .mobile-login-item .btn-login {
             width: 100%;
             text-align: center;
             margin-top: 10px;
+            display: block;
         }
     }
 </style>
@@ -190,11 +207,16 @@
             <li><a href="<?php echo BASE_URL; ?>index.php">Beranda</a></li>
             <li><a href="<?php echo BASE_URL; ?>users/staff.php">Tim Kami</a></li>
             <li><a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php">Lowongan Pekerjaan</a></li>
+            <li class="mobile-login-item">
+                <a href="<?php echo BASE_URL; ?>auth/login_pegawai.php" class="btn-login">
+                    Login Pegawai
+                </a>
+            </li>
         </ul>
 
-        <!-- Login Button - Direct Link -->
-        <a href="<?php echo BASE_URL; ?>auth/login_pegawai.php" class="btn-login">
-            Login untuk Pegawai
+        <!-- Login Button - Desktop Only -->
+        <a href="<?php echo BASE_URL; ?>auth/login_pegawai.php" class="btn-login desktop-login">
+            Login Pegawai
         </a>
     </div>
 </nav>
