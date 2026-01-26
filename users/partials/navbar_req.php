@@ -20,16 +20,18 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
     
     <!-- SweetAlert2 CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
+    <!-- Google Fonts - Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f5f5f5;
         }
 
@@ -369,7 +371,7 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
 
             <div class="navbar-right" id="navbarRight">
                 <ul class="navbar-menu">
-                    <li><a href="<?php echo BASE_URL; ?>users/pelamar/lowongan.php">Lowongan Pekerjaan</a></li>
+                    <li><a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php">Lowongan Pekerjaan</a></li>
                     <li><a href="<?php echo BASE_URL; ?>users/pelamar/tracking_lamaran.php">Tracking Lamaran</a></li>
                 </ul>
 
