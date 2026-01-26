@@ -1,31 +1,14 @@
 <?php
-/**
- * Halaman: Administrasi Kepegawaian - Struktur Organisasi
- * File: admin/administrasi_kepegawaian.php
- * Versi: Tanpa API (All-in-One)
- */
-
 // ===== UNTUK AUTHORIZATION =====
-// session_start();
-// if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
-//     header('Location: ../login.php');
-//     exit();
-// }
-// ================================================
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
+    header('Location: ../login.php');
+    exit();
+}
+
 
 // Koneksi Database
-$host = "localhost";
-$db_name = "sdm_polnest - revisi";
-$username = "root";
-$password = "";
-
-try {
-    $conn = new PDO("mysql:host=$host;dbname=$db_name", $username, $password);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $conn->exec("set names utf8");
-} catch(PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
-}
+require_once '../../config/database.php';
 
 // HANDLE AJAX REQUESTS
 if(isset($_GET['action']) || isset($_POST['action'])) {
@@ -342,7 +325,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         }
 
         .page-header h1 {
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 700;
             color: #1f2937;
             margin-bottom: 8px;
@@ -350,7 +333,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
 
         .page-header p {
             color: #6b7280;
-            font-size: 16px;
+            font-size: 15px;
             margin: 0;
         }
 
@@ -405,7 +388,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         }
 
         .card-title-custom {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 600;
             color: #1f2937;
             margin-bottom: 5px;
@@ -422,12 +405,37 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             margin: 0;
         }
 
-        /* Level Tabs */
+        /* Level Tabs - FIXED UNTUK SEMUA DEVICE */
         .level-tabs {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
-            flex-wrap: wrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex-wrap: nowrap;
+            padding-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: #d1d5db #f3f4f6;
+        }
+
+        /* Scrollbar styling untuk level tabs */
+        .level-tabs::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .level-tabs::-webkit-scrollbar-track {
+            background: #f3f4f6;
+            border-radius: 10px;
+        }
+
+        .level-tabs::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+        }
+
+        .level-tabs::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
         }
 
         .level-tab {
@@ -440,6 +448,8 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             font-size: 13px;
             font-weight: 500;
             transition: all 0.3s;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .level-tab:hover {
@@ -521,7 +531,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             padding: 10px 20px;
             border-radius: 8px;
             font-weight: 500;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.3s;
             display: inline-flex;
             align-items: center;
@@ -605,7 +615,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
 
         .empty-state p {
             color: #9ca3af;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         /* Loading */
@@ -650,8 +660,8 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         .form-control, .form-select {
             border-radius: 8px;
             border: 1px solid #d1d5db;
-            padding: 10px 15px;
-            font-size: 14px;
+            padding: 8px 12px; /* Kurangi padding juga */
+            font-size: 12px; /* Font lebih kecil */
         }
 
         .form-control:focus, .form-select:focus {
@@ -692,14 +702,19 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 justify-content: center;
             }
 
+            /* Level Tabs Responsive */
             .level-tabs {
                 overflow-x: auto;
                 flex-wrap: nowrap;
-                padding-bottom: 5px;
+                padding-bottom: 12px;
+                gap: 8px;
             }
 
             .level-tab {
                 white-space: nowrap;
+                flex-shrink: 0;
+                font-size: 12px;
+                padding: 8px 14px;
             }
         }
 
@@ -713,6 +728,17 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             .content-card {
                 padding: 20px;
             }
+
+            /* Level Tabs Extra Small */
+            .level-tabs {
+                gap: 6px;
+                padding-bottom: 12px;
+            }
+
+            .level-tab {
+                font-size: 11px;
+                padding: 7px 12px;
+            }
         }
 
 
@@ -720,6 +746,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         /* Input Group Custom */
         .input-group-text {
             border-right: 0;
+            
         }
 
         .input-group .form-control:focus {
@@ -935,7 +962,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         /* Table Responsive Mobile */
         @media (max-width: 768px) {
             .table-pegawai {
-                font-size: 11px;
+                font-size: 10px;
             }
             
             .table-pegawai thead th,
@@ -943,6 +970,15 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                 padding: 8px 6px;
             }
             
+            /* TAMBAHKAN INI */
+            .form-control, .form-select {
+                font-size: 10px; 
+                padding: 7px 10px;
+            }
+            
+            .input-group-text {
+                font-size: 10px;
+            }
             .table-responsive {
                 width: 100%;
                 overflow-x: auto;
@@ -975,7 +1011,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
     <div class="main-content">
         <!-- Header Halaman -->
         <div class="page-header">
-            <h1><i class="fas fa-users-cog me-2"></i>Administrasi Kepegawaian</h1>
+            <h1><i class=""></i>Administrasi Kepegawaian</h1>
             <p>Kelola data informasi dan dokumen kepegawaian Anda</p>
         </div>
 
@@ -1034,7 +1070,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                                         onkeyup="filterPegawai()">
                                 </div>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-4">
                                 <select class="form-select" id="filterJenisPegawai" onchange="filterPegawai()">
                                     <option value="">Semua Jenis Pegawai</option>
                                     <option value="dosen">Dosen</option>
@@ -1042,7 +1078,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                                     <option value="tendik">Tendik</option>
                                 </select>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 <select class="form-select" id="filterJenisKepegawaian" onchange="filterPegawai()">
                                     <option value="">Semua Pegawai</option>
                                     <option value="tetap">Tetap</option>
@@ -1051,17 +1087,17 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                             </div>
                             <div class="col-md-2">
                                 <select class="form-select" id="filterStatusAktif" onchange="filterPegawai()">
-                                    <option value="">Semua Status</option>
+                                    <option value="">Status</option>
                                     <option value="aktif">Aktif</option>
                                     <option value="tidak_aktif">Tidak Aktif</option>
                                 </select>
                             </div>
-                            <div class="col-md-3">
+                            <!-- <div class="col-md-3">
                                 <select class="form-select" id="sortBy" onchange="sortPegawai()">
                                     <option value="nama_asc">Nama (A-Z)</option>
                                     <option value="nama_desc">Nama (Z-A)</option>
                                 </select>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                     
@@ -1618,15 +1654,20 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         }
 
         // FUNGSI PREVIEW
-        function tampilkanPreview() {
-            Swal.fire({
-                icon: 'info',
-                title: 'Preview',
-                text: 'Halaman preview struktur organisasi untuk tampilan public akan segera tersedia',
-                confirmButtonColor: '#2563eb'
-            });
-        }
+        // function tampilkanPreview() {
+        //     Swal.fire({
+        //         icon: 'info',
+        //         title: 'Preview',
+        //         text: 'Halaman preview struktur organisasi untuk tampilan public akan segera tersedia',
+        //         confirmButtonColor: '#2563eb'
+        //     });
+        // }
 
+        // FUNGSI PREVIEW - UPDATED
+        function tampilkanPreview() {
+            // Buka preview di tab/window baru
+            window.open('preview.php', '_blank');
+        }
         // FUNGSI DATA PEGAWAI - FIXED VERSION
 
         // Load Data Pegawai
@@ -1996,6 +2037,18 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             document.getElementById('pegawai_id').disabled = false;
         });
 
+
+        // AUTO ACTIVATE TAB BASED ON URL HASH
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if URL has hash #struktur-organisasi
+            if (window.location.hash === '#struktur-organisasi') {
+                const strukturTab = document.querySelector('#struktur-tab');
+                if (strukturTab) {
+                    const tab = new bootstrap.Tab(strukturTab);
+                    tab.show();
+                }
+            }
+        });
     </script>
 </body>
 </html>

@@ -1,8 +1,4 @@
 <?php
-/**
- * File: admin/hapus_pegawai.php
- * Deskripsi: Proses hapus data pegawai
- */
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
