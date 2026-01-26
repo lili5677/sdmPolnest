@@ -1,8 +1,4 @@
 <?php
-/**
- * File: admin/detail_pegawai.php
- * Deskripsi: Tampil detail data pegawai
- */
 
 require_once '../../config/database.php';
 

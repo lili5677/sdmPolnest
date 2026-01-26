@@ -1,11 +1,4 @@
 <?php
-/**
- * Halaman: Edit Pegawai
- * File: admin/edit_pegawai.php
- * Deskripsi: Form dan proses edit data pegawai
- * 
- */
-
 // Koneksi Database
 require_once '../../config/database.php';
 
