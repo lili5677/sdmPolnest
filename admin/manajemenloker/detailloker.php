@@ -71,6 +71,8 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
             margin-left: 280px;
             padding: 30px;
             width: calc(100% - 280px);
+            display: flex;
+            justify-content: center;
         }
 
         .detail-card {

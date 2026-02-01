@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         * {
             margin: 0;
@@ -18,8 +19,9 @@
             overflow-x: hidden;
         }
 
+        /*  SIDEBAR */
         .sidebar {
-            width: 280px;
+            width: 290px;
             height: 100vh; 
             max-height: 100vh; 
             background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 50%, #1e293b 100%);
@@ -27,16 +29,62 @@
             left: 0;
             top: 0;
             color: white;
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow-y: scroll !important;
+            overflow-x: hidden !important;
             box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
             transition: all 0.3s ease;
             z-index: 1000;
+            -ms-overflow-style: none !important;  
+            scrollbar-width: none !important;  
         }
 
-        /* ===== KONTEN UTAMA ===== */
+        .sidebar::-webkit-scrollbar {
+            display: none !important;
+            width: 0px !important;
+            height: 0px !important;
+            background: transparent !important;
+        }
+
+        .sidebar::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0px !important;
+            height: 0px !important;
+        }
+
+        .sidebar::-webkit-scrollbar-button:start:decrement,
+        .sidebar::-webkit-scrollbar-button:end:increment {
+            display: none !important;
+            width: 0px !important;
+            height: 0px !important;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            display: none !important;
+            background: transparent !important;
+        }
+
+        .sidebar::-webkit-scrollbar-track-piece {
+            display: none !important;
+            background: transparent !important;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            display: none !important;
+            background: transparent !important;
+        }
+
+        .sidebar::-webkit-scrollbar-corner {
+            display: none !important;
+            background: transparent !important;
+        }
+
+        .sidebar::-webkit-resizer {
+            display: none !important;
+        }
+
+        /*  KONTEN UTAMA  */
         .main-content {
             margin-left: 280px;
             padding: 32px;
@@ -67,25 +115,6 @@
             .sidebar.expanded ~ .main-content {
                 margin-left: 260px;
             }
-        }
-
-
-        /* Scrollbar Styling */
-        .sidebar::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .sidebar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .sidebar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 3px;
-        }
-
-        .sidebar::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.3);
         }
 
         .sidebar-header {
@@ -144,7 +173,38 @@
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            min-height: 0; 
+            min-height: 0;
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
+        }
+
+        .sidebar-menu::-webkit-scrollbar {
+            display: none !important;
+            width: 0px !important;
+            height: 0px !important;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0px !important;
+            height: 0px !important;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-button:start:decrement,
+        .sidebar-menu::-webkit-scrollbar-button:end:increment {
+            display: none !important;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-track {
+            display: none !important;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-thumb {
+            display: none !important;
+        }
+
+        .sidebar-menu::-webkit-scrollbar-corner {
+            display: none !important;
         }
 
         .menu-section {
@@ -187,7 +247,6 @@
             margin-left: 12px;
         }
 
-        /* BORDER RADIUS KIRI! */
         .menu-item.active {
             background: white;
             color: #1e40af;
@@ -332,10 +391,12 @@
             z-index: 999;
             opacity: 0;
             transition: opacity 0.3s ease;
+            pointer-events: none;
         }
 
         .sidebar-overlay.active {
             opacity: 1;
+            pointer-events: auto;
         }
 
         /*  RESPONSIVE - TABLET & MOBILE */
@@ -349,6 +410,7 @@
 
             .sidebar.expanded {
                 width: 280px;
+                z-index: 1000;
             }
 
             .sidebar-header {
@@ -393,10 +455,12 @@
             }
 
             .sidebar.expanded .menu-item {
-                padding: 14px 24px;
+                padding: 9px 16px 9px 8px;
                 justify-content: flex-start;
-                gap: 14px;
-                margin: 4px 0;
+                font-size: 12.5px; 
+                gap: 9px;
+                margin: 3px 0 3px 8px;
+                min-height: 46px;
             }
 
             .menu-item span {
@@ -410,20 +474,22 @@
                 width: auto;
             }
 
-            /* Active state di mode minimize */
             .menu-item.active {
                 margin: 4px 8px;
                 border-radius: 12px; 
+                white-space: normal; 
+                line-height: 1.35;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                overflow: visible; 
             }
 
-            /* Active state di mode expanded */
             .sidebar.expanded .menu-item.active {
                 margin-left: 12px;
                 margin-right: 0;
                 border-radius: 12px 0 0 12px; 
             }
 
-            /* Hover di mode minimize */
             .menu-item:hover {
                 margin: 4px 8px;
                 border-radius: 12px;
@@ -499,7 +565,8 @@
             }
 
             .sidebar.expanded {
-                width: 260px;
+                width: 245px;
+                z-index: 1000;
             }
 
             .logo {
@@ -524,8 +591,9 @@
             }
 
             .sidebar.expanded .menu-item {
-                padding: 14px 20px;
-                margin: 4px 0;
+                padding: 8px 12px 8px 6px; 
+                font-size: 11.5px; 
+                gap: 7px;
             }
 
             .menu-item.active {
@@ -535,6 +603,12 @@
             .sidebar.expanded .menu-item.active {
                 margin-left: 10px;
                 margin-right: 0;
+            }
+
+            .sidebar.expanded .menu-item i {
+                font-size: 15px; 
+                width: 18px;
+                height: 18px;
             }
         }
 
@@ -561,14 +635,38 @@
         .menu-item:nth-child(5) { animation-delay: 0.25s; }
         .menu-item:nth-child(6) { animation-delay: 0.3s; }
         .menu-item:nth-child(7) { animation-delay: 0.35s; }
-    </style>
+
+        /* Custom Style untuk SweetAlert2 Logout */
+        .logout-popup {
+            font-family: 'Poppins', sans-serif !important;
+        }
+
+        .logout-confirm-btn,
+        .logout-cancel-btn {
+            font-family: 'Poppins', sans-serif !important;
+            font-weight: 600 !important;
+            padding: 10px 24px !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+        }
+
+        .logout-confirm-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4) !important;
+        }
+
+        .logout-cancel-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4) !important;
+        }
+</style>
 </head>
 <body>
     <!-- Sidebar Overlay untuk Mobile -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="tutupSidebar()"></div>
 
     <!-- Sidebar -->
-    <div class="sidebar" id="sidebar" onclick="toggleSidebar(event)">
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="logo-container">
                 <div class="logo">
@@ -585,18 +683,22 @@
             <?php 
                 // Deteksi halaman saat ini
                 $halaman_sekarang = basename($_SERVER['PHP_SELF']);
+                $direktori_sekarang = basename(dirname($_SERVER['PHP_SELF']));
+
+                // Base URL
+                $base_url = '/sdmPolnest/admin';
             ?>
             <div class="menu-section">
                 <div class="menu-section-title">Menu Utama</div>
-                <a href="dashboard.php" class="menu-item <?php echo $halaman_sekarang == 'dashboard.php' ? 'active' : ''; ?>" title="Dashboard">
+                <a href="<?php echo $base_url; ?>/index.php" class="menu-item <?php echo ($halaman_sekarang == 'index.php' && $direktori_sekarang == 'admin') ? 'active' : ''; ?>" title="Dashboard">
                     <i class="fas fa-chart-line"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="manajemen-loker.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-loker.php' ? 'active' : ''; ?>" title="Manajemen Loker">
+                <a href="<?php echo $base_url; ?>/manajemenloker/index.php" class="menu-item <?php echo $direktori_sekarang == 'manajemenloker' ? 'active' : ''; ?>" title="Manajemen Loker">
                     <i class="fas fa-briefcase"></i>
                     <span>Manajemen Loker</span>
                 </a>
-                <a href="manajemen-recruitment.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-recruitment.php' ? 'active' : ''; ?>" title="Manajemen Recruitment">
+                <a href="<?php echo $base_url; ?>/manajemenrec.php" class="menu-item <?php echo $halaman_sekarang == 'manajemenrec.php' ? 'active' : ''; ?>" title="Manajemen Recruitment">
                     <i class="fas fa-user-tie"></i>
                     <span>Manajemen Recruitment</span>
                 </a>
@@ -604,21 +706,25 @@
 
             <div class="menu-section">
                 <div class="menu-section-title">Manajemen SDM</div>
-                <a href="administrasiKepegawaian.php" class="menu-item <?php echo $halaman_sekarang == 'administrasiKepegawaian.php' ? 'active' : ''; ?>" title="Administrasi Kepegawaian">
+                <a href="<?php echo $base_url; ?>/administrasi/administrasiKepegawaian.php" class="menu-item <?php echo $direktori_sekarang == 'administrasi' ? 'active' : ''; ?>" title="Administrasi Kepegawaian">
                     <i class="fas fa-file-alt"></i>
                     <span>Administrasi Kepegawaian</span>
                 </a>
-                <a href="pengembangan-sdm.php" class="menu-item <?php echo $halaman_sekarang == 'pengembangan-sdm.php' ? 'active' : ''; ?>" title="Pengembangan SDM">
+                <a href="<?php echo $base_url; ?>/pengembanganSdm/index.php" class="menu-item <?php echo $direktori_sekarang == 'pengembanganSDM' ? 'active' : ''; ?>" title="Pengembangan SDM">
                     <i class="fas fa-chalkboard-teacher"></i>
                     <span>Pengembangan SDM</span>
                 </a>
-                <a href="sertifikasi-dosen.php" class="menu-item <?php echo $halaman_sekarang == 'sertifikasi-dosen.php' ? 'active' : ''; ?>" title="Sertifikasi Dosen">
+                <a href="<?php echo $base_url; ?>/sertifikasi/sertifikasi-dosen.php" class="menu-item <?php echo $direktori_sekarang == 'sertifikasi' ? 'active' : ''; ?>" title="Sertifikasi Dosen">
                     <i class="fas fa-certificate"></i>
                     <span>Sertifikasi Dosen</span>
                 </a>
-                <a href="penilaian-kinerja.php" class="menu-item <?php echo $halaman_sekarang == 'penilaian-kinerja.php' ? 'active' : ''; ?>" title="Penilaian Kinerja">
+                <a href="<?php echo $base_url; ?>/penilaian-kinerja.php" class="menu-item <?php echo $halaman_sekarang == 'penilaian-kinerja.php' ? 'active' : ''; ?>" title="Penilaian Kinerja">
                     <i class="fas fa-chart-bar"></i>
                     <span>Penilaian Kinerja</span>
+                </a>
+                <a href="<?php echo $base_url; ?>/pegawaiLama/manajemen-pegawai.php" class="menu-item <?php echo $direktori_sekarang == 'pegawaiLama' ? 'active' : ''; ?>" title="Manajemen Pegawai">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Manajemen Pegawai</span>
                 </a>
             </div>
         </div>
@@ -644,67 +750,117 @@
     <script>
         let sidebarExpanded = false;
 
-        function toggleSidebar(event) {
-            // Hanya berfungsi di device kecil (mobile/tablet)
-            if (window.innerWidth <= 968) {
-                // Jangan toggle jika mengklik link
-                if (event.target.closest('a') || event.target.closest('button')) {
-                    return;
-                }
-
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebarOverlay');
-                
-                sidebarExpanded = !sidebarExpanded;
-                
-                if (sidebarExpanded) {
-                    sidebar.classList.add('expanded');
-                    overlay.classList.add('active');
-                } else {
-                    sidebar.classList.remove('expanded');
-                    overlay.classList.remove('active');
-                }
+    function toggleSidebar(event) {
+        // Hanya berfungsi di device kecil (mobile/tablet)
+        if (window.innerWidth <= 968) {
+            
+            if (event.target.closest('a') || event.target.closest('button')) {
+                return;
             }
-        }
 
-        function tutupSidebar() {
-            if (window.innerWidth <= 968) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebarOverlay');
-                
-                sidebar.classList.remove('expanded');
-                overlay.classList.remove('active');
-                sidebarExpanded = false;
-            }
-        }
-
-        function keluar(event) {
-            event.stopPropagation();
-            if (confirm('Apakah Anda yakin ingin keluar?')) {
-                window.location.href = 'logout.php';
-            }
-        }
-
-        // Tutup sidebar saat window di-resize ke desktop
-        window.addEventListener('resize', function() {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
             
-            if (window.innerWidth > 968) {
+            sidebarExpanded = !sidebarExpanded;
+            
+            if (sidebarExpanded) {
+                sidebar.classList.add('expanded');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden'; 
+            } else {
                 sidebar.classList.remove('expanded');
                 overlay.classList.remove('active');
-                sidebarExpanded = false;
+                document.body.style.overflow = ''; 
+            }
+        }
+    }
+
+    function tutupSidebar() {
+        if (window.innerWidth <= 968) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            sidebar.classList.remove('expanded');
+            overlay.classList.remove('active');
+            sidebarExpanded = false;
+            document.body.style.overflow = ''; 
+        }
+    }
+
+    function keluar(event) {
+        event.stopPropagation();
+        
+        Swal.fire({
+            title: 'Konfirmasi Keluar',
+            text: "Apakah Anda yakin ingin keluar dari sistem?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: '<i class="fas fa-sign-out-alt"></i> Ya, Keluar',
+            cancelButtonText: '<i class="fas fa-times"></i> Batal',
+            reverseButtons: true,
+            customClass: {
+                popup: 'logout-popup',
+                confirmButton: 'logout-confirm-btn',
+                cancelButton: 'logout-cancel-btn'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Tampilkan loading
+                Swal.fire({
+                    title: 'Keluar...',
+                    text: 'Sedang memproses logout',
+                    icon: 'info',
+                    showConfirmButton: false,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Redirect ke halaman logout
+                setTimeout(() => {
+                    window.location.href = '/sdmPolnest/auth/logout_admin.php';
+                }, 800);
             }
         });
+    }
+    
 
-        // Tutup sidebar saat klik menu item di mobile
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.addEventListener('click', function() {
-                if (window.innerWidth <= 968) {
-                    tutupSidebar();
-                }
-            });
+    // Tambahkan event listener hanya untuk area kosong sidebar
+    const sidebar = document.getElementById('sidebar');
+    sidebar.addEventListener('click', function(event) {
+        // Hanya toggle jika klik di area kosong (bukan menu/button/link)
+        if (event.target === sidebar || 
+            event.target.classList.contains('sidebar-menu') ||
+            event.target.classList.contains('sidebar-header')) {
+            toggleSidebar(event);
+        }
+    });
+
+    // Tutup sidebar saat window di-resize ke desktop
+    window.addEventListener('resize', function() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (window.innerWidth > 968) {
+            sidebar.classList.remove('expanded');
+            overlay.classList.remove('active');
+            sidebarExpanded = false;
+            document.body.style.overflow = '';
+        }
+    });
+
+    // Tutup sidebar saat klik menu item di mobile
+    document.querySelectorAll('.menu-item').forEach(item => {
+        item.addEventListener('click', function() {
+            if (window.innerWidth <= 968) {
+                tutupSidebar();
+            }
         });
+    });
+
     </script>
 </body>
 </html>
