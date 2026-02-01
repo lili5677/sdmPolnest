@@ -1,9 +1,36 @@
 <?php
-// Include database connection
+// STEP 1: Start session
+session_start();
+
+// STEP 2: Include database
 require_once '../../config/database.php';
 
-// Get pegawai_id dari session atau parameter
-$pegawai_id = isset($_GET['pegawai_id']) ? (int)$_GET['pegawai_id'] : 1;
+// STEP 3: Cek login -DIGANTI
+// if (!isset($_SESSION['user_id']) || !isset($_SESSION['logged_in'])) {
+//     header("Location: ../../auth/login_pegawai.php");
+//     exit;
+// }
+
+//JADI INI
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
+    header("Location: ../../auth/login_pegawai.php");
+    exit;
+}
+
+// STEP 4: Ambil pegawai_id
+// Kalau admin akses dengan ?pegawai_id=X, kalau pegawai biasa pakai session
+if ($_SESSION['user_type'] === 'admin' && isset($_GET['pegawai_id'])) {
+    $pegawai_id = (int)$_GET['pegawai_id'];
+} else {
+    // Pegawai biasa hanya bisa lihat data sendiri
+    $pegawai_id = $_SESSION['pegawai_id']; // ← PAKAI DARI SESSION
+}
+
+// STEP 5: Security check - pegawai biasa tidak boleh akses data orang lain
+if ($_SESSION['user_type'] !== 'admin' && isset($_GET['pegawai_id']) && (int)$_GET['pegawai_id'] !== $_SESSION['pegawai_id']) {
+    header("Location: administrasi.php"); // redirect ke data sendiri
+    exit;
+}
 
 // Query Data Pegawai dengan Status Kepegawaian
 $stmt = $conn->prepare("
@@ -24,8 +51,10 @@ $stmt->execute([$pegawai_id]);
 $pegawai = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$pegawai) {
-    die("Pegawai tidak ditemukan");
+    die("Pegawai tidak ditemukan. Pegawai ID: " . $pegawai_id); // ← UNTUK DEBUG
 }
+
+// ... sisa kode ...
 
 // Tentukan jenis pegawai untuk menampilkan dokumen yang sesuai
 $is_dosen = ($pegawai['jenis_pegawai'] === 'dosen' || $pegawai['is_dosen_nest'] == 1);
@@ -796,19 +825,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <div class="row">
                         <div class="col-12 mb-3">
                             <label class="form-label">NIK Pegawai</label>
-                            <input type="text" class="form-control" value="<?= htmlspecialchars($pegawai['nik'] ?? '3370524032980005') ?>" disabled>
+                            <input type="text" class="form-control" value="<?= htmlspecialchars($pegawai['nik'] ?? '-') ?>" disabled>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Nama Lengkap</label>
                             <input type="text" name="nama_lengkap" class="form-control editable" 
-                                   value="<?= htmlspecialchars($pegawai['nama_lengkap'] ?? 'Soekarno') ?>" disabled required>
+                                   value="<?= htmlspecialchars($pegawai['nama_lengkap'] ?? 'Contoh : Soekarno') ?>" disabled required>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Tempat Lahir</label>
                             <input type="text" name="tempat_lahir" class="form-control editable" 
-                                   value="<?= htmlspecialchars($pegawai['tempat_lahir'] ?? 'Yogyakarta') ?>" disabled>
+                                   value="<?= htmlspecialchars($pegawai['tempat_lahir'] ?? 'Contoh : Yogyakarta') ?>" disabled>
                         </div>
                         
                         <div class="col-12 mb-3">
@@ -1095,4 +1124,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     </script>
 </body>
 </html>
-

@@ -33,6 +33,13 @@ if(!$pegawai) {
     exit;
 }
 
+// Get data dokumen pegawai
+$queryDokumen = "SELECT * FROM dokumen_pegawai WHERE pegawai_id = :id ORDER BY created_at DESC";
+$stmtDokumen = $conn->prepare($queryDokumen);
+$stmtDokumen->bindParam(':id', $id);
+$stmtDokumen->execute();
+$dokumenList = $stmtDokumen->fetchAll(PDO::FETCH_ASSOC);
+
 // Hitung masa kontrak dan sisa kontrak
 $masa_kontrak_hari = 0;
 $masa_kontrak_text = '-';
@@ -141,6 +148,23 @@ if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] 
         .btn-primary-custom:hover { background: #374151; color: white; }
         .btn-outline-custom { background: white; border: 1px solid #d1d5db; color: #374151; padding: 12px 24px; border-radius: 8px; font-weight: 500; text-decoration: none; }
         .btn-outline-custom:hover { background: #f9fafb; }
+        
+        /* Style untuk dokumen */
+        .dokumen-list { margin-top: 15px; }
+        .dokumen-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+        .dokumen-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .dokumen-icon { width: 40px; height: 40px; background: #fee2e2; color: #dc2626; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .dokumen-details { flex: 1; }
+        .dokumen-name { font-size: 14px; font-weight: 500; color: #1f2937; margin-bottom: 4px; }
+        .dokumen-meta { font-size: 12px; color: #6b7280; }
+        .dokumen-actions { display: flex; gap: 8px; }
+        .btn-view { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-view:hover { background: #1d4ed8; color: white; }
+        .badge-success { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; }
+        .progress-bar-custom { height: 6px; background: #e5e7eb; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #2563eb; border-radius: 3px; transition: width 0.3s ease; }
+        .dokumen-count { font-size: 13px; color: #6b7280; margin-top: 5px; }
+        
         @media (max-width: 768px) { .main-content { margin-left: 0; padding: 20px; } .content-card { padding: 20px; } }
     </style>
 </head>
@@ -335,6 +359,93 @@ if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] 
                     </div>
                 </div>
                 <?php endif; ?>
+            </div>
+
+            <!-- Kelengkapan Dokumen -->
+            <div class="detail-section">
+                <div class="detail-section-title">
+                    <i class="fas fa-file-alt"></i>
+                    Kelengkapan Dokumen
+                </div>
+                
+                <?php 
+                // Daftar dokumen yang diperlukan (sesuai dengan sistem user)
+                $requiredDokumen = [
+                    'cv' => 'Curriculum Vitae (CV)',
+                    'ktp' => 'KTP (Kartu Tanda Penduduk)',
+                    'npwp' => 'NPWP (Nomor Pokok Wajib Pajak)',
+                    'ijazah' => 'Ijazah/Sertifikat Pendidikan',
+                    'surat_sehat' => 'Surat Keterangan Sehat',
+                    'surat_kerja_sebelumnya' => 'Surat Keterangan Kerja Sebelumnya',
+                    'skck' => 'SKCK (Surat Keterangan Catatan Kepolisian)',
+                    'surat_bebas_napza' => 'Surat Keterangan Bebas Napza'
+                ];
+                
+                // Buat array dokumen berdasarkan jenis untuk akses cepat
+                $dokumenByJenis = [];
+                foreach($dokumenList as $dok) {
+                    $dokumenByJenis[$dok['jenis_dokumen']] = $dok;
+                }
+                
+                $totalDokumen = count($requiredDokumen);
+                $uploadedDokumen = count($dokumenByJenis);
+                $progressPercentage = $totalDokumen > 0 ? ($uploadedDokumen / $totalDokumen) * 100 : 0;
+                ?>
+                
+                <div class="dokumen-count">
+                    <?= $uploadedDokumen ?> dari <?= $totalDokumen ?> dokumen telah diupload
+                </div>
+                <div class="progress-bar-custom">
+                    <div class="progress-fill" style="width: <?= $progressPercentage ?>%"></div>
+                </div>
+                
+                <div class="dokumen-list">
+                    <?php foreach($requiredDokumen as $jenis => $namaLabel): ?>
+                        <?php 
+                        $dokumen = isset($dokumenByJenis[$jenis]) ? $dokumenByJenis[$jenis] : null;
+                        ?>
+                        <div class="dokumen-item">
+                            <div class="dokumen-info">
+                                <div class="dokumen-icon">
+                                    <i class="fas fa-file-pdf"></i>
+                                </div>
+                                <div class="dokumen-details">
+                                    <div class="dokumen-name">
+                                        <?= htmlspecialchars($namaLabel) ?>
+                                        <?php if($dokumen): ?>
+                                            <span class="badge-success ms-2">
+                                                <i class="fas fa-check"></i> Berhasil diunggah
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge-custom badge-tidak-aktif ms-2">
+                                                <i class="fas fa-times"></i> Belum diunggah
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="dokumen-meta">
+                                        <?php if($dokumen): ?>
+                                            <?= number_format($dokumen['ukuran_file'] / 1024, 2) ?> KB • 
+                                            <?= date('d/m/Y H:i', strtotime($dokumen['created_at'])) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Belum ada dokumen yang diupload</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dokumen-actions">
+                                <?php if($dokumen): ?>
+                                    <a href="../../uploads/dokumen/<?= htmlspecialchars($dokumen['nama_file']) ?>" 
+                                       target="_blank" 
+                                       class="btn-view">
+                                        <i class="fas fa-eye"></i> Lihat
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-muted" style="font-size: 12px;">-</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
 
             <div class="btn-group">
