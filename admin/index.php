@@ -1,53 +1,55 @@
 <?php
 // Koneksi database
-$host = 'localhost';
-$dbname = 'sdm_polnest';
-$username = 'root';
-$password = '';
+// Path yang benar dari admin/index.php ke config
+require_once '../config/database.php';
 
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
-    die("Koneksi gagal: " . $e->getMessage());
+// Check if user is logged in
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
+    header('Location: ' . BASE_URL . 'auth/login_pegawai.php');
+    exit();
 }
 
-// Query untuk mendapatkan data dashboard menggunakan view yang sudah ada
-$query_dashboard = "SELECT * FROM v_dashboard_admin"; 
-$stmt_dashboard = $pdo->query($query_dashboard);
-$data_dashboard = $stmt_dashboard->fetch(PDO::FETCH_ASSOC);
+// Ganti $pdo jadi $conn (sesuai database.php)
+try {
+    // Query untuk mendapatkan data dashboard menggunakan view yang sudah ada
+    $query_dashboard = "SELECT * FROM v_dashboard_admin"; 
+    $stmt_dashboard = $conn->query($query_dashboard);
+    $data_dashboard = $stmt_dashboard->fetch(PDO::FETCH_ASSOC);
 
-// Data untuk card statistik
-$total_pegawai = $data_dashboard['total_pegawai_aktif'] ?? 0;
-$pegawai_kontrak = $data_dashboard['pegawai_kontrak'] ?? 0;
-$kontrak_habis = $data_dashboard['kontrak_akan_habis'] ?? 0;
-$lamaran_baru = $data_dashboard['lamaran_baru'] ?? 0;
+    // Data untuk card statistik
+    $total_pegawai = $data_dashboard['total_pegawai_aktif'] ?? 0;
+    $pegawai_kontrak = $data_dashboard['pegawai_kontrak'] ?? 0;
+    $kontrak_habis = $data_dashboard['kontrak_akan_habis'] ?? 0;
+    $lamaran_baru = $data_dashboard['lamaran_baru'] ?? 0;
 
-// Query untuk Monitoring Kuota Formasi
-$query_formasi = "SELECT nama_posisi, kuota_total, kuota_terisi, jumlah_pendaftar FROM kuota_formasi ORDER BY created_at DESC";
-$stmt_formasi = $pdo->query($query_formasi);
-$data_formasi = $stmt_formasi->fetchAll(PDO::FETCH_ASSOC);
+    // Query untuk Monitoring Kuota Formasi
+    $query_formasi = "SELECT nama_posisi, kuota_total, kuota_terisi, jumlah_pendaftar FROM kuota_formasi ORDER BY created_at DESC";
+    $stmt_formasi = $conn->query($query_formasi);
+    $data_formasi = $stmt_formasi->fetchAll(PDO::FETCH_ASSOC);
 
-// Query untuk Status Pegawai (untuk pie chart)
-$query_status = "
-    SELECT 
-        jenis_kepegawaian,
-        COUNT(*) as jumlah,
-        ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM status_kepegawaian WHERE status_aktif = 'aktif')), 0) as persentase
-    FROM status_kepegawaian 
-    WHERE status_aktif = 'aktif'
-    GROUP BY jenis_kepegawaian
-";
-$stmt_status = $pdo->query($query_status);
-$data_status = $stmt_status->fetchAll(PDO::FETCH_ASSOC);
+    // Query untuk Status Pegawai (untuk pie chart)
+    $query_status = "
+        SELECT 
+            jenis_kepegawaian,
+            COUNT(*) as jumlah,
+            ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM status_kepegawaian WHERE status_aktif = 'aktif')), 0) as persentase
+        FROM status_kepegawaian 
+        WHERE status_aktif = 'aktif'
+        GROUP BY jenis_kepegawaian
+    ";
+    $stmt_status = $conn->query($query_status);
+    $data_status = $stmt_status->fetchAll(PDO::FETCH_ASSOC);
 
-// Query untuk Alert & Notifikasi
-$query_notif = "SELECT * FROM notifikasi_admin WHERE is_read = 0 ORDER BY created_at DESC LIMIT 4";
-$stmt_notif = $pdo->query($query_notif);
-$data_notif = $stmt_notif->fetchAll(PDO::FETCH_ASSOC);
+    // Query untuk Alert & Notifikasi
+    $query_notif = "SELECT * FROM notifikasi_admin WHERE is_read = 0 ORDER BY created_at DESC LIMIT 4";
+    $stmt_notif = $conn->query($query_notif);
+    $data_notif = $stmt_notif->fetchAll(PDO::FETCH_ASSOC);
 
-// Hitung persentase untuk pie chart
-$total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
+    // Hitung persentase untuk pie chart
+    $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
+} catch(PDOException $e) {
+    die("Error: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -56,7 +58,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Admin - Sistem SDM Polnest</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
@@ -71,20 +75,11 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
             color: #333;
         }
 
-        .sidebar {
-            width: 260px;
-            height: 100vh;
-            position: fixed;
-            top: 0;
-            left: 0;
-            background-color: #111827;
-            color: #fff;
-            z-index: 1000;
-        }
-
+        /* Main Content - Sesuaikan dengan sidebar yang baru */
         .main-content {
             padding: 30px;
-            margin-left: 260px;
+            margin-left: 290px;
+            transition: margin-left 0.3s ease;
         }
 
         .header {
@@ -292,7 +287,19 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
             grid-column: 1 / -1;
         }
 
-        @media (max-width: 1024px) {
+        /* Responsive */
+        @media (max-width: 968px) {
+            .main-content {
+                margin-left: 80px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+            
             .content-grid {
                 grid-template-columns: 1fr;
             }
@@ -300,21 +307,16 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
             .alert-grid {
                 grid-template-columns: 1fr;
             }
-        }
-
-        @media (max-width: 768px) {
+            
             .stats-grid {
                 grid-template-columns: 1fr;
-            }
-            
-            .main-content {
-                padding: 20px;
             }
         }
     </style>
 </head>
 <body>
     <?php include 'sidebar/sidebar.php'; ?>
+    
     <div class="main-content">
         <!-- Header -->
         <div class="header">
@@ -330,7 +332,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $total_pegawai ?></div>
                     <div class="subtitle">Semua status</div>
                 </div>
-                <div class="stat-icon icon-green">👥</div>
+                <div class="stat-icon icon-green">
+                    <i class="bi bi-people-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -339,7 +343,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $pegawai_kontrak ?></div>
                     <div class="subtitle">Status kontrak</div>
                 </div>
-                <div class="stat-icon icon-blue">📋</div>
+                <div class="stat-icon icon-blue">
+                    <i class="bi bi-clipboard-check-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -348,7 +354,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $kontrak_habis ?></div>
                     <div class="subtitle">30 hari ke depan</div>
                 </div>
-                <div class="stat-icon icon-yellow">⚠️</div>
+                <div class="stat-icon icon-yellow">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -357,7 +365,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number"><?= $lamaran_baru ?></div>
                     <div class="subtitle">Menunggu verifikasi</div>
                 </div>
-                <div class="stat-icon icon-red">📨</div>
+                <div class="stat-icon icon-red">
+                    <i class="bi bi-envelope-fill"></i>
+                </div>
             </div>
 
             <div class="stat-card">
@@ -366,7 +376,9 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                     <div class="number">0</div>
                     <div class="subtitle">Perlu diperpanjang</div>
                 </div>
-                <div class="stat-icon icon-purple">🎓</div>
+                <div class="stat-icon icon-purple">
+                    <i class="bi bi-mortarboard-fill"></i>
+                </div>
             </div>
         </div>
 
@@ -461,7 +473,6 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
 
     <script>
         <?php if (!empty($data_status)): ?>
-        // Pie Chart untuk Status Pegawai
         const ctx = document.getElementById('statusChart');
         
         const data_chart = {
@@ -470,12 +481,7 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
             }, $data_status)) ?>,
             datasets: [{
                 data: <?= json_encode(array_column($data_status, 'persentase')) ?>,
-                backgroundColor: [
-                    '#60a5fa', // Biru untuk Tetap
-                    '#fbbf24', // Kuning untuk Kontrak
-                    '#34d399', // Hijau
-                    '#f87171'  // Merah
-                ],
+                backgroundColor: ['#60a5fa', '#fbbf24', '#34d399', '#f87171'],
                 borderWidth: 0,
                 hoverOffset: 10
             }]
@@ -492,10 +498,7 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                         position: 'bottom',
                         labels: {
                             padding: 15,
-                            font: {
-                                size: 12,
-                                family: 'Inter'
-                            },
+                            font: { size: 12, family: 'Poppins' },
                             generateLabels: function(chart) {
                                 const data = chart.data;
                                 if (data.labels.length && data.datasets.length) {
@@ -510,13 +513,6 @@ $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
                                     });
                                 }
                                 return [];
-                            }
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.label + ': ' + context.parsed + '%';
                             }
                         }
                     }

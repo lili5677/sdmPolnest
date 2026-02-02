@@ -121,11 +121,12 @@ if (!defined('BASE_URL')) {
     .footer {
         background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
         color: white;
-        padding: 40px 20px 0;
+        padding: 40px 40px 0;
         margin: 50px auto 0;
         max-width: 100%;
         border-radius: 20px 20px 0 0;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        
     }
 
     .footer-container {
@@ -153,15 +154,15 @@ if (!defined('BASE_URL')) {
     }
 
     .animate-item[data-animation="slide-right"].visible {
-        transform: translateX(0);
+        transform: translateY(0);
     }
 
     .animate-item[data-animation="slide-left"] {
-        transform: translateX(80px);
+        transform: translateY(80px);
     }
 
     .animate-item[data-animation="slide-left"].visible {
-        transform: translateX(0);
+        transform: translateY(0);
     }
 
     .animate-item[data-animation="slide-up"] {
