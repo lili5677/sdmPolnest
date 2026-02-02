@@ -713,13 +713,17 @@
                     <i class="fas fa-chalkboard-teacher"></i>
                     <span>Pengembangan SDM</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/sertifikasi-dosen.php" class="menu-item <?php echo $halaman_sekarang == 'sertifikasi-dosen.php' ? 'active' : ''; ?>" title="Sertifikasi Dosen">
+                <a href="<?php echo $base_url; ?>/sertifikasi/sertifikasi-dosen.php" class="menu-item <?php echo $halaman_sekarang == 'sertifikasi-dosen.php' ? 'active' : ''; ?>" title="Sertifikasi Dosen">
                     <i class="fas fa-certificate"></i>
                     <span>Sertifikasi Dosen</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/penilaian-kinerja.php" class="menu-item <?php echo $halaman_sekarang == 'penilaian-kinerja.php' ? 'active' : ''; ?>" title="Penilaian Kinerja">
+                <a href="<?php echo $base_url; ?>/penilaian/penilaianKinerja.php" class="menu-item <?php echo $halaman_sekarang == 'penilaianKinerja.php' ? 'active' : ''; ?>" title="Penilaian Kinerja">
                     <i class="fas fa-chart-bar"></i>
                     <span>Penilaian Kinerja</span>
+                </a>
+                <a href="<?php echo $base_url; ?>/pegawaiLama/manajemen-pegawai.php" class="menu-item <?php echo $halaman_sekarang == 'manajemen-pegawai.php' ? 'active' : ''; ?>" title="Manajemen Pegawai">
+                    <i class="fas fa-user-cog"></i>
+                    <span>Manajemen Pegawai</span>
                 </a>
             </div>
         </div>
