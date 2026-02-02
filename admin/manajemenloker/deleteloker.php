@@ -1,31 +1,24 @@
 <?php
-// Koneksi database
-$host = 'localhost';
-$dbname = 'sdm_polnest';
-$username = 'root';
-$password = '';
+// Koneksi Database
+require_once '../../config/database.php';
 
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch(PDOException $e) {
-    die("Koneksi gagal: " . $e->getMessage());
+// Check if user is logged in
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
+    header('Location: ' . BASE_URL . 'auth/login_pegawai.php');
+    exit();
 }
 
-// Proses hapus lowongan
+// Proses tutup lowongan
 $lowongan_id = $_GET['id'] ?? 0;
 
 if ($lowongan_id > 0) {
     try {
-        // Hapus lowongan
-        $stmt = $pdo->prepare("DELETE FROM lowongan_pekerjaan WHERE lowongan_id = ?");
+        $stmt = $conn->prepare("UPDATE lowongan_pekerjaan SET status = 'ditutup', updated_at = CURRENT_TIMESTAMP WHERE lowongan_id = ?");
         $stmt->execute([$lowongan_id]);
-        
-        // Redirect ke index dengan pesan sukses
-        header('Location:index.php?deleted=1');
+
+        header('Location: index.php?deleted=1');
         exit;
-    } catch(PDOException $e) {
-        // Redirect ke index dengan pesan error
+    } catch (PDOException $e) {
         header('Location: index.php?error=' . urlencode($e->getMessage()));
         exit;
     }
