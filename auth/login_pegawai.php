@@ -1,138 +1,101 @@
 <?php
-/**
- * LOGIN PEGAWAI - SMART VERSION
- * File: auth/login_pegawai.php
- * 
- * LOGIC:
- * 1. Pelamar biasa → TOLAK dengan pesan "Bukan pegawai"
- * 2. Pelamar DITERIMA → BOLEH login → Auto redirect ke aktivasi
- * 3. Pegawai aktif → Login normal
- */
-
-// STEP 1: Start session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// STEP 2: Database connection
 require_once '../config/database.php';
 
-// STEP 3: Kalau sudah login sebagai pegawai/dosen, langsung ke dashboard
-if (isset($_SESSION['user_id']) && isset($_SESSION['user_type'])) {
-    if ($_SESSION['user_type'] == 'pegawai' || $_SESSION['user_type'] == 'dosen') {
-        header('Location: ../users/pegawai/dashboard.php');
-        exit;
-    }
-}
-
-// STEP 4: Handle login form
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    if (empty($email) || empty($password)) {
-        $error = "Email dan password harus diisi!";
+    $email    = trim($_POST['email'] ?? '');
+    $input    = trim($_POST['password'] ?? ''); // bisa password / token
+
+    if ($email === '') {
+        $error = "Email harus diisi!";
     } else {
-        try {
-            // Query cek user + status pelamar
-            $query = "SELECT u.*, 
-                             p.pelamar_id, 
-                             p.nama_lengkap,
-                             l.lamaran_id,
-                             l.status_lamaran,
-                             at.token,
-                             at.is_used,
-                             at.expired_at,
-                             at.role,
-                             at.nidn,
-                             at.prodi,
-                             at.nip
-                      FROM users u
-                      LEFT JOIN pelamar p ON u.user_id = p.user_id
-                      LEFT JOIN lamaran l ON p.pelamar_id = l.pelamar_id AND l.status_lamaran = 'diterima'
-                      LEFT JOIN activation_tokens at ON p.pelamar_id = at.pelamar_id
-                      WHERE u.email = :email 
-                      AND u.is_active = 1";
-            
-            $stmt = $conn->prepare($query);
-            $stmt->execute(['email' => $email]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Validasi user exists
-            if (!$user) {
-                $error = "Email tidak ditemukan atau akun tidak aktif!";
+        $stmt = $conn->prepare("
+            SELECT u.*, p.pegawai_id, p.is_pegawai_lama
+            FROM users u
+            LEFT JOIN pegawai p ON u.user_id = p.user_id
+            WHERE u.email = ?
+              AND u.is_active = 1
+            LIMIT 1
+        ");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            $error = "Email tidak ditemukan atau akun tidak aktif!";
+        }
+
+        // ================= ADMIN =================
+        elseif ($user['user_type'] === 'admin') {
+
+            if (!password_verify($input, $user['password'])) {
+                $error = "Password salah!";
             } else {
-                // CASE 1: User adalah PEGAWAI atau DOSEN (sudah aktif)
-                if ($user['user_type'] == 'pegawai' || $user['user_type'] == 'dosen') {
-                    // Cek password
-                    if (password_verify($password, $user['password'])) {
-                        // LOGIN BERHASIL sebagai pegawai/dosen
-                        $_SESSION['user_id'] = $user['user_id'];
-                        $_SESSION['email'] = $user['email'];
-                        $_SESSION['user_type'] = $user['user_type'];
-                        $_SESSION['logged_in'] = true;
-                        $_SESSION['login_time'] = time();
 
-                        // Remember me
-                        if (isset($_POST['remember'])) {
-                            setcookie('remember_email', $email, time() + (86400 * 30), '/');
-                        }
+                $_SESSION['user_id']   = $user['user_id'];
+                $_SESSION['email']     = $user['email'];
+                $_SESSION['user_type'] = 'admin';
 
-                        session_write_close();
-                        session_start();
+                header('Location: ../admin/index.php');
+                exit;
+            }
+        }
 
-                        header('Location: ../users/pegawai/dashboard.php');
-                        exit;
-                    } else {
-                        $error = "Password salah!";
-                    }
+        // ================= PEGAWAI / DOSEN =================
+        elseif (in_array($user['user_type'], ['pegawai', 'dosen'])) {
+
+            // ===== PEGAWAI LAMA =====
+            if ($user['is_pegawai_lama'] == 1 && $user['password_changed'] == 0) {
+                
+                if ($input === '') {
+                    $error = "Token login wajib diisi!";
                 }
-                // CASE 2: User adalah PELAMAR
-                elseif ($user['user_type'] == 'pelamar') {
-                    // Cek apakah pelamar SUDAH DITERIMA
-                    if ($user['status_lamaran'] == 'diterima' && !empty($user['token'])) {
-                        // PELAMAR DITERIMA - BOLEH LOGIN!
-                        
-                        // Cek password (untuk pelamar yang sudah pernah login)
-                        if (password_verify($password, $user['password'])) {
-                            // Password match - set session
-                            $_SESSION['user_id'] = $user['user_id'];
-                            $_SESSION['email'] = $user['email'];
-                            $_SESSION['user_type'] = 'pelamar';
-                            $_SESSION['pelamar_id'] = $user['pelamar_id'];
-                            $_SESSION['nama_lengkap'] = $user['nama_lengkap'];
-                            $_SESSION['logged_in'] = true;
-                            $_SESSION['login_time'] = time();
-                            $_SESSION['is_first_login'] = true;
-
-                            // Remember me
-                            if (isset($_POST['remember'])) {
-                                setcookie('remember_email', $email, time() + (86400 * 30), '/');
-                            }
-
-                            session_write_close();
-                            session_start();
-
-                            // Redirect ke halaman aktivasi pegawai
-                            header('Location: ../users/pelamar/aktivasi_pegawai.php');
-                            exit;
-                        } else {
-                            $error = "Password salah!";
-                        }
-                    } else {
-                        // PELAMAR BIASA (belum diterima) - TOLAK!
-                        $error = "Anda bukan pegawai di Politeknik NEST. Akun Anda masih berstatus pelamar.";
-                    }
+                elseif ($input !== $user['token']) {
+                    $error = "Token login salah!";
                 }
-                // CASE 3: User type lain (admin, dll)
                 else {
-                    $error = "Anda tidak memiliki akses ke halaman pegawai. Silakan login di halaman yang sesuai.";
+
+                    $_SESSION['user_id']   = $user['user_id'];
+                    $_SESSION['pegawai_id'] = $user['pegawai_id'];
+                    $_SESSION['email']     = $user['email'];
+                    $_SESSION['user_type'] = $user['user_type'];
+                    $_SESSION['first_login'] = true;
+
+                    header('Location: ../users/pegawai/keamanan.php?first_login=1');
+                    exit;
                 }
             }
-        } catch (Exception $e) {
-            $error = "Terjadi kesalahan sistem: " . $e->getMessage();
+
+            // ===== PEGAWAI AKTIF =====
+            else {
+
+                if ($input === '') {
+                    $error = "Password harus diisi!";
+                }
+                elseif (!password_verify($input, $user['password'])) {
+                    $error = "Password salah!";
+                }
+                else {
+
+                    $_SESSION['user_id']    = $user['user_id'];
+                    $_SESSION['pegawai_id'] = $user['pegawai_id'];
+                    $_SESSION['email']      = $user['email'];
+                    $_SESSION['user_type']  = $user['user_type'];
+
+                    header('Location: ../users/pegawai/administrasi.php');
+                    exit;
+                }
+            }
+        }
+
+        else {
+            $error = "Anda tidak memiliki akses.";
         }
     }
 }
@@ -285,11 +248,17 @@ include '../users/partials/navbar.php';
         gap: 8px;
     }
 
+    .form-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
     .remember-group {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 20px;
     }
 
     .remember-group input {
@@ -303,6 +272,19 @@ include '../users/partials/navbar.php';
         font-size: 14px;
         cursor: pointer;
         user-select: none;
+    }
+
+    .forgot-password-link {
+        color: #0d47a1;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: color 0.3s;
+    }
+
+    .forgot-password-link:hover {
+        color: #1976d2;
+        text-decoration: underline;
     }
 
     .btn-submit {
@@ -360,6 +342,12 @@ include '../users/partials/navbar.php';
         .login-image {
             display: none;
         }
+        
+        .form-footer {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
     }
 </style>
 </head>
@@ -381,7 +369,7 @@ include '../users/partials/navbar.php';
                         Informasi Login
                     </h4>
                     <p>
-                        Portal ini khusus untuk <strong>pegawai dan dosen</strong> Politeknik NEST. 
+                        Portal ini khusus untuk <strong>pegawai</strong> Politeknik NEST. 
                         Jika Anda adalah pelamar yang sudah diterima, Anda dapat login di sini untuk aktivasi akun pegawai.
                     </p>
                 </div>
@@ -396,7 +384,7 @@ include '../users/partials/navbar.php';
                 <?php if (isset($_GET['logout'])): ?>
                     <div class="success-message">
                         <i class="bi bi-check-circle-fill"></i>
-                        <span>Anda telah berhasil logout.</span>
+                        <span>Anda telah berhasil logout</span>
                     </div>
                 <?php endif; ?>
 
@@ -404,6 +392,13 @@ include '../users/partials/navbar.php';
                     <div class="success-message">
                         <i class="bi bi-check-circle-fill"></i>
                         <span>Akun berhasil diaktivasi! Silakan login dengan password baru Anda.</span>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (isset($_GET['reset_success'])): ?>
+                    <div class="success-message">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Password berhasil direset! Silakan login dengan password baru Anda.</span>
                     </div>
                 <?php endif; ?>
 
@@ -417,13 +412,17 @@ include '../users/partials/navbar.php';
 
                     <div class="form-group">
                         <label class="form-label">Password</label>
-                        <input type="password" class="form-control" name="password" placeholder="Masukkan password Anda"
-                            required>
+                        <input type="password" class="form-control" name="password" placeholder="Password / Token Login" required>
                     </div>
 
-                    <div class="remember-group">
-                        <input type="checkbox" id="remember" name="remember">
-                        <label for="remember">Ingat Saya</label>
+                    <div class="form-footer">
+                        <div class="remember-group">
+                            <input type="checkbox" id="remember" name="remember">
+                            <label for="remember">Ingat Saya</label>
+                        </div>
+                        <a href="lupa-password.php" class="forgot-password-link">
+                            <i class="bi bi-key-fill"></i> Lupa Password?
+                        </a>
                     </div>
 
                     <button type="submit" class="btn-submit">
