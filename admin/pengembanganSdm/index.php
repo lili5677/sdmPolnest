@@ -19,6 +19,13 @@ FROM pengajuan_studi";
 $stmt_stats = $conn->prepare($query_stats);
 $stmt_stats->execute();
 $stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
+
+// Tentukan tab aktif
+$activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'pengajuan';
+$validTabs = ['pengajuan', 'pelatihan', 'reward', 'template'];
+if (!in_array($activeTab, $validTabs)) {
+    $activeTab = 'pengajuan';
+}
 ?>
 
 <!DOCTYPE html>
@@ -149,6 +156,7 @@ $stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
             background: none;
             transition: all 0.3s;
             font-size: 14px;
+            text-decoration: none;
         }
 
         .custom-tabs .nav-link:hover {
@@ -172,16 +180,14 @@ $stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
         }
 
         /* ===== TAB CONTENT ===== */
-        .tab-content {
+        .tab-content-wrapper {
             min-height: 400px;
+            animation: fadeIn 0.3s ease;
         }
 
-        .tab-pane {
-            display: none;
-        }
-
-        .tab-pane.active {
-            display: block;
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
     </style>
 </head>
@@ -232,69 +238,61 @@ $stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
         </div>
 
         <!-- Tabs Navigation -->
-        <ul class="nav nav-tabs custom-tabs" id="myTab" role="tablist">
+        <ul class="nav nav-tabs custom-tabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="pengajuan-tab" data-bs-toggle="tab" data-bs-target="#tab-pengajuan" type="button" role="tab">
+                <a class="nav-link <?php echo $activeTab == 'pengajuan' ? 'active' : ''; ?>" href="?tab=pengajuan">
                     Manajemen Pengajuan
-                </button>
+                </a>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="pelatihan-tab" data-bs-toggle="tab" data-bs-target="#tab-pelatihan" type="button" role="tab">
+                <a class="nav-link <?php echo $activeTab == 'template' ? 'active' : ''; ?>" href="?tab=template">
+                    Kelola Template Manajemen Pengajuan
+                </a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link <?php echo $activeTab == 'pelatihan' ? 'active' : ''; ?>" href="?tab=pelatihan">
                     Manajemen Pelatihan
-                </button>
+                </a>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="reward-tab" data-bs-toggle="tab" data-bs-target="#tab-reward" type="button" role="tab">
+                <a class="nav-link <?php echo $activeTab == 'reward' ? 'active' : ''; ?>" href="?tab=reward">
                     Reward
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="template-tab" data-bs-toggle="tab" data-bs-target="#tab-template" type="button" role="tab">
-                    Kelola Template
-                </button>
+                </a>
             </li>
         </ul>
 
-        <!-- Tab Content -->
-        <div class="tab-content" id="myTabContent">
-            <!-- Tab: Manajemen Pengajuan -->
-            <div class="tab-pane fade show active" id="tab-pengajuan" role="tabpanel">
-                <?php include 'manajemenpengajuan.php'; ?>
-            </div>
-
-            <!-- Tab: Manajemen Pelatihan -->
-            <div class="tab-pane fade" id="tab-pelatihan" role="tabpanel">
-                <?php include 'pelatihan.php'; ?>
-            </div>
-
-            <!-- Tab: Reward -->
-            <div class="tab-pane fade" id="tab-reward" role="tabpanel">
-                <?php include 'reward.php'; ?>
-            </div>
-
-            <!-- Tab: Kelola Template -->
-            <div class="tab-pane fade" id="tab-template" role="tabpanel">
-                <?php include 'kelolatemplate.php'; ?>
-            </div>
+        <!-- Tab Content - HANYA LOAD TAB AKTIF -->
+        <div class="tab-content-wrapper">
+            <?php
+            switch ($activeTab) {
+                case 'pengajuan':
+                    include 'manajemenpengajuan.php';
+                    break;
+                case 'template':
+                    include 'kelolatemplate.php';
+                    break;
+                case 'pelatihan':
+                    include 'pelatihan.php';
+                    break;
+                case 'reward':
+                    include 'reward.php';
+                    break;
+                default:
+                    include 'manajemenpengajuan.php';
+            }
+            ?>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <script>
+        // Handle notifications
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
             const status = urlParams.get('status');
             const message = urlParams.get('message');
-            const tab = urlParams.get('tab');
-            
-            if (tab) {
-                const targetTab = document.querySelector(`[data-bs-target="#tab-${tab}"]`);
-                if (targetTab) {
-                    const bsTab = new bootstrap.Tab(targetTab);
-                    bsTab.show();
-                }
-            }
             
             if (status && message) {
                 const icon = status === 'success' ? 'success' : 'error';
@@ -307,9 +305,11 @@ $stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
                     confirmButtonColor: '#3b82f6',
                     timer: 3000,
                     timerProgressBar: true
+                }).then(() => {
+                    // Clean URL
+                    const tab = urlParams.get('tab') || 'pengajuan';
+                    window.location.href = '?tab=' + tab;
                 });
-                
-                window.history.replaceState({}, document.title, window.location.pathname);
             }
         });
     </script>
