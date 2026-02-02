@@ -377,30 +377,6 @@ include '../partials/navbar_req.php';
                 </form>
             </div>
 
-            <!-- Privacy Settings -->
-            <div class="settings-section">
-                <h2 class="section-title">
-                    <i class="bi bi-shield-check"></i>
-                    Privasi dan Keamanan
-                </h2>
-
-                <div class="settings-item">
-                    <div class="settings-info">
-                        <div class="settings-icon">
-                            <i class="bi bi-shield-lock-fill" style="color: #0d47a1;"></i>
-                        </div>
-                        <div class="settings-text">
-                            <h4>Autentikasi 2 Faktor</h4>
-                            <p>Amankan akun Anda dengan kode SMS/App</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-
             <!-- Danger Zone -->
             <div class="settings-section">
                 <div class="danger-zone">
