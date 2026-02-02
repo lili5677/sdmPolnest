@@ -4,7 +4,7 @@ require_once '../../config/database.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../auth/login_pegawai.php');
+    header('Location: ../../auth/login_pelamar.php');
     exit;
 }
 
@@ -21,34 +21,81 @@ $stmt = $conn->prepare($query);
 $stmt->execute(['user_id' => $user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Get education history - sesuai struktur tabel pendidikan_pelamar
-$edu_query = "SELECT * FROM pendidikan_pelamar WHERE pelamar_id = :pelamar_id ORDER BY tahun_lulus DESC";
+// Get education history - DIPERBAIKI: tanpa ORDER BY tahun_lulus
+$edu_query = "SELECT * FROM pendidikan_pelamar WHERE lamaran_id = :lamaran_id ORDER BY created_at DESC";
 $edu_stmt = $conn->prepare($edu_query);
-$edu_stmt->execute(['pelamar_id' => $user['pelamar_id']]);
+$edu_stmt->execute(['lamaran_id' => $user['lamaran_id']]);
 $education = $edu_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get work experience - sesuai struktur tabel pengalaman_pelamar
-$work_query = "SELECT * FROM pengalaman_pelamar WHERE pelamar_id = :pelamar_id ORDER BY created_at DESC LIMIT 1";
+$work_query = "SELECT * FROM pengalaman_pelamar WHERE lamaran_id = :lamaran_id ORDER BY created_at DESC LIMIT 1";
 $work_stmt = $conn->prepare($work_query);
-$work_stmt->execute(['pelamar_id' => $user['pelamar_id']]);
+$work_stmt->execute(['lamaran_id' => $user['lamaran_id']]);
 $work_experience = $work_stmt->fetch(PDO::FETCH_ASSOC);
 
-// Get documents
-$doc_query = "SELECT * FROM dokumen_pelamar WHERE pelamar_id = :pelamar_id ORDER BY created_at DESC";
+// Get documents - hanya CV, Ijazah, dan Kartu Identitas (ambil 1 per jenis, yang terbaru)
+$doc_query = "SELECT d1.* 
+              FROM dokumen_pelamar d1
+              LEFT JOIN dokumen_pelamar d2 
+                ON d1.jenis_dokumen = d2.jenis_dokumen 
+                AND d1.lamaran_id = d2.lamaran_id
+                AND d1.created_at < d2.created_at
+              WHERE d1.lamaran_id = :lamaran_id 
+                AND d1.jenis_dokumen IN ('cv', 'ijazah', 'kartu_identitas', 'kartu identitas')
+                AND d2.dokumen_id IS NULL
+              ORDER BY 
+                CASE d1.jenis_dokumen
+                    WHEN 'cv' THEN 1
+                    WHEN 'ijazah' THEN 2
+                    WHEN 'kartu_identitas' THEN 3
+                    WHEN 'kartu identitas' THEN 3
+                END";
 $doc_stmt = $conn->prepare($doc_query);
-$doc_stmt->execute(['pelamar_id' => $user['pelamar_id']]);
+$doc_stmt->execute(['lamaran_id' => $user['lamaran_id']]);
 $documents = $doc_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Calculate years of experience - estimasi berdasarkan data yang ada
 $experience_years = 0;
 if ($work_experience && !empty($work_experience['pengalaman_kerja_terakhir'])) {
     // Estimasi pengalaman berdasarkan pendidikan terakhir
-    if ($user['pendidikan_terakhir'] == 'S3 Teknik Informatika') {
-        $experience_years = 3;
-    } elseif ($user['pendidikan_terakhir'] == 'S2' || strpos($user['pendidikan_terakhir'], 'S2') !== false) {
-        $experience_years = 2;
+    $pendidikan_terakhir = isset($user['pendidikan_terakhir']) ? $user['pendidikan_terakhir'] : '';
+    
+    if (!empty($pendidikan_terakhir)) {
+        if ($pendidikan_terakhir == 'S3 Teknik Informatika' || strpos($pendidikan_terakhir, 'S3') !== false) {
+            $experience_years = 3;
+        } elseif (strpos($pendidikan_terakhir, 'S2') !== false) {
+            $experience_years = 2;
+        } else {
+            $experience_years = 1;
+        }
     } else {
+        // Jika tidak ada data pendidikan terakhir, set default 1 tahun
         $experience_years = 1;
+    }
+}
+
+// Fungsi untuk format label dokumen
+function getDocumentLabel($jenis_dokumen) {
+    $labels = [
+        'cv' => 'Curriculum Vitae (CV)',
+        'ijazah' => 'Ijazah Terakhir',
+        'kartu_identitas' => 'Kartu Identitas (KTP/SIM)',
+        'kartu identitas' => 'Kartu Identitas (KTP/SIM)'
+    ];
+    return $labels[$jenis_dokumen] ?? ucfirst(str_replace('_', ' ', $jenis_dokumen));
+}
+
+// Fungsi untuk icon dokumen
+function getDocumentIcon($jenis_dokumen, $nama_file) {
+    // Cek ekstensi file
+    $ext = strtolower(pathinfo($nama_file, PATHINFO_EXTENSION));
+    
+    if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif'])) {
+        return 'image';
+    } elseif ($ext == 'pdf') {
+        return 'pdf';
+    } else {
+        return 'text';
     }
 }
 
@@ -241,6 +288,13 @@ include '../partials/navbar_req.php';
             background: #f8f9fa;
             border-radius: 12px;
             margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .document-item:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(13, 71, 161, 0.15);
         }
 
         .document-info {
@@ -257,6 +311,12 @@ include '../partials/navbar_req.php';
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .document-item:hover .document-icon {
+            background: #1565c0;
+            transform: scale(1.05);
         }
 
         .document-icon i {
@@ -395,7 +455,12 @@ include '../partials/navbar_req.php';
                     <div class="education-item">
                         <div class="education-degree"><?= htmlspecialchars($edu['jenjang']) ?> - <?= htmlspecialchars($edu['program_studi']) ?></div>
                         <div class="education-school"><?= htmlspecialchars($edu['nama_universitas']) ?></div>
-                        <div class="education-year">Lulus Tahun <?= htmlspecialchars($edu['tahun_lulus']) ?></div>
+                        <?php if (!empty($edu['tahun_masuk']) || !empty($edu['tahun_keluar'])): ?>
+                        <div class="education-year">
+                            <?= !empty($edu['tahun_masuk']) ? htmlspecialchars($edu['tahun_masuk']) : '-' ?> - 
+                            <?= !empty($edu['tahun_keluar']) ? htmlspecialchars($edu['tahun_keluar']) : 'Sekarang' ?>
+                        </div>
+                        <?php endif; ?>
                         <?php if (!empty($edu['ipk'])): ?>
                         <div class="education-ipk">IPK: <?= htmlspecialchars($edu['ipk']) ?></div>
                         <?php endif; ?>
@@ -460,26 +525,32 @@ include '../partials/navbar_req.php';
                 <h2 class="section-title">Dokumen Saya</h2>
                 <?php if (count($documents) > 0): ?>
                     <?php foreach ($documents as $doc): ?>
-                    <div class="document-item">
+                    <a href="../../<?= htmlspecialchars($doc['path_file']) ?>" 
+                       target="_blank" 
+                       class="document-item" 
+                       style="text-decoration: none; cursor: pointer;">
                         <div class="document-info">
                             <div class="document-icon">
-                                <i class="bi bi-file-earmark-<?= $doc['jenis_dokumen'] == 'foto' ? 'image' : 'pdf' ?>-fill"></i>
+                                <i class="bi bi-file-earmark-<?= getDocumentIcon($doc['jenis_dokumen'], $doc['nama_file']) ?>-fill"></i>
                             </div>
                             <div class="document-details">
-                                <h4><?= htmlspecialchars($doc['nama_file']) ?></h4>
+                                <h4><?= getDocumentLabel($doc['jenis_dokumen']) ?></h4>
                                 <div class="document-meta">
-                                    <?= ucfirst($doc['jenis_dokumen']) ?> • 
+                                    <?= htmlspecialchars($doc['nama_file']) ?> • 
                                     <?= number_format($doc['ukuran_file'] / 1024, 1) ?> MB • 
                                     Diupload <?= date('d M Y', strtotime($doc['created_at'])) ?>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </a>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <div class="empty-state">
                         <i class="bi bi-file-earmark"></i>
                         <p>Belum ada dokumen yang diupload</p>
+                        <small style="color: #b0bec5; margin-top: 8px; display: block;">
+                            Dokumen yang diperlukan: CV, Ijazah, dan Kartu Identitas
+                        </small>
                     </div>
                 <?php endif; ?>
             </div>

@@ -122,17 +122,16 @@ if (!defined('BASE_URL')) {
         background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
         color: white;
         padding: 40px 20px 0;
-        margin: 50px auto 0;
-        max-width: 100%;
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        width: 100%;
+        margin-top: 50px;
     }
 
     .footer-container {
-        display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 30px;
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 40px;
         padding-bottom: 30px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     }
@@ -182,8 +181,7 @@ if (!defined('BASE_URL')) {
 
     /* Logo Section */
     .logo-section {
-        flex: 1;
-        min-width: 250px;
+        /* Kolom 1 */
     }
 
     .logo-wrapper {
@@ -196,7 +194,7 @@ if (!defined('BASE_URL')) {
         width: 60px;
         height: 60px;
         background: white;
-        border-radius: 60%;
+        border-radius: 50%;
         padding: 5px;
         object-fit: contain;
         transition: transform 0.3s ease;
@@ -217,8 +215,7 @@ if (!defined('BASE_URL')) {
     /* Contact & Address Section */
     .contact-section,
     .address-section {
-        flex: 1;
-        min-width: 250px;
+        /* Kolom 2 & 3 */
     }
 
     .footer-title {
@@ -283,6 +280,8 @@ if (!defined('BASE_URL')) {
     }
 
     .footer-bottom-container {
+        max-width: 1200px;
+        margin: 0 auto;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -365,18 +364,13 @@ if (!defined('BASE_URL')) {
     /* Responsive Design */
     @media (max-width: 768px) {
         .footer {
-            border-radius: 15px 15px 0 0;
-            margin: 30px 10px 0;
             padding: 30px 15px 0;
+            margin-top: 30px;
         }
 
         .footer-container {
-            flex-direction: column;
+            grid-template-columns: 1fr;
             gap: 25px;
-        }
-
-        .footer-section {
-            min-width: 100%;
         }
 
         .footer-bottom-container {
@@ -389,11 +383,7 @@ if (!defined('BASE_URL')) {
         }
 
         .logo-wrapper {
-            justify-content: center;
-        }
-
-        .logo-text {
-            text-align: left;
+            justify-content: flex-start;
         }
 
         /* Mobile: semua slide dari bawah */
@@ -514,3 +504,6 @@ if (!defined('BASE_URL')) {
     `;
     document.head.appendChild(style);
 </script>
+
+</body>
+</html>

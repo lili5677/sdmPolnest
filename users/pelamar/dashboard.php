@@ -1,8 +1,12 @@
 <?php
 /**
- * DASHBOARD PELAMAR - GUEST FRIENDLY VERSION
+ * DASHBOARD PELAMAR - UPDATED VERSION
  * File: users/pelamar/dashboard.php
- * Tampilan Lowongan Pekerjaan (Bisa diakses Guest & Pelamar)
+ * 
+ * UPDATE:
+ * - Auto hide lowongan yang expired (deadline lewat atau formasi penuh)
+ * - Show badge "Formasi Penuh" jika sudah ada yang diterima
+ * - Improved UI untuk expired lowongan
  */
 
 // STEP 1: Start session
@@ -27,16 +31,60 @@ if ($is_logged_in) {
 // STEP 4: Database
 require_once '../../config/database.php';
 
-// STEP 5: Get lowongan
-$query = "SELECT * FROM lowongan_pekerjaan WHERE status = 'aktif' ORDER BY created_at DESC";
+// STEP 5: Auto-update jumlah_diterima dari lamaran
+// ⚠️ PENTING: Hitung HANYA yang status_lamaran = 'diterima'
+// Bukan yang 'dikirim', 'lolos_administrasi', dll
+// Jadi formasi 2 orang = butuh 2 orang DITERIMA, bukan 2 orang DAFTAR
+try {
+    $conn->exec("
+        UPDATE lowongan_pekerjaan lp
+        LEFT JOIN (
+            SELECT lowongan_id, COUNT(*) as total
+            FROM lamaran
+            WHERE status_lamaran = 'diterima'
+            GROUP BY lowongan_id
+        ) l ON lp.lowongan_id = l.lowongan_id
+        SET lp.jumlah_diterima = COALESCE(l.total, 0)
+    ");
+    
+    // Auto-close lowongan yang expired atau penuh
+    // Penuh = jumlah_diterima >= formasi (bukan jumlah pendaftar!)
+    $conn->exec("
+        UPDATE lowongan_pekerjaan
+        SET status = 'ditutup'
+        WHERE status = 'aktif'
+        AND (
+            deadline_lamaran < CURDATE()
+            OR jumlah_diterima >= formasi
+            OR is_active = 0
+        )
+    ");
+} catch (Exception $e) {
+    // Silent fail
+}
+
+// STEP 6: Get lowongan HANYA yang aktif
+// Kondisi:
+// - status = 'aktif'
+// - deadline >= hari ini
+// - jumlah_diterima < formasi
+$query = "SELECT *, 
+          (jumlah_diterima >= formasi) as is_full,
+          (deadline_lamaran < CURDATE()) as is_expired
+          FROM lowongan_pekerjaan 
+          WHERE status = 'aktif' 
+          AND deadline_lamaran >= CURDATE()
+          AND jumlah_diterima < formasi
+          AND is_active = 1
+          ORDER BY created_at DESC";
 $stmt = $conn->prepare($query);
 $stmt->execute();
 $lowongan_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// STEP 6: Jika user sudah login, ambil data lamaran
+// STEP 7: Jika user sudah login, ambil data lamaran
 $user_applications = [];
 if ($is_logged_in) {
-    // Get pelamar_id
+    // Get pelamar_id dari user_id
     $pelamar_query = "SELECT pelamar_id FROM pelamar WHERE user_id = :user_id";
     $pelamar_stmt = $conn->prepare($pelamar_query);
     $pelamar_stmt->execute(['user_id' => $user_id]);
@@ -45,7 +93,7 @@ if ($is_logged_in) {
     if ($pelamar_data) {
         $pelamar_id = $pelamar_data['pelamar_id'];
         
-        // Get existing applications
+        // Get semua lamaran dari pelamar_id
         $app_query = "SELECT lowongan_id FROM lamaran WHERE pelamar_id = :pelamar_id";
         $app_stmt = $conn->prepare($app_query);
         $app_stmt->execute(['pelamar_id' => $pelamar_id]);
@@ -155,6 +203,11 @@ include '../partials/navbar_req.php';
         font-weight: 700;
         margin-bottom: 10px;
     }
+    .job-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
     .job-badge {
         background: #4caf50;
         color: white;
@@ -165,6 +218,17 @@ include '../partials/navbar_req.php';
     }
     .job-badge.applied {
         background: #ff9800;
+    }
+    .job-badge.warning {
+        background: #ff5722;
+    }
+    .job-badge.urgent {
+        background: #f44336;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
     }
     .job-meta {
         display: grid;
@@ -181,6 +245,10 @@ include '../partials/navbar_req.php';
     }
     .meta-item i {
         font-size: 18px;
+    }
+    .meta-item.highlight {
+        color: #f44336;
+        font-weight: 600;
     }
     .job-desc {
         color: #546e7a;
@@ -333,10 +401,14 @@ include '../partials/navbar_req.php';
                 
                 // Deadline
                 $deadline = date('d F Y', strtotime($lowongan['deadline_lamaran']));
-                $is_active = strtotime($lowongan['deadline_lamaran']) >= time();
+                $days_left = floor((strtotime($lowongan['deadline_lamaran']) - time()) / (60 * 60 * 24));
                 
                 // Check if already applied
                 $already_applied = in_array($lowongan['lowongan_id'], $user_applications);
+                
+                // Hitung sisa slot
+                $sisa_slot = $lowongan['formasi'] - $lowongan['jumlah_diterima'];
+                $is_almost_full = $sisa_slot <= 2 && $sisa_slot > 0;
                 ?>
                 
                 <div class="job-card">
@@ -344,17 +416,31 @@ include '../partials/navbar_req.php';
                         <div>
                             <h3 class="job-title"><?= htmlspecialchars($lowongan['posisi']) ?></h3>
                         </div>
-                        <?php if ($already_applied): ?>
-                            <span class="job-badge applied">Sudah Melamar</span>
-                        <?php elseif ($is_active): ?>
-                            <span class="job-badge">Active</span>
-                        <?php endif; ?>
+                        <div class="job-badges">
+                            <?php if ($already_applied): ?>
+                                <span class="job-badge applied">Sudah Melamar</span>
+                            <?php endif; ?>
+                            
+                            <?php if ($is_almost_full): ?>
+                                <span class="job-badge warning">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                                    Tinggal <?= $sisa_slot ?> Slot
+                                </span>
+                            <?php endif; ?>
+                            
+                            <?php if ($days_left <= 3): ?>
+                                <span class="job-badge urgent">
+                                    <i class="bi bi-clock-fill"></i> 
+                                    <?= $days_left ?> Hari Lagi!
+                                </span>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
                     <div class="job-meta">
                         <div class="meta-item">
                             <i class="bi bi-people-fill"></i>
-                            <span><?= htmlspecialchars($lowongan['formasi']) ?> Posisi</span>
+                            <span><?= $lowongan['formasi'] ?> Posisi (<?= $sisa_slot ?> tersisa)</span>
                         </div>
                         <div class="meta-item">
                             <i class="bi bi-geo-alt-fill"></i>
@@ -364,7 +450,7 @@ include '../partials/navbar_req.php';
                             <i class="bi bi-cash-stack"></i>
                             <span><?= $gaji_text ?></span>
                         </div>
-                        <div class="meta-item">
+                        <div class="meta-item <?= $days_left <= 3 ? 'highlight' : '' ?>">
                             <i class="bi bi-calendar-event-fill"></i>
                             <span><?= $deadline ?></span>
                         </div>
@@ -389,9 +475,9 @@ include '../partials/navbar_req.php';
                             <button class="btn btn-apply" disabled>
                                 <i class="bi bi-check-circle-fill"></i> Sudah Melamar
                             </button>
-                        <?php elseif ($is_active): ?>
+                        <?php else: ?>
                             <!-- Bisa melamar -->
-                            <a href="lamaran.php?lowongan_id=<?= $lowongan['lowongan_id'] ?>" class="btn btn-apply">
+                            <a href="form_cv.php?lowongan_id=<?= $lowongan['lowongan_id'] ?>" class="btn btn-apply">
                                 <i class="bi bi-send-fill"></i> Lamar Sekarang
                             </a>
                         <?php endif; ?>
@@ -402,7 +488,10 @@ include '../partials/navbar_req.php';
             <div class="job-card">
                 <div class="empty-state">
                     <i class="bi bi-inbox"></i>
-                    <p>Belum ada lowongan tersedia saat ini.</p>
+                    <p><strong>Belum ada lowongan tersedia saat ini.</strong></p>
+                    <p style="font-size: 14px; color: #94a3b8; margin-top: 10px;">
+                        Lowongan yang sudah melewati deadline atau formasi penuh tidak ditampilkan.
+                    </p>
                 </div>
             </div>
         <?php endif; ?>
