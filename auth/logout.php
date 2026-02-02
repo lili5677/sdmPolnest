@@ -1,5 +1,4 @@
 <?php
-// File: auth/logout.php
 // Logout untuk pelamar
 
 session_start();
@@ -21,6 +20,6 @@ if (isset($_COOKIE['remember_email'])) {
 session_destroy();
 
 // Redirect ke login dengan notifikasi logout
-header('Location: login_pelamar.php?logout=1');
+header('Location: ../index.php?logout=1');
 exit;
 ?>
