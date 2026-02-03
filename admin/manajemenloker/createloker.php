@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id']            // FIX: dari session, bukan 1
         ]);
 
-        header('Location: index.php?success=1');
+        header('Location: manajemen-loker.php?success=1');
         exit;
     } catch (Exception $e) {
         $error = $e->getMessage();
@@ -138,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <main class="main-content">
             <div class="content-wrapper">
-                <a href="index.php" class="back-button"><i class="fas fa-arrow-left"></i> Kembali</a>
+                <a href="manajemen-loker.php" class="back-button"><i class="fas fa-arrow-left"></i> Kembali</a>
 
                 <div class="form-card">
                     <div class="form-header">
@@ -199,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
                         <div class="button-group">
-                            <a href="index.php" class="btn btn-cancel"><i class="fas fa-times"></i> Batal</a>
+                            <a href="manajemen-loker.php" class="btn btn-cancel"><i class="fas fa-times"></i> Batal</a>
                             <button type="submit" class="btn btn-submit"><i class="fas fa-save"></i> Simpan Lowongan</button>
                         </div>
                     </form>
