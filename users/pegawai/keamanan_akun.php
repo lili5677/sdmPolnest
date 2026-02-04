@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success_message = "Password berhasil dibuat. Mengalihkan ke dashboard...";
                 echo "<script>
                         setTimeout(() => {
-                            window.location.href = 'administrasi.php';
+                            window.location.href = '../../index.php';
                         }, 3000);
                       </script>";
             }

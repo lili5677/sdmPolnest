@@ -2,7 +2,7 @@
 session_start();
 require_once '../../config/database.php';
 
-// Cek apakah user sudah login dan merupakan admin
+// Cek login admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
@@ -13,31 +13,47 @@ date_default_timezone_set('Asia/Jakarta');
 $success = '';
 $error = '';
 
-/* ==========================================
-   AUTO CLEANUP: Hapus riwayat lama
-   Status completed/rejected yang sudah > 3 hari
-   Aman: tidak menyentuh pending atau approved
-   ========================================== */
 try {
+    // Cleanup riwayat lama
     $conn->exec("
         DELETE FROM password_reset_requests
         WHERE status IN ('completed', 'rejected')
         AND approved_at < DATE_SUB(NOW(), INTERVAL 3 DAY)
     ");
+    
+    // user gagal verifikasi token yang expired
+    $stmt = $conn->prepare("
+        UPDATE password_reset_requests r
+        JOIN users u ON r.user_id = u.user_id
+        SET r.status = 'rejected'
+        WHERE r.status = 'approved' 
+          AND u.reset_token_expires < NOW()
+    ");
+    $stmt->execute();
+    
+    // Hapus token expired dari tabel users
+    $stmt = $conn->prepare("
+        UPDATE users u
+        JOIN password_reset_requests r ON u.user_id = r.user_id
+        SET u.reset_token = NULL,
+            u.reset_token_expires = NULL
+        WHERE r.status = 'rejected'
+          AND u.reset_token_expires < NOW()
+    ");
+    $stmt->execute();
+    
 } catch (Exception $e) {
-    // Silently fail, cleanup bukan proses kritis
+    error_log("Cleanup error: " . $e->getMessage());
 }
 
-/* ==========================================
-   APPROVE REQUEST & GENERATE TOKEN
-   ========================================== */
+/* APPROVE REQUEST & GENERATE TOKEN */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
     
     $request_id = (int)$_POST['request_id'];
-    
+
     // Get request detail
     $stmt = $conn->prepare("
-        SELECT r.*, p.nama_lengkap, p.email
+        SELECT r.*, p.nama_lengkap, p.email, u.reset_token, u.reset_token_expires
         FROM password_reset_requests r
         JOIN users u ON r.user_id = u.user_id
         LEFT JOIN pegawai p ON r.user_id = p.user_id
@@ -51,9 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
         $_SESSION['error'] = "Request tidak ditemukan atau sudah diproses.";
     } else {
         
-        // Generate token 6 karakter (huruf & angka uppercase)
+        //  token 6 karakter (huruf & angka uppercase)
         $token = strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
-        $expires = date('Y-m-d H:i:s', time() + 1800); // 30 menit
+        $expires = date('Y-m-d H:i:s', time() + 1800); // 30 mnt
+        //$expires = date('Y-m-d H:i:s', time() + 60); 
+
         
         try {
             $conn->beginTransaction();
@@ -100,31 +118,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
     exit();
 }
 
-/* ==========================================
-   REJECT REQUEST
-   ========================================== */
+/* REJECT REQUEST */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_request'])) {
     
     $request_id = (int)$_POST['request_id'];
     
-    $stmt = $conn->prepare("
-        UPDATE password_reset_requests
-        SET status = 'rejected',
-            approved_at = NOW(),
-            approved_by = ?
-        WHERE request_id = ? AND status = 'pending'
-    ");
-    $stmt->execute([$_SESSION['user_id'], $request_id]);
-    
-    $_SESSION['success'] = "Request berhasil ditolak.";
+    try {
+        $conn->beginTransaction();
+        
+        // Get user_id dari request
+        $stmt = $conn->prepare("SELECT user_id FROM password_reset_requests WHERE request_id = ?");
+        $stmt->execute([$request_id]);
+        $user_id = $stmt->fetchColumn();
+        
+        // Update status request
+        $stmt = $conn->prepare("
+            UPDATE password_reset_requests
+            SET status = 'rejected',
+                approved_at = NOW(),
+                approved_by = ?
+            WHERE request_id = ? AND status = 'pending'
+        ");
+        $stmt->execute([$_SESSION['user_id'], $request_id]);
+        
+        // Hapus token jika ada
+        if ($user_id) {
+            $stmt = $conn->prepare("
+                UPDATE users
+                SET reset_token = NULL,
+                    reset_token_expires = NULL
+                WHERE user_id = ?
+            ");
+            $stmt->execute([$user_id]);
+        }
+        
+        $conn->commit();
+        $_SESSION['success'] = "Request berhasil ditolak.";
+        
+    } catch (Exception $e) {
+        $conn->rollBack();
+        $_SESSION['error'] = "Gagal menolak request: " . $e->getMessage();
+    }
     
     header("Location: reset-password-requests.php");
     exit();
 }
 
-/* ==========================================
-   GET PENDING REQUESTS
-   ========================================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['revoke_token'])) {
+    
+    $request_id = (int)$_POST['request_id'];
+    
+    try {
+        $conn->beginTransaction();
+        
+        // Get user_id dari request
+        $stmt = $conn->prepare("SELECT user_id FROM password_reset_requests WHERE request_id = ?");
+        $stmt->execute([$request_id]);
+        $user_id = $stmt->fetchColumn();
+        
+        // Update status request menjadi rejected
+        $stmt = $conn->prepare("
+            UPDATE password_reset_requests
+            SET status = 'rejected'
+            WHERE request_id = ? AND status = 'approved'
+        ");
+        $stmt->execute([$request_id]);
+        
+        // Hapus token dari users
+        if ($user_id) {
+            $stmt = $conn->prepare("
+                UPDATE users
+                SET reset_token = NULL,
+                    reset_token_expires = NULL
+                WHERE user_id = ?
+            ");
+            $stmt->execute([$user_id]);
+        }
+        
+        $conn->commit();
+        $_SESSION['success'] = "Token berhasil dibatalkan.";
+        
+    } catch (Exception $e) {
+        $conn->rollBack();
+        $_SESSION['error'] = "Gagal membatalkan token: " . $e->getMessage();
+    }
+    
+    header("Location: reset-password-requests.php");
+    exit();
+}
+
+/* GET PENDING REQUESTS*/
 $stmt = $conn->query("
     SELECT r.*, p.nama_lengkap, p.email as pegawai_email
     FROM password_reset_requests r
@@ -135,26 +218,43 @@ $stmt = $conn->query("
 ");
 $pending_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* ==========================================
-   GET RECENT HISTORY
-   ========================================== */
+/* GET APPROVED REQUESTS  */
+$stmt = $conn->query("
+    SELECT r.*, p.nama_lengkap, p.email as pegawai_email,
+           u.reset_token_expires,
+           CASE 
+               WHEN u.reset_token_expires < NOW() THEN 'expired'
+               ELSE 'valid'
+           END as token_status,
+           TIMESTAMPDIFF(MINUTE, NOW(), u.reset_token_expires) as minutes_remaining
+    FROM password_reset_requests r
+    JOIN users u ON r.user_id = u.user_id
+    LEFT JOIN pegawai p ON r.user_id = p.user_id
+    WHERE r.status = 'approved'
+    ORDER BY r.approved_at DESC
+");
+$approved_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/* GET RECENT HISTORY */
 $stmt = $conn->query("
     SELECT r.*, p.nama_lengkap, p.email as pegawai_email, a.email as admin_email
     FROM password_reset_requests r
     JOIN users u ON r.user_id = u.user_id
     LEFT JOIN pegawai p ON r.user_id = p.user_id
     LEFT JOIN users a ON r.approved_by = a.user_id
-    WHERE r.status IN ('approved', 'completed', 'rejected')
+    WHERE r.status IN ('completed', 'rejected')
     ORDER BY r.approved_at DESC
     LIMIT 20
 ");
 $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* ==========================================
-   STATISTICS
-   ========================================== */
+/* STATISTICS*/
 $stats_pending = $conn->query("
     SELECT COUNT(*) as total FROM password_reset_requests WHERE status = 'pending'
+")->fetch()['total'];
+
+$stats_approved = $conn->query("
+    SELECT COUNT(*) as total FROM password_reset_requests WHERE status = 'approved'
 ")->fetch()['total'];
 
 $stats_today = $conn->query("
@@ -174,7 +274,6 @@ $page_title = 'Kelola Reset Password - Admin';
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-    <!-- Google Fonts - Poppins -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -347,6 +446,14 @@ $page_title = 'Kelola Reset Password - Admin';
             font-size: 0.85rem;
         }
 
+        .btn-warning {
+            background: #f59e0b;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: white;
+        }
+
         .token-display {
             font-family: 'Courier New', monospace;
             background: #f3f4f6;
@@ -362,6 +469,12 @@ $page_title = 'Kelola Reset Password - Admin';
 
         .token-display:hover {
             background: #e5e7eb;
+        }
+
+        .token-display.expired {
+            background: #fee2e2;
+            color: #dc2626;
+            text-decoration: line-through;
         }
 
         .token-success-box {
@@ -439,7 +552,16 @@ $page_title = 'Kelola Reset Password - Admin';
             color: #6b7280;
         }
 
-        /* Custom Tabs Navigation */
+        .expired-warning {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.75rem;
+            color: #991b1b;
+            margin-top: 5px;
+        }
+
         .custom-tabs {
             border-bottom: 2px solid #e5e7eb;
             margin-bottom: 30px;
@@ -478,6 +600,165 @@ $page_title = 'Kelola Reset Password - Admin';
             padding: 3px 7px;
             vertical-align: middle;
         }
+
+        /* CUSTOM CONFIRMATION MODAL */
+        .custom-confirm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .custom-confirm-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .custom-confirm-box {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 450px;
+            width: 90%;
+            overflow: hidden;
+            animation: slideDown 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .custom-confirm-header {
+            padding: 24px 24px 16px;
+            text-align: center;
+        }
+
+        .custom-confirm-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .custom-confirm-icon.warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #f59e0b;
+        }
+
+        .custom-confirm-icon.danger {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #dc2626;
+        }
+
+        .custom-confirm-icon.success {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #059669;
+        }
+
+        .custom-confirm-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+        }
+
+        .custom-confirm-body {
+            padding: 0 24px 24px;
+            text-align: center;
+        }
+
+        .custom-confirm-message {
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .custom-confirm-message strong {
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .custom-confirm-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .custom-confirm-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .custom-confirm-btn-confirm {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .custom-confirm-btn-confirm:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        }
+
+        .custom-confirm-btn-confirm.danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .custom-confirm-btn-confirm.danger:hover {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+        }
+
+        .custom-confirm-btn-cancel {
+            background: #e2e8f0;
+            color: #475569;
+        }
+
+        .custom-confirm-btn-cancel:hover {
+            background: #cbd5e1;
+        }
+
+        .custom-confirm-icon i {
+            animation: iconBounce 0.6s ease-out 0.2s both;
+        }
+
+        @keyframes iconBounce {
+            0% { transform: scale(0) rotate(-180deg); }
+            50% { transform: scale(1.2) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
     </style>
 </head>
 <body>
@@ -485,11 +766,10 @@ $page_title = 'Kelola Reset Password - Admin';
 
     <div class="main-content">
         <div class="page-header">
-            <h2><i class="fas fa-users-cog me-2"></i>Manajemen Pegawai Lama</h2>
-            <p>Kelola data pegawai yang sudah bekerja sebelum sistem diterapkan</p>
+            <h2><i class="fas fa-key me-2"></i>Kelola Reset Password</h2>
+            <p>Manage permintaan reset password dari pegawai</p>
         </div>
 
-        <!-- Navigation Tabs -->
         <ul class="nav custom-tabs mb-4" role="tablist">
             <li class="nav-item" role="presentation">
                 <a class="nav-link" href="manajemen-pegawai.php">
@@ -506,7 +786,6 @@ $page_title = 'Kelola Reset Password - Admin';
             </li>
         </ul>
 
-        <!-- Alert Messages -->
         <?php if (isset($_SESSION['success'])): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <i class="fas fa-check-circle me-2"></i><?php echo $_SESSION['success']; ?>
@@ -523,7 +802,6 @@ $page_title = 'Kelola Reset Password - Admin';
             <?php unset($_SESSION['error']); ?>
         <?php endif; ?>
 
-        <!-- Token Success Display -->
         <?php if (isset($_SESSION['generated_token'])): ?>
             <div class="token-success-box">
                 <h4><i class="fas fa-check-circle"></i> Token Berhasil Digenerate!</h4>
@@ -553,23 +831,27 @@ $page_title = 'Kelola Reset Password - Admin';
             ?>
         <?php endif; ?>
 
-        <!-- Statistics -->
         <div class="row mb-4">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="stats-card">
                     <div class="stats-number"><?php echo $stats_pending; ?></div>
                     <div class="stats-label"><i class="fas fa-clock me-1"></i> Request Pending</div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="stats-card" style="border-left-color: #3b82f6;">
-                    <div class="stats-number" style="color: #3b82f6;"><?php echo $stats_today; ?></div>
+                    <div class="stats-number" style="color: #3b82f6;"><?php echo $stats_approved; ?></div>
+                    <div class="stats-label"><i class="fas fa-check me-1"></i> Token Aktif</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card" style="border-left-color: #10b981;">
+                    <div class="stats-number" style="color: #10b981;"><?php echo $stats_today; ?></div>
                     <div class="stats-label"><i class="fas fa-calendar-day me-1"></i> Request Hari Ini</div>
                 </div>
             </div>
         </div>
 
-        <!-- PENDING REQUESTS -->
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-hourglass-half me-2"></i>
@@ -607,18 +889,17 @@ $page_title = 'Kelola Reset Password - Admin';
                                         <td><small><?php echo htmlspecialchars($req['ip_address']); ?></small></td>
                                         <td>
                                             <div class="action-buttons">
-                                                <form method="POST" style="display:inline;">
+                                                <form method="POST" class="approve-form" style="display:inline;">
                                                     <input type="hidden" name="request_id" value="<?php echo $req['request_id']; ?>">
-                                                    <button type="submit" name="approve_request" class="btn btn-success btn-sm" 
-                                                            onclick="return confirm('Generate token untuk <?php echo htmlspecialchars($req['nama_lengkap']); ?>?')">
+                                                    <input type="hidden" name="pegawai_nama" value="<?php echo htmlspecialchars($req['nama_lengkap']); ?>">
+                                                    <button type="button" name="approve_request" class="btn btn-success btn-sm btn-approve">
                                                         <i class="fas fa-check"></i> Generate Token
                                                     </button>
                                                 </form>
                                                 
-                                                <form method="POST" style="display:inline;">
+                                                <form method="POST" class="reject-form" style="display:inline;">
                                                     <input type="hidden" name="request_id" value="<?php echo $req['request_id']; ?>">
-                                                    <button type="submit" name="reject_request" class="btn btn-danger btn-sm"
-                                                            onclick="return confirm('Tolak request ini?')">
+                                                    <button type="button" name="reject_request" class="btn btn-danger btn-sm btn-reject">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 </form>
@@ -633,7 +914,77 @@ $page_title = 'Kelola Reset Password - Admin';
             </div>
         </div>
 
-        <!-- HISTORY -->
+        <?php if (!empty($approved_requests)): ?>
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-check-circle me-2"></i>
+                Token yang Sudah Di-approve (<?php echo count($approved_requests); ?>)
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Email</th>
+                                <th>Token</th>
+                                <th>Status</th>
+                                <th>Waktu Approve</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($approved_requests as $a): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($a['nama_lengkap']); ?></td>
+                                    <td><?php echo htmlspecialchars($a['email']); ?></td>
+                                    <td>
+                                        <span class="token-display <?php echo $a['token_status'] === 'expired' ? 'expired' : ''; ?>" 
+                                              style="font-size: 0.85rem; padding: 5px 8px;">
+                                            <?php echo htmlspecialchars($a['token']); ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <?php if ($a['token_status'] === 'expired'): ?>
+                                            <span class="badge badge-danger">
+                                                <i class="fas fa-times-circle me-1"></i>EXPIRED
+                                            </span>
+                                            <div class="expired-warning">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                                Token sudah kadaluarsa. Batalkan dan generate ulang jika diperlukan.
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="badge badge-success">
+                                                <i class="fas fa-check-circle me-1"></i>VALID
+                                            </span>
+                                            <div class="time-badge mt-1">
+                                                <i class="fas fa-hourglass-half me-1"></i>
+                                                Sisa: <?php echo $a['minutes_remaining']; ?> menit
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            <?php echo date('d M Y, H:i', strtotime($a['approved_at'])); ?>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <form method="POST" class="revoke-form" style="display:inline;">
+                                            <input type="hidden" name="request_id" value="<?php echo $a['request_id']; ?>">
+                                            <button type="button" name="revoke_token" class="btn btn-warning btn-sm btn-revoke">
+                                                <i class="fas fa-ban"></i> Batalkan
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-history me-2"></i>
@@ -668,10 +1019,7 @@ $page_title = 'Kelola Reset Password - Admin';
                                             <?php
                                             $badge_class = 'secondary';
                                             $icon = 'circle';
-                                            if ($h['status'] === 'approved') {
-                                                $badge_class = 'info';
-                                                $icon = 'clock';
-                                            } elseif ($h['status'] === 'completed') {
+                                            if ($h['status'] === 'completed') {
                                                 $badge_class = 'success';
                                                 $icon = 'check-circle';
                                             } elseif ($h['status'] === 'rejected') {
@@ -707,12 +1055,165 @@ $page_title = 'Kelola Reset Password - Admin';
                 </div>
             </div>
         </div>
+    </div>
 
+    <!-- Confirmation Modal -->
+    <div class="custom-confirm-overlay" id="customConfirm">
+        <div class="custom-confirm-box">
+            <div class="custom-confirm-header">
+                <div class="custom-confirm-icon" id="confirmIcon">
+                    <i class="fas fa-question-circle"></i>
+                </div>
+                <h3 class="custom-confirm-title" id="confirmTitle">Konfirmasi</h3>
+            </div>
+            <div class="custom-confirm-body">
+                <div class="custom-confirm-message" id="confirmMessage">
+                    Apakah Anda yakin?
+                </div>
+                <div class="custom-confirm-buttons">
+                    <button class="custom-confirm-btn custom-confirm-btn-cancel" id="confirmCancelBtn">
+                        <i class="fas fa-times me-1"></i> Batal
+                    </button>
+                    <button class="custom-confirm-btn custom-confirm-btn-confirm" id="confirmOkBtn">
+                        <i class="fas fa-check me-1"></i> Ya, Lanjutkan
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+
+        // CUSTOM CONFIRMATION DIALOG
+        function showCustomConfirm(options) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('customConfirm');
+                const icon = document.getElementById('confirmIcon');
+                const iconElement = icon.querySelector('i');
+                const title = document.getElementById('confirmTitle');
+                const message = document.getElementById('confirmMessage');
+                const okBtn = document.getElementById('confirmOkBtn');
+                const cancelBtn = document.getElementById('confirmCancelBtn');
+
+                const type = options.type || 'warning';
+                icon.className = 'custom-confirm-icon ' + type;
+
+                const icons = {
+                    warning: 'fa-exclamation-triangle',
+                    danger: 'fa-times-circle',
+                    success: 'fa-check-circle'
+                };
+                iconElement.className = 'fas ' + icons[type];
+
+                title.textContent = options.title || 'Konfirmasi';
+                message.innerHTML = options.message || 'Apakah Anda yakin?';
+
+                okBtn.className = 'custom-confirm-btn custom-confirm-btn-confirm';
+                if (type === 'danger') {
+                    okBtn.classList.add('danger');
+                }
+
+                const btnText = options.confirmText || 'Ya, Lanjutkan';
+                okBtn.innerHTML = `<i class="fas fa-check me-1"></i> ${btnText}`;
+
+                overlay.classList.add('active');
+
+                okBtn.onclick = () => {
+                    overlay.classList.remove('active');
+                    resolve(true);
+                };
+
+                cancelBtn.onclick = () => {
+                    overlay.classList.remove('active');
+                    resolve(false);
+                };
+
+                overlay.onclick = (e) => {
+                    if (e.target === overlay) {
+                        overlay.classList.remove('active');
+                        resolve(false);
+                    }
+                };
+            });
+        }
+
+        // APPROVE REQUEST
+        document.querySelectorAll('.btn-approve').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                const nama = form.querySelector('input[name="pegawai_nama"]').value;
+                
+                const confirmed = await showCustomConfirm({
+                    type: 'success',
+                    title: 'Generate Token',
+                    message: `Apakah Anda yakin ingin generate token untuk <strong>${nama}</strong>?<br><br>Token akan berlaku selama <strong>30 menit</strong> dan akan dikirim ke pegawai.`,
+                    confirmText: 'Ya, Generate'
+                });
+                
+                if (confirmed) {
+                    //  hidden input ketika approve_request
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'approve_request';
+                    input.value = '1';
+                    form.appendChild(input);
+                    form.submit();
+                }
+            });
+        });
+
+        // REJECT REQUEST
+        document.querySelectorAll('.btn-reject').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                
+                const confirmed = await showCustomConfirm({
+                    type: 'danger',
+                    title: 'Tolak Request',
+                    message: 'Apakah Anda yakin ingin <strong>menolak</strong> permintaan reset password ini?<br><br>Pegawai harus mengajukan request baru jika masih membutuhkan reset password.',
+                    confirmText: 'Ya, Tolak'
+                });
+                
+                if (confirmed) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'reject_request';
+                    input.value = '1';
+                    form.appendChild(input);
+                    form.submit();
+                }
+            });
+        });
+
+        // REVOKE TOKEN
+        document.querySelectorAll('.btn-revoke').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                const form = this.closest('form');
+                
+                const confirmed = await showCustomConfirm({
+                    type: 'warning',
+                    title: 'Batalkan Token',
+                    message: 'Apakah Anda yakin ingin <strong>membatalkan</strong> token ini?<br><br>Token yang sudah dibatalkan tidak dapat digunakan lagi dan pegawai harus request ulang.',
+                    confirmText: 'Ya, Batalkan'
+                });
+                
+                if (confirmed) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'revoke_token';
+                    input.value = '1';
+                    form.appendChild(input);
+                    form.submit();
+                }
+            });
+        });
+
+        // COPY TOKEN FUNCTION
         function copyToken(token) {
             const textarea = document.createElement('textarea');
             textarea.value = token;
@@ -724,20 +1225,35 @@ $page_title = 'Kelola Reset Password - Admin';
             document.execCommand('copy');
             document.body.removeChild(textarea);
             
-            // Show toast
             const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
                 showConfirmButton: false,
                 timer: 3000,
                 timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer);
+                    toast.addEventListener('mouseleave', Swal.resumeTimer);
+                }
             });
 
             Toast.fire({
                 icon: 'success',
-                title: 'Token berhasil disalin! Kirim ke WhatsApp pegawai.'
+                title: 'Token berhasil disalin!',
+                text: 'Kirim ke WhatsApp pegawai.'
             });
         }
+
+        // AUTO-DISMISS ALERTS
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }, 5000);
+            });
+        });
     </script>
 </body>
 </html>
