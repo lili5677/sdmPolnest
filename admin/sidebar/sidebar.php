@@ -728,10 +728,10 @@
                     <span>Manajemen Loker</span>
                 </a>
                <a href="<?php echo $base_url; ?>/manajemenrec/manajemenrec.php" 
-                class="menu-item <?php echo isActive(['manajemenrec.php', 'detail_pelamar.php', 'template_surat.php', 'jadwalkan_psikotes.php', 'jadwalkan_interview.php']) ? 'active' : ''; ?>" 
-                title="Manajemen rekuitmen">
-                    <i class="fas fa-briefcase"></i>
-                    <span>Manajemen Rekuitmen</span>
+                   class="menu-item <?php echo isActive('manajemenrec.php', 'detail_pelamar.php', 'generate_token_pegawai.php', 'jadwalkan_interview', 'jadwalkan_psikotes.php', 'template_surat.php', 'update_status_lamaran.php', 'upload_surat_resmi.php') ? 'active' : ''; ?>" 
+                   title="Manajemen Recruitment">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Manajemen Recruitment</span>
                 </a>
             </div>
 

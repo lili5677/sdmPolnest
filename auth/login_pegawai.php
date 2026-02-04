@@ -14,7 +14,7 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['user_type'])) {
         header('Location: ' . BASE_URL . 'admin/index.php');
         exit;
     } elseif ($_SESSION['user_type'] == 'pegawai' || $_SESSION['user_type'] == 'dosen') {
-        header('Location: ' . BASE_URL . 'users/pegawai/administrasi.php');
+        header('Location: ' . BASE_URL . '/index.php');
         exit;
     }
 }
@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 exit;
                             } else {
                                 // Password sudah pernah diganti - langsung ke administrasi
-                                header('Location: ../users/pegawai/administrasi.php');
+                                header('Location: ../index.php');
                                 exit;
                             }
                         }
@@ -494,7 +494,7 @@ include '../users/partials/navbar.php';
                     <p class="form-subtitle">Sistem Manajemen Sumber Daya Manusia<br>Politeknik NEST</p>
                 </div>
 
-                <div class="info-box">
+                <!-- <div class="info-box">
                     <h4>
                         <i class="bi bi-info-circle-fill"></i>
                         Informasi Login
@@ -503,7 +503,7 @@ include '../users/partials/navbar.php';
                         <strong>Pegawai Lama:</strong> Gunakan <strong>token login</strong> yang diberikan oleh admin pada field password.<br>
                         <strong>Pegawai Baru:</strong> Gunakan password yang telah Anda buat.
                     </p>
-                </div>
+                </div> -->
 
                 <?php if ($error): ?>
                     <div class="error-message">
