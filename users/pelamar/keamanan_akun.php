@@ -10,26 +10,92 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// Handle password change
+// ======================================
+// HANDLE DELETE ACCOUNT
+// ======================================
+if (isset($_GET['action']) && $_GET['action'] === 'delete_account') {
+    try {
+        // STEP 1: Get pelamar_id
+        $query = "SELECT pelamar_id FROM pelamar WHERE user_id = :user_id";
+        $stmt = $conn->prepare($query);
+        $stmt->execute(['user_id' => $user_id]);
+        $pelamar = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$pelamar) {
+            throw new Exception('Data pelamar tidak ditemukan');
+        }
+        
+        $pelamar_id = $pelamar['pelamar_id'];
+        
+        // STEP 2: Hitung jumlah lamaran
+        $count_lamaran = $conn->prepare("SELECT COUNT(*) as total FROM lamaran WHERE pelamar_id = ?");
+        $count_lamaran->execute([$pelamar_id]);
+        $total_lamaran = $count_lamaran->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // STEP 3: Begin transaction
+        $conn->beginTransaction();
+        
+        // STEP 4: Hapus semua lamaran
+        if ($total_lamaran > 0) {
+            $delete_lamaran = "DELETE FROM lamaran WHERE pelamar_id = ?";
+            $stmt_lamaran = $conn->prepare($delete_lamaran);
+            $stmt_lamaran->execute([$pelamar_id]);
+        }
+        
+        // STEP 5: Hapus data pelamar
+        $delete_pelamar = "DELETE FROM pelamar WHERE pelamar_id = ?";
+        $stmt_pelamar = $conn->prepare($delete_pelamar);
+        $stmt_pelamar->execute([$pelamar_id]);
+        
+        // STEP 6: Hapus data user
+        $delete_user = "DELETE FROM users WHERE user_id = ?";
+        $stmt_user = $conn->prepare($delete_user);
+        $stmt_user->execute([$user_id]);
+        
+        // STEP 7: Commit
+        $conn->commit();
+        
+        // STEP 8: Destroy session
+        session_destroy();
+        
+        // STEP 9: Redirect dengan pesan sukses
+        header('Location: ../../index.php?account_deleted=1&lamaran=' . $total_lamaran);
+        exit;
+        
+    } catch (Exception $e) {
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
+        }
+        $delete_error = $e->getMessage();
+    }
+}
+
+// ======================================
+// HANDLE PASSWORD CHANGE
+// ======================================
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
     $old_password = $_POST['old_password'] ?? '';
     $new_password = $_POST['new_password'] ?? '';
     
-    // Get current password
-    $query = "SELECT password FROM users WHERE user_id = :user_id";
-    $stmt = $conn->prepare($query);
-    $stmt->execute(['user_id' => $user_id]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (password_verify($old_password, $user['password'])) {
-        $hashed = password_hash($new_password, PASSWORD_DEFAULT);
-        $update = "UPDATE users SET password = :password WHERE user_id = :user_id";
-        $update_stmt = $conn->prepare($update);
-        if ($update_stmt->execute(['password' => $hashed, 'user_id' => $user_id])) {
-            $success = "Password berhasil diubah!";
-        }
+    // Validasi
+    if (strlen($new_password) < 6) {
+        $error = "Password baru minimal 6 karakter!";
     } else {
-        $error = "Password lama tidak sesuai!";
+        $query = "SELECT password FROM users WHERE user_id = :user_id";
+        $stmt = $conn->prepare($query);
+        $stmt->execute(['user_id' => $user_id]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (password_verify($old_password, $user['password'])) {
+            $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+            $update = "UPDATE users SET password = :password WHERE user_id = :user_id";
+            $update_stmt = $conn->prepare($update);
+            if ($update_stmt->execute(['password' => $hashed, 'user_id' => $user_id])) {
+                $success = "Password berhasil diubah!";
+            }
+        } else {
+            $error = "Password lama tidak sesuai!";
+        }
     }
 }
 
@@ -102,7 +168,6 @@ include '../partials/navbar_req.php';
             color: #0d47a1;
         }
 
-        /* Password Form */
         .password-form {
             max-width: 500px;
         }
@@ -125,11 +190,13 @@ include '../partials/navbar_req.php';
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 14px;
+            transition: all 0.3s;
         }
 
         .form-control:focus {
             outline: none;
             border-color: #0d47a1;
+            box-shadow: 0 0 0 3px rgba(13, 71, 161, 0.1);
         }
 
         .btn-update {
@@ -141,102 +208,17 @@ include '../partials/navbar_req.php';
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .btn-update:hover {
             background: #0b3d91;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(13, 71, 161, 0.3);
         }
 
-        /* Settings Items */
-        .settings-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            margin-bottom: 15px;
-        }
-
-        .settings-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .settings-icon {
-            width: 48px;
-            height: 48px;
-            background: white;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .settings-icon i {
-            font-size: 24px;
-        }
-
-        .settings-text h4 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1e3a5f;
-            margin-bottom: 3px;
-        }
-
-        .settings-text p {
-            font-size: 12px;
-            color: #9e9e9e;
-            margin: 0;
-        }
-
-        /* Toggle Switch */
-        .toggle-switch {
-            position: relative;
-            width: 50px;
-            height: 26px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: #0d47a1;
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(24px);
-        }
-
-        /* Danger Zone */
         .danger-zone {
             border: 2px solid #d32f2f;
             border-radius: 12px;
@@ -264,7 +246,7 @@ include '../partials/navbar_req.php';
         }
 
         .btn-danger {
-            padding: 6px 20px;
+            padding: 10px 24px;
             background: #d32f2f;
             color: white;
             border: 2px solid #d32f2f;
@@ -277,13 +259,30 @@ include '../partials/navbar_req.php';
         .btn-danger:hover {
             background: #c62828;
             border-color: #c62828;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
         }
 
         .alert {
-            padding: 12px 15px;
+            padding: 15px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .alert-success {
@@ -298,33 +297,41 @@ include '../partials/navbar_req.php';
             border-left: 4px solid #c62828;
         }
 
-        /* Custom SweetAlert2 Styling */
-        .swal2-popup {
-            border-radius: 15px;
-            font-family: 'Poppins', sans-serif;
+        .alert i {
+            font-size: 20px;
         }
 
-        .swal2-confirm {
-            background: #d32f2f !important;
-            border: none !important;
-            border-radius: 8px !important;
-            padding: 10px 30px !important;
-            font-weight: 600 !important;
+        .password-strength {
+            margin-top: 8px;
+            font-size: 12px;
         }
 
-        .swal2-cancel {
-            background: #6c757d !important;
-            border: none !important;
-            border-radius: 8px !important;
-            padding: 10px 30px !important;
-            font-weight: 600 !important;
+        .strength-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: #e0e0e0;
+            margin-top: 5px;
+            overflow: hidden;
         }
+
+        .strength-fill {
+            height: 100%;
+            transition: all 0.3s;
+            width: 0;
+        }
+
+        .strength-weak { width: 33%; background: #d32f2f; }
+        .strength-medium { width: 66%; background: #f57c00; }
+        .strength-strong { width: 100%; background: #2e7d32; }
 
         @media (max-width: 768px) {
             .danger-zone {
                 flex-direction: column;
                 gap: 15px;
                 text-align: center;
+            }
+            .profile-card {
+                padding: 25px;
             }
         }
     </style>
@@ -336,9 +343,9 @@ include '../partials/navbar_req.php';
             <!-- Profile Header -->
             <div class="profile-header">
                 <div class="profile-info">
-                    <h1><?= htmlspecialchars($user['nama_lengkap'] ?? 'Nama Lengkap') ?></h1>
+                    <h1><i class="bi bi-shield-lock-fill"></i> Keamanan Akun</h1>
                     <div class="profile-meta">
-                        <span><?= htmlspecialchars($user['gelar'] ?? $user['pendidikan_terakhir'] ?? 'Pelamar') ?></span>
+                        <i class="bi bi-person-circle"></i> <?= htmlspecialchars($user['nama_lengkap'] ?? 'Nama Lengkap') ?>
                     </div>
                 </div>
             </div>
@@ -352,13 +359,22 @@ include '../partials/navbar_req.php';
 
                 <?php if (isset($success)): ?>
                 <div class="alert alert-success">
-                    <i class="bi bi-check-circle-fill"></i> <?= $success ?>
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span><?= $success ?></span>
                 </div>
                 <?php endif; ?>
 
                 <?php if (isset($error)): ?>
                 <div class="alert alert-error">
-                    <i class="bi bi-exclamation-triangle-fill"></i> <?= $error ?>
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span><?= $error ?></span>
+                </div>
+                <?php endif; ?>
+
+                <?php if (isset($delete_error)): ?>
+                <div class="alert alert-error">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span>Gagal menghapus akun: <?= $delete_error ?></span>
                 </div>
                 <?php endif; ?>
 
@@ -370,48 +386,31 @@ include '../partials/navbar_req.php';
 
                     <div class="form-group">
                         <label class="form-label">Kata Sandi Baru</label>
-                        <input type="password" name="new_password" class="form-control" placeholder="Masukkan kata sandi baru" required>
+                        <input type="password" name="new_password" id="newPassword" class="form-control" placeholder="Masukkan kata sandi baru" required minlength="6">
                     </div>
 
-                    <button type="submit" name="change_password" class="btn-update">Update Kata Sandi</button>
+                    <button type="submit" name="change_password" class="btn-update">
+                        Update Kata Sandi
+                    </button>
                 </form>
-            </div>
-
-            <!-- Privacy Settings -->
-            <div class="settings-section">
-                <h2 class="section-title">
-                    <i class="bi bi-shield-check"></i>
-                    Privasi dan Keamanan
-                </h2>
-
-                <div class="settings-item">
-                    <div class="settings-info">
-                        <div class="settings-icon">
-                            <i class="bi bi-shield-lock-fill" style="color: #0d47a1;"></i>
-                        </div>
-                        <div class="settings-text">
-                            <h4>Autentikasi 2 Faktor</h4>
-                            <p>Amankan akun Anda dengan kode SMS/App</p>
-                        </div>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox">
-                        <span class="slider"></span>
-                    </label>
-                </div>
             </div>
 
             <!-- Danger Zone -->
             <div class="settings-section">
+                <h2 class="section-title" style="color: #d32f2f;">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    Zona Berbahaya
+                </h2>
                 <div class="danger-zone">
                     <div class="danger-info">
                         <h3>
                             <i class="bi bi-trash-fill"></i>
-                            Hapus Akun
+                            Hapus Akun Permanen
                         </h3>
                         <p>Semua data lamaran dan profil akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.</p>
                     </div>
                     <button class="btn-danger" onclick="confirmDeleteAccount()">
+                        <i class="bi bi-trash-fill"></i>
                         Tutup Akun
                     </button>
                 </div>
@@ -421,33 +420,61 @@ include '../partials/navbar_req.php';
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
     <script>
+        // Confirm Delete Account
         function confirmDeleteAccount() {
             Swal.fire({
-                title: 'Hapus Akun?',
-                text: 'Semua data lamaran dan profil akan dihapus permanen. Tindakan ini tidak dapat dibatalkan!',
+                title: 'Hapus Akun Permanen?',
+                html: `
+                    <p style="color: #666; margin-bottom: 15px;">Semua data berikut akan dihapus:</p>
+                    <ul style="text-align: left; color: #666; margin-left: 30px;">
+                        <li>Profil dan data pribadi</li>
+                        <li>Semua riwayat lamaran</li>
+                        <li>Dokumen CV dan berkas</li>
+                    </ul>
+                    <p style="color: #d32f2f; font-weight: 600; margin-top: 15px;">⚠️ Tindakan ini tidak dapat dibatalkan!</p>
+                `,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Ya, Hapus Akun',
+                confirmButtonText: 'Ya, Hapus Akun Saya',
                 cancelButtonText: 'Batal',
                 reverseButtons: true,
-                customClass: {
-                    confirmButton: 'swal2-confirm',
-                    cancelButton: 'swal2-cancel'
-                }
+                confirmButtonColor: '#d32f2f',
+                cancelButtonColor: '#6c757d'
             }).then((result) => {
                 if (result.isConfirmed) {
+                    // Konfirmasi kedua
                     Swal.fire({
-                        title: 'Menghapus akun...',
-                        text: 'Mohon tunggu sebentar',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        didOpen: () => {
-                            Swal.showLoading();
+                        title: 'Konfirmasi Terakhir',
+                        text: 'Ketik "HAPUS" untuk melanjutkan',
+                        input: 'text',
+                        inputPlaceholder: 'Ketik HAPUS',
+                        icon: 'error',
+                        showCancelButton: true,
+                        confirmButtonText: 'Hapus Akun',
+                        cancelButtonText: 'Batalkan',
+                        confirmButtonColor: '#d32f2f',
+                        cancelButtonColor: '#6c757d',
+                        inputValidator: (value) => {
+                            if (value !== 'HAPUS') {
+                                return 'Anda harus mengetik "HAPUS" untuk melanjutkan!';
+                            }
+                        }
+                    }).then((result2) => {
+                        if (result2.isConfirmed) {
+                            Swal.fire({
+                                title: 'Menghapus akun...',
+                                text: 'Mohon tunggu sebentar',
+                                allowOutsideClick: false,
+                                allowEscapeKey: false,
+                                didOpen: () => {
+                                    Swal.showLoading();
+                                }
+                            });
+                            
+                            // Redirect dengan action delete
+                            window.location.href = 'keamanan.php?action=delete_account';
                         }
                     });
-                    
-                    // TODO: Tambahkan proses hapus akun
-                    // window.location.href = '../../auth/delete_account.php';
                 }
             });
         }
