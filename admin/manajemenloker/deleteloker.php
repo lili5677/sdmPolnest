@@ -1,7 +1,7 @@
 <?php
 /**
  * DELETE LOWONGAN - WITH SWEETALERT
- * File: users/pegawai/deleteloker.php
+ * File: users/pegawai/deletemanajemen-loker.php
  * 
  * Fitur:
  * - Hapus PERMANEN dari database
@@ -52,7 +52,7 @@ if ($lowongan_id > 0) {
         $_SESSION['flash_message'] = 'Lowongan berhasil dihapus permanen' . ($total_lamaran > 0 ? " (termasuk {$total_lamaran} lamaran terkait)" : '');
         $_SESSION['flash_type'] = 'success';
         
-        header('Location: loker.php');
+        header('Location: manajemen-loker.php');
         exit;
         
     } catch (PDOException $e) {
@@ -62,14 +62,14 @@ if ($lowongan_id > 0) {
         $_SESSION['flash_message'] = 'Gagal menghapus lowongan: ' . $e->getMessage();
         $_SESSION['flash_type'] = 'error';
         
-        header('Location: loker.php');
+        header('Location: manajemen-loker.php');
         exit;
     }
 } else {
     $_SESSION['flash_message'] = 'ID lowongan tidak valid';
     $_SESSION['flash_type'] = 'error';
     
-    header('Location: index.php');
+    header('Location: manajemen-manajemen-loker.php');
     exit;
 }
 ?>

@@ -681,29 +681,55 @@
 
         <div class="sidebar-menu">
             <?php 
-                // Deteksi halaman saat ini dengan path lengkap
-                $current_page = $_SERVER['REQUEST_URI'];
+                // ============================================
+                // TAMBAHAN
+                // ============================================
                 
-                // Function untuk cek apakah menu aktif
-                function isActive($path) {
-                    global $current_page;
-                    return strpos($current_page, $path) !== false;
+                // Deteksi halaman dan direktori saat ini
+                $halaman_sekarang = basename($_SERVER['PHP_SELF']);
+                $current_dir = basename(dirname($_SERVER['PHP_SELF']));
+                
+                // Fungsi helper untuk check active state
+                function isActive($files, $dirs = []) {
+                    global $halaman_sekarang, $current_dir;
+                    
+                    // Konversi ke array jika single value
+                    $files = (array)$files;
+                    $dirs = (array)$dirs;
+                    
+                    // Check file
+                    if (in_array($halaman_sekarang, $files)) {
+                        return true;
+                    }
+                    
+                    // Check directory
+                    if (!empty($dirs) && in_array($current_dir, $dirs)) {
+                        return true;
+                    }
+                    
+                    return false;
                 }
 
                 // Base URL
-                $base_url = '/admin';
+                $base_url = '/sdmPolnest/admin';
             ?>
             <div class="menu-section">
                 <div class="menu-section-title">Menu Utama</div>
-                <a href="<?php echo $base_url; ?>/index.php" class="menu-item <?php echo isActive('/admin/index.php') ? 'active' : ''; ?>" title="Dashboard">
+                <a href="<?php echo $base_url; ?>/index.php" 
+                   class="menu-item <?php echo isActive('index.php') ? 'active' : ''; ?>" 
+                   title="Dashboard">
                     <i class="fas fa-chart-line"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/manajemenloker/index.php" class="menu-item <?php echo isActive('/manajemenloker/') ? 'active' : ''; ?>" title="Manajemen Loker">
+                <a href="<?php echo $base_url; ?>/manajemenloker/manajemen-loker.php" 
+                class="menu-item <?php echo isActive(['manajemen-loker.php', 'createloker.php', 'editloker.php', 'detailloker.php', 'deleteloker.php'], 'manajemenloker') ? 'active' : ''; ?>" 
+                title="Manajemen Loker">
                     <i class="fas fa-briefcase"></i>
                     <span>Manajemen Loker</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/manajemenrec/manajemenrec.php" class="menu-item <?php echo isActive('/manajemenrec/') ? 'active' : ''; ?>" title="Manajemen Recruitment">
+               <a href="<?php echo $base_url; ?>/manajemenrec/manajemenrec.php" 
+                   class="menu-item <?php echo isActive('manajemenrec.php', 'detail_pelamar.php', 'generate_token_pegawai.php', 'jadwalkan_interview', 'jadwalkan_psikotes.php', 'template_surat.php', 'update_status_lamaran.php', 'upload_surat_resmi.php') ? 'active' : ''; ?>" 
+                   title="Manajemen Recruitment">
                     <i class="fas fa-user-tie"></i>
                     <span>Manajemen Recruitment</span>
                 </a>
@@ -711,24 +737,35 @@
 
             <div class="menu-section">
                 <div class="menu-section-title">Manajemen SDM</div>
-                <a href="<?php echo $base_url; ?>/administrasi/administrasiKepegawaian.php" class="menu-item <?php echo isActive('/administrasi/') ? 'active' : ''; ?>" title="Administrasi Kepegawaian">
+                <a href="<?php echo $base_url; ?>/administrasi/administrasiKepegawaian.php" 
+                   class="menu-item <?php echo isActive('administrasiKepegawaian.php', 'administrasi') ? 'active' : ''; ?>" 
+                   title="Administrasi Kepegawaian">
                     <i class="fas fa-file-alt"></i>
                     <span>Administrasi Kepegawaian</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/pengembanganSDM/pengembangan-sdm.php" class="menu-item <?php echo isActive('/pengembanganSDM/') ? 'active' : ''; ?>" title="Pengembangan SDM">
+                <a href="<?php echo $base_url; ?>/pengembanganSDM/pengembangan-sdm.php" 
+                   class="menu-item <?php echo isActive('pengembangan-sdm.php', 'pengembanganSDM') ? 'active' : ''; ?>" 
+                   title="Pengembangan SDM">
                     <i class="fas fa-chalkboard-teacher"></i>
                     <span>Pengembangan SDM</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/sertifikasi/sertifikasi-dosen.php" class="menu-item <?php echo isActive('/sertifikasi/') ? 'active' : ''; ?>" title="Sertifikasi Dosen">
+                <a href="<?php echo $base_url; ?>/sertifikasi/sertifikasi-dosen.php" 
+                   class="menu-item <?php echo isActive('sertifikasi-dosen.php', 'sertifikasi') ? 'active' : ''; ?>" 
+                   title="Sertifikasi Dosen">
                     <i class="fas fa-certificate"></i>
                     <span>Sertifikasi Dosen</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/penilaian-kinerja.php" class="menu-item <?php echo isActive('/penilaian-kinerja.php') ? 'active' : ''; ?>" title="Penilaian Kinerja">
+                <!-- PERBAIKAN UTAMA ADA DI SINI -->
+                <a href="<?php echo $base_url; ?>/penilaian/penilaianKinerja.php" 
+                   class="menu-item <?php echo isActive(['penilaianKinerja.php', 'template.php', 'form.php', 'detail.php'], 'penilaian') ? 'active' : ''; ?>" 
+                   title="Penilaian Kinerja">
                     <i class="fas fa-chart-bar"></i>
                     <span>Penilaian Kinerja</span>
                 </a>
-                <a href="<?php echo $base_url; ?>/pegawaiLama/manajemen-pegawai.php" class="menu-item <?php echo isActive('/pegawaiLama/') ? 'active' : ''; ?>" title="Manajemen Pegawai">
-                    <i class="fas fa-users"></i>
+                <a href="<?php echo $base_url; ?>/pegawaiLama/manajemen-pegawai.php" 
+                   class="menu-item <?php echo isActive('manajemen-pegawai.php', 'pegawaiLama') ? 'active' : ''; ?>" 
+                   title="Manajemen Pegawai">
+                    <i class="fas fa-user-cog"></i>
                     <span>Manajemen Pegawai</span>
                 </a>
             </div>
@@ -826,7 +863,7 @@
                 
                 // Redirect ke halaman logout
                 setTimeout(() => {
-                    window.location.href = '/auth/logout_admin.php';
+                    window.location.href = '/sdmPolnest/auth/logout_admin.php';
                 }, 800);
             }
         });

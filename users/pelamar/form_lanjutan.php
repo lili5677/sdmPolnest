@@ -1,23 +1,4 @@
 <?php
-/**
- * FORM LANJUTAN - Multi-Step Form (REVISED VERSION v2.2)
- * File: users/pelamar/form_lanjutan.php
- * 
- * Form data diri lanjutan setelah lolos administrasi
- * 4-step form dengan SweetAlert dan integrasi database
- * 
- * CHANGELOG v2.2:
- * - UPDATED: Bagian SKCK dengan upload file PDF
- * - ADDED: Validasi file PDF dengan max size 5MB
- * - CHANGED: Tabel catatan_kepolisian menjadi surat_skck
- * - ADDED: Field path_file, nama_file, ukuran_file untuk SKCK
- * 
- * CHANGELOG v2.1:
- * - FIXED: Download template surat pernyataan menggunakan JavaScript
- * - FIXED: Error "Download tidak aman diblokir" di browser
- * - IMPROVED: Notifikasi toast saat download dimulai
- */
-
 require_once '../../config/database.php';
 
 // Check if user is logged in
@@ -191,67 +172,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_submit'])) {
             ]);
         }
         
-        // 6. Surat SKCK (UPDATED - dengan upload file PDF)
-        $skck_path = null;
-        $skck_nama = null;
-        $skck_size = null;
-        
-        // Upload file SKCK jika dipilih "ya"
-        if ($_POST['punya_skck'] == 'ya' && isset($_FILES['file_skck']) && $_FILES['file_skck']['error'] == 0) {
-            $upload_dir = '../../uploads/skck/';
-            if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
-            
-            $file = $_FILES['file_skck'];
-            $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            
-            // Validasi: hanya PDF yang diterima
-            if ($file_ext !== 'pdf') {
-                throw new Exception('File SKCK harus dalam format PDF');
-            }
-            
-            $file_size = $file['size'] / 1024 / 1024; // MB
-            
-            // Validasi: maksimal 5MB
-            if ($file_size > 5) {
-                throw new Exception('Ukuran file SKCK maksimal 5 MB. File Anda: ' . round($file_size, 2) . ' MB');
-            }
-            
-            $new_filename = 'skck_' . $lamaran_id . '_' . time() . '.pdf';
-            $file_path = $upload_dir . $new_filename;
-            
-            if (!move_uploaded_file($file['tmp_name'], $file_path)) {
-                throw new Exception('Gagal upload file SKCK');
-            }
-            
-            $skck_path = $file_path;
-            $skck_nama = $file['name'];
-            $skck_size = round($file_size, 2);
-        }
-        
-        // Insert/Update data SKCK
+        // 6. Catatan Kepolisian (UPDATED - waktu_mulai_kerja dihapus)
         $stmt = $conn->prepare("
-            INSERT INTO surat_skck (lamaran_id, punya_skck, keterangan, path_file, nama_file, ukuran_file)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO catatan_kepolisian (lamaran_id, pernah_berurusan_polisi, detail_kasus)
+            VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE 
-                punya_skck = VALUES(punya_skck),
-                keterangan = VALUES(keterangan),
-                path_file = VALUES(path_file),
-                nama_file = VALUES(nama_file),
-                ukuran_file = VALUES(ukuran_file),
-                tanggal_upload = CURRENT_TIMESTAMP
+                pernah_berurusan_polisi = VALUES(pernah_berurusan_polisi),
+                detail_kasus = VALUES(detail_kasus)
         ");
         $stmt->execute([
             $lamaran_id,
-            $_POST['punya_skck'],
-            $_POST['punya_skck'] == 'tidak' && !empty($_POST['keterangan_skck']) ? $_POST['keterangan_skck'] : null,
-            $skck_path,
-            $skck_nama,
-            $skck_size
+            $_POST['berurusan_polisi'],
+            $_POST['berurusan_polisi'] == 'pernah' && !empty($_POST['detail_kasus_polisi']) ? $_POST['detail_kasus_polisi'] : null
         ]);
         
-        // 7. Kesediaan Komitmen
+        // 7. Kesediaan Komitmen (UPDATED - tambah waktu_mulai_kerja)
         $stmt = $conn->prepare("
             INSERT INTO kesediaan_komitmen (lamaran_id, kesediaan_tunduk_peraturan, waktu_mulai_kerja)
             VALUES (?, ?, ?)
@@ -588,16 +523,6 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
             line-height: 1.6;
         }
         
-        .alert-warning-box {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            line-height: 1.6;
-        }
-        
         .required-mark {
             color: #f44336;
             font-weight: bold;
@@ -645,22 +570,9 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
             background: #d32f2f;
         }
         
-        .file-upload-box {
-            border: 2px dashed #e0e0e0;
-            border-radius: 10px;
-            padding: 30px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
         .file-upload-box:hover {
             border-color: #667eea !important;
             background: #f8f9fa;
-        }
-        
-        .pdf-icon {
-            color: #f44336;
         }
     </style>
 </head>
@@ -800,7 +712,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
                     </h2>
                     
                     <div class="mb-4">
-                        <label class="form-label">Apakah Anda punya riwayat penyakit? <span class="required-mark">*</span></label>
+                        <label class="form-label">Apakah Anda punya riwayat sakit berat? <span class="required-mark">*</span></label>
                         <div class="radio-group">
                             <label>
                                 <input type="radio" name="riwayat_sakit_berat" value="tidak" onclick="toggleDetail('detailPenyakit', false)" required>
@@ -836,11 +748,11 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
                     </div>
                 </div>
                 
-                <!-- STEP 3: Riwayat Pekerjaan & SKCK -->
+                <!-- STEP 3: Riwayat Pekerjaan & Kepolisian -->
                 <div class="form-step" id="step3">
                     <h2 class="step-title">
                         <i class="fas fa-briefcase me-2"></i>
-                        Riwayat Pekerjaan & Surat SKCK
+                        Riwayat Pekerjaan & Status Legal
                     </h2>
                     
                     <h5 class="mb-3">Riwayat Pekerjaan Sebelumnya</h5>
@@ -873,7 +785,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
                             Silakan upload surat keterangan kerja dari perusahaan terakhir Anda.
                         </div>
                         <label class="form-label">Upload Surat Keterangan Kerja <span class="required-mark">*</span></label>
-                        <div class="file-upload-box" onclick="document.getElementById('fileSKK').click()">
+                        <div class="file-upload-box" onclick="document.getElementById('fileSKK').click()" style="border: 2px dashed #e0e0e0; border-radius: 10px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;">
                             <input type="file" id="fileSKK" name="file_skk" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="updateFileLabel(this, 'skkLabel')">
                             <div id="skkLabel">
                                 <i class="fas fa-cloud-upload-alt" style="font-size: 40px; color: #17a2b8; margin-bottom: 10px;"></i>
@@ -887,49 +799,25 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
                     
                     <div class="section-divider"></div>
                     
-                    <h5 class="mb-3">Dokumen SKCK (Surat Keterangan Catatan Kepolisian)</h5>
-                    
-                    <div class="alert-warning-box">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        <strong>Perhatian:</strong> Jika Anda memiliki SKCK, wajib upload file dalam format <strong>PDF</strong> dengan ukuran maksimal <strong>5 MB</strong>.
-                    </div>
+                    <h5 class="mb-3">Catatan Kepolisian</h5>
                     
                     <div class="mb-3">
-                        <label class="form-label">Apakah Anda memiliki dokumen SKCK? <span class="required-mark">*</span></label>
+                        <label class="form-label">Apakah Anda pernah berurusan dengan polisi karena terlibat kasus kejahatan? <span class="required-mark">*</span></label>
                         <div class="radio-group">
                             <label>
-                                <input type="radio" name="punya_skck" value="ya" onclick="toggleSKCKUpload(true)" required>
-                                Ya, punya SKCK
+                                <input type="radio" name="berurusan_polisi" value="tidak" onclick="toggleDetail('detailKasusPolisi', false)" required>
+                                Tidak Pernah
                             </label>
                             <label>
-                                <input type="radio" name="punya_skck" value="tidak" onclick="toggleSKCKUpload(false)">
-                                Tidak punya SKCK
+                                <input type="radio" name="berurusan_polisi" value="pernah" onclick="toggleDetail('detailKasusPolisi', true)">
+                                Pernah
                             </label>
                         </div>
                     </div>
                     
-                    <!-- Upload SKCK Field (Hidden by default) -->
-                    <div id="uploadSKCKSection" style="display: none;" class="mb-4">
-                        <label class="form-label">Upload File SKCK (PDF) <span class="required-mark">*</span></label>
-                        <div class="file-upload-box" onclick="document.getElementById('fileSKCK').click()">
-                            <input type="file" id="fileSKCK" name="file_skck" accept=".pdf" style="display: none;" onchange="validateSKCKFile(this)">
-                            <div id="skckLabel">
-                                <i class="fas fa-file-pdf pdf-icon" style="font-size: 40px; margin-bottom: 10px;"></i>
-                                <p style="margin: 0; color: #666; font-size: 14px;">
-                                    Klik untuk upload file SKCK<br>
-                                    <small><strong>HANYA format PDF</strong> | Maksimal 5 MB</small>
-                                </p>
-                            </div>
-                        </div>
-                        <small class="text-muted d-block mt-2">
-                            <i class="fas fa-info-circle"></i> File harus dalam format PDF dan ukuran tidak lebih dari 5 MB
-                        </small>
-                    </div>
-                    
-                    <!-- Keterangan jika tidak punya SKCK -->
-                    <div id="keteranganSKCKSection" style="display: none;" class="mb-4">
-                        <label class="form-label">Keterangan <span class="text-muted">(Opsional)</span></label>
-                        <textarea name="keterangan_skck" class="form-control" rows="2" placeholder="Contoh: Sedang dalam proses pembuatan SKCK, dll"></textarea>
+                    <div class="mb-4" id="detailKasusPolisi" style="display: none;">
+                        <label class="form-label">Jelaskan detail kasus</label>
+                        <textarea name="detail_kasus_polisi" class="form-control" rows="3"></textarea>
                     </div>
                     
                     <div class="button-group">
@@ -980,7 +868,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
                         
                         <div class="mb-3">
                             <label class="form-label">Upload Surat Pernyataan <span class="required-mark">*</span></label>
-                            <div class="file-upload-box" onclick="document.getElementById('suratPernyataan').click()">
+                            <div class="file-upload-box" onclick="document.getElementById('suratPernyataan').click()" style="border: 2px dashed #e0e0e0; border-radius: 10px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s;">
                                 <input type="file" id="suratPernyataan" name="surat_pernyataan" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" required onchange="updateFileLabel(this, 'suratLabel')">
                                 <div id="suratLabel">
                                     <i class="fas fa-cloud-upload-alt" style="font-size: 40px; color: #667eea; margin-bottom: 10px;"></i>
@@ -1022,7 +910,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Berapa lama setelah kesepakatan, Anda bisa mulai bekerja? <span class="required-mark">*</span></label>
+                        <label class="form-label">Berapa lama setelah kesepakatan, Anda sanggup mulai bekerja? <span class="required-mark">*</span></label>
                         <select name="waktu_mulai_kerja" class="form-select" required>
                             <option value="">Pilih waktu</option>
                             <option value="segera">Segera (1-3 hari)</option>
@@ -1161,87 +1049,6 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
                         <small>Format: PDF, JPG, PNG (maksimal 5MB)</small>
                     </p>
                 `;
-            }
-        }
-        
-        // Toggle SKCK Upload field (NEW FUNCTION)
-        function toggleSKCKUpload(show) {
-            const uploadSection = document.getElementById('uploadSKCKSection');
-            const keteranganSection = document.getElementById('keteranganSKCKSection');
-            const fileInput = document.getElementById('fileSKCK');
-            
-            if (show) {
-                // Show upload section
-                uploadSection.style.display = 'block';
-                keteranganSection.style.display = 'none';
-                fileInput.setAttribute('required', 'required');
-            } else {
-                // Show keterangan section
-                uploadSection.style.display = 'none';
-                keteranganSection.style.display = 'block';
-                fileInput.removeAttribute('required');
-                fileInput.value = '';
-                // Reset label
-                document.getElementById('skckLabel').innerHTML = `
-                    <i class="fas fa-file-pdf pdf-icon" style="font-size: 40px; margin-bottom: 10px;"></i>
-                    <p style="margin: 0; color: #666; font-size: 14px;">
-                        Klik untuk upload file SKCK<br>
-                        <small><strong>HANYA format PDF</strong> | Maksimal 5 MB</small>
-                    </p>
-                `;
-            }
-        }
-        
-        // Validate SKCK File (NEW FUNCTION)
-        function validateSKCKFile(input) {
-            if (input.files && input.files[0]) {
-                const file = input.files[0];
-                const fileSize = file.size / 1024 / 1024; // MB
-                const fileExt = file.name.split('.').pop().toLowerCase();
-                
-                // Check if PDF
-                if (fileExt !== 'pdf') {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Format File Salah!',
-                        html: 'File SKCK harus dalam format <strong>PDF</strong>.<br>File yang Anda pilih: <strong>' + fileExt.toUpperCase() + '</strong>',
-                        confirmButtonColor: '#f44336'
-                    });
-                    input.value = '';
-                    return;
-                }
-                
-                // Check max 5MB
-                if (fileSize > 5) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'File Terlalu Besar!',
-                        html: 'Ukuran file maksimal <strong>5 MB</strong>.<br>File yang Anda pilih: <strong>' + fileSize.toFixed(2) + ' MB</strong>',
-                        confirmButtonColor: '#f44336'
-                    });
-                    input.value = '';
-                    return;
-                }
-                
-                // Update label if valid
-                document.getElementById('skckLabel').innerHTML = `
-                    <i class="fas fa-check-circle" style="font-size: 40px; color: #4CAF50; margin-bottom: 10px;"></i>
-                    <p style="margin: 0; color: #2c3e50; font-size: 14px;">
-                        <strong>${file.name}</strong><br>
-                        <small style="color: #666;">${fileSize.toFixed(2)} MB</small>
-                    </p>
-                `;
-                
-                // Show success toast
-                Swal.fire({
-                    icon: 'success',
-                    title: 'File Valid!',
-                    text: 'File SKCK berhasil dipilih',
-                    timer: 2000,
-                    showConfirmButton: false,
-                    toast: true,
-                    position: 'top-end'
-                });
             }
         }
         

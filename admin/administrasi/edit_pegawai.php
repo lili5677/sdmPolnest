@@ -1,11 +1,4 @@
 <?php
-/**
- * Halaman: Edit Pegawai
- * File: admin/edit_pegawai.php
- * Deskripsi: Form dan proses edit data pegawai
- * 
- */
-
 // Koneksi Database
 require_once '../../config/database.php';
 
@@ -46,29 +39,7 @@ if(!$pegawai) {
 if($_SERVER['REQUEST_METHOD'] == 'POST') {
     $errors = [];
     
-    // VALIDASI REQUIRED FIELDS
-    if(empty($_POST['nama_lengkap'])) {
-        $errors[] = 'Nama lengkap wajib diisi';
-    }
-    
-    if(empty($_POST['email'])) {
-        $errors[] = 'Email wajib diisi';
-    } elseif(!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Format email tidak valid';
-    }
-    
-    if(empty($_POST['tanggal_lahir'])) {
-        $errors[] = 'Tanggal lahir wajib diisi';
-    }
-    
-    if(empty($_POST['jenis_kelamin'])) {
-        $errors[] = 'Jenis kelamin wajib diisi';
-    }
-    
-    if(empty($_POST['jenis_pegawai'])) {
-        $errors[] = 'Jenis pegawai wajib diisi';
-    }
-    
+    // VALIDASI HANYA UNTUK DATA KEPEGAWAIAN
     if(empty($_POST['jenis_kepegawaian'])) {
         $errors[] = 'Jenis kepegawaian wajib diisi';
     }
@@ -87,25 +58,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Validasi khusus dosen
-    if($_POST['jenis_pegawai'] == 'dosen') {
-        if(empty($_POST['prodi'])) {
-            $errors[] = 'Program studi wajib diisi untuk dosen';
-        }
-    }
-    
-    // Cek email duplikat (kecuali email sendiri)
-    if(empty($errors)) {
-        $checkEmail = $conn->prepare("SELECT pegawai_id FROM pegawai WHERE email = :email AND pegawai_id != :id");
-        $checkEmail->bindParam(':email', $_POST['email']);
-        $checkEmail->bindParam(':id', $id);
-        $checkEmail->execute();
-        
-        if($checkEmail->rowCount() > 0) {
-            $errors[] = 'Email sudah digunakan oleh pegawai lain';
-        }
-    }
-    
     // Jika tidak ada error, proses update
     if(empty($errors)) {
         // Helper function untuk handle empty string -> NULL
@@ -113,14 +65,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             return (empty($value)) ? null : $value;
         }
         
-        $nik = emptyToNull($_POST['nik']);
-        $nidn = emptyToNull($_POST['nidn']);
-        $nip = emptyToNull($_POST['nip']);
-        $tempat_lahir = emptyToNull($_POST['tempat_lahir']);
-        $no_telepon = emptyToNull($_POST['no_telepon']);
-        $alamat_domisili = emptyToNull($_POST['alamat_domisili']);
-        $alamat_ktp = emptyToNull($_POST['alamat_ktp']);
-        $prodi = emptyToNull($_POST['prodi']);
         $jabatan = emptyToNull($_POST['jabatan']);
         $unit_kerja = emptyToNull($_POST['unit_kerja']);
         
@@ -130,42 +74,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         $conn->beginTransaction();
         
         try {
-            // Update tabel pegawai
-            $pegawaiQuery = "UPDATE pegawai SET
-                nik = :nik,
-                nama_lengkap = :nama_lengkap,
-                tempat_lahir = :tempat_lahir,
-                tanggal_lahir = :tanggal_lahir,
-                jenis_kelamin = :jenis_kelamin,
-                email = :email,
-                no_telepon = :no_telepon,
-                alamat_domisili = :alamat_domisili,
-                alamat_ktp = :alamat_ktp,
-                nidn = :nidn,
-                prodi = :prodi,
-                nip = :nip,
-                jenis_pegawai = :jenis_pegawai,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE pegawai_id = :pegawai_id";
-            
-            $pegawaiStmt = $conn->prepare($pegawaiQuery);
-            $pegawaiStmt->bindValue(':nik', $nik, $nik === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindParam(':nama_lengkap', $_POST['nama_lengkap']);
-            $pegawaiStmt->bindValue(':tempat_lahir', $tempat_lahir, $tempat_lahir === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindParam(':tanggal_lahir', $_POST['tanggal_lahir']);
-            $pegawaiStmt->bindParam(':jenis_kelamin', $_POST['jenis_kelamin']);
-            $pegawaiStmt->bindParam(':email', $_POST['email']);
-            $pegawaiStmt->bindValue(':no_telepon', $no_telepon, $no_telepon === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindValue(':alamat_domisili', $alamat_domisili, $alamat_domisili === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindValue(':alamat_ktp', $alamat_ktp, $alamat_ktp === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindValue(':nidn', $nidn, $nidn === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindValue(':prodi', $prodi, $prodi === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindValue(':nip', $nip, $nip === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-            $pegawaiStmt->bindParam(':jenis_pegawai', $_POST['jenis_pegawai']);
-            $pegawaiStmt->bindParam(':pegawai_id', $id);
-            
-            $pegawaiStmt->execute();
-            
             // Update atau Insert status_kepegawaian
             if(!empty($pegawai['status_id'])) {
                 // Update existing
@@ -210,7 +118,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             $conn->commit();
 
             // REDIRECT KE TAB DATA PEGAWAI
-            header('Location: administrasiKepegawaian.php?tab=data-pegawai&success=1&message=' . urlencode('Data pegawai berhasil diperbarui'));
+            header('Location: administrasiKepegawaian.php?tab=data-pegawai&success=1&message=' . urlencode('Data kepegawaian berhasil diperbarui'));
             exit;
             
         } catch(Exception $e) {
@@ -221,7 +129,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 // Merge POST data dengan data existing jika ada error
-$data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
+$data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $pegawai;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -328,6 +236,29 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
+        /* Style untuk readonly fields */
+        .form-control:disabled, .form-select:disabled {
+            background-color: #f3f4f6;
+            color: #6b7280;
+            cursor: not-allowed;
+            border-color: #e5e7eb;
+        }
+
+        .readonly-info {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #78350f;
+        }
+
+        .readonly-info i {
+            color: #f59e0b;
+            margin-right: 8px;
+        }
+
         .alert-custom {
             border-radius: 8px;
             padding: 15px 20px;
@@ -403,7 +334,7 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
                     <li class="breadcrumb-item active">Edit Pegawai</li>
                 </ol>
             </nav>
-            <h1><i class="fas fa-user-edit me-2"></i>Edit Data Pegawai</h1>
+            <h1><i class="fas fa-user-edit me-2"></i>Edit Data Kepegawaian</h1>
         </div>
 
         <!-- Content Card -->
@@ -420,113 +351,97 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
             <?php endif; ?>
 
             <form method="POST" action="">
-                <!-- Data Pribadi -->
+                <!-- Data Pribadi (READ ONLY) -->
                 <div class="form-section">
                     <div class="form-section-title">
                         <i class="fas fa-user"></i>
                         Data Pribadi
                     </div>
                     
+                    <div class="readonly-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Informasi:</strong> Data pribadi pegawai hanya dapat diubah oleh pegawai yang bersangkutan melalui profil mereka. Admin hanya dapat mengubah data kepegawaian.
+                    </div>
+                    
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="nik" class="form-label">NIK</label>
-                            <input type="text" class="form-control" id="nik" name="nik" value="<?= htmlspecialchars($data['nik'] ?? '') ?>">
+                            <input type="text" class="form-control" id="nik" value="<?= htmlspecialchars($pegawai['nik'] ?? '-') ?>" disabled>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="nama_lengkap" class="form-label">
-                                Nama Lengkap <span class="required">*</span>
-                            </label>
-                            <input type="text" class="form-control" id="nama_lengkap" name="nama_lengkap" value="<?= htmlspecialchars($data['nama_lengkap'] ?? '') ?>" required>
+                            <label for="nama_lengkap" class="form-label">Nama Lengkap</label>
+                            <input type="text" class="form-control" id="nama_lengkap" value="<?= htmlspecialchars($pegawai['nama_lengkap'] ?? '') ?>" disabled>
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="tempat_lahir" class="form-label">Tempat Lahir</label>
-                            <input type="text" class="form-control" id="tempat_lahir" name="tempat_lahir" value="<?= htmlspecialchars($data['tempat_lahir'] ?? '') ?>">
+                            <input type="text" class="form-control" id="tempat_lahir" value="<?= htmlspecialchars($pegawai['tempat_lahir'] ?? '-') ?>" disabled>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="tanggal_lahir" class="form-label">
-                                Tanggal Lahir <span class="required">*</span>
-                            </label>
-                            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="<?= $data['tanggal_lahir'] ?? '' ?>" required>
+                            <label for="tanggal_lahir" class="form-label">Tanggal Lahir</label>
+                            <input type="text" class="form-control" id="tanggal_lahir" value="<?= $pegawai['tanggal_lahir'] ? date('d-m-Y', strtotime($pegawai['tanggal_lahir'])) : '-' ?>" disabled>
                         </div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="jenis_kelamin" class="form-label">
-                                Jenis Kelamin <span class="required">*</span>
-                            </label>
-                            <select class="form-select" id="jenis_kelamin" name="jenis_kelamin" required>
-                                <option value="">-- Pilih --</option>
-                                <option value="L" <?= ($data['jenis_kelamin'] ?? '') == 'L' ? 'selected' : '' ?>>Laki-laki</option>
-                                <option value="P" <?= ($data['jenis_kelamin'] ?? '') == 'P' ? 'selected' : '' ?>>Perempuan</option>
-                            </select>
+                            <label for="jenis_kelamin" class="form-label">Jenis Kelamin</label>
+                            <input type="text" class="form-control" id="jenis_kelamin" value="<?= ($pegawai['jenis_kelamin'] ?? '') == 'L' ? 'Laki-laki' : (($pegawai['jenis_kelamin'] ?? '') == 'P' ? 'Perempuan' : '-') ?>" disabled>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="no_telepon" class="form-label">No. Telepon</label>
-                            <input type="text" class="form-control" id="no_telepon" name="no_telepon" value="<?= htmlspecialchars($data['no_telepon'] ?? '') ?>">
+                            <input type="text" class="form-control" id="no_telepon" value="<?= htmlspecialchars($pegawai['no_telepon'] ?? '-') ?>" disabled>
                         </div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="email" class="form-label">
-                            Email <span class="required">*</span>
-                        </label>
-                        <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($data['email'] ?? '') ?>" required>
+                        <label for="email" class="form-label">Email</label>
+                        <input type="text" class="form-control" id="email" value="<?= htmlspecialchars($pegawai['email'] ?? '') ?>" disabled>
                     </div>
 
                     <div class="mb-3">
                         <label for="alamat_ktp" class="form-label">Alamat KTP</label>
-                        <textarea class="form-control" id="alamat_ktp" name="alamat_ktp" rows="2"><?= htmlspecialchars($data['alamat_ktp'] ?? '') ?></textarea>
+                        <textarea class="form-control" id="alamat_ktp" rows="2" disabled><?= htmlspecialchars($pegawai['alamat_ktp'] ?? '-') ?></textarea>
                     </div>
 
                     <div class="mb-3">
                         <label for="alamat_domisili" class="form-label">Alamat Domisili</label>
-                        <textarea class="form-control" id="alamat_domisili" name="alamat_domisili" rows="2"><?= htmlspecialchars($data['alamat_domisili'] ?? '') ?></textarea>
+                        <textarea class="form-control" id="alamat_domisili" rows="2" disabled><?= htmlspecialchars($pegawai['alamat_domisili'] ?? '-') ?></textarea>
                     </div>
+
+                    <!-- JENIS PEGAWAI, NIP, NIDN, PRODI (READ ONLY - dari inputan user) -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="jenis_pegawai_display" class="form-label">Jenis Pegawai</label>
+                            <input type="text" class="form-control" id="jenis_pegawai_display" value="<?= htmlspecialchars(ucfirst($pegawai['jenis_pegawai'] ?? '-')) ?>" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nip_display" class="form-label">NIP</label>
+                            <input type="text" class="form-control" id="nip_display" value="<?= htmlspecialchars($pegawai['nip'] ?? '-') ?>" disabled>
+                        </div>
+                    </div>
+
+                    <?php if(($pegawai['jenis_pegawai'] ?? '') == 'dosen'): ?>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nidn_display" class="form-label">NIDN</label>
+                            <input type="text" class="form-control" id="nidn_display" value="<?= htmlspecialchars($pegawai['nidn'] ?? '-') ?>" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="prodi_display" class="form-label">Program Studi</label>
+                            <input type="text" class="form-control" id="prodi_display" value="<?= htmlspecialchars($pegawai['prodi'] ?? '-') ?>" disabled>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
-                <!-- Data Kepegawaian -->
+                <!-- Data Kepegawaian (EDITABLE) -->
                 <div class="form-section">
                     <div class="form-section-title">
                         <i class="fas fa-briefcase"></i>
-                        Data Kepegawaian
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="jenis_pegawai" class="form-label">
-                                Jenis Pegawai <span class="required">*</span>
-                            </label>
-                            <select class="form-select" id="jenis_pegawai" name="jenis_pegawai" required onchange="toggleDosenFields()">
-                                <option value="">-- Pilih --</option>
-                                <option value="dosen" <?= ($data['jenis_pegawai'] ?? '') == 'dosen' ? 'selected' : '' ?>>Dosen</option>
-                                <option value="staff" <?= ($data['jenis_pegawai'] ?? '') == 'staff' ? 'selected' : '' ?>>Staff</option>
-                                <option value="tendik" <?= ($data['jenis_pegawai'] ?? '') == 'tendik' ? 'selected' : '' ?>>Tendik</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="nip" class="form-label">NIP</label>
-                            <input type="text" class="form-control" id="nip" name="nip" value="<?= htmlspecialchars($data['nip'] ?? '') ?>">
-                        </div>
-                    </div>
-
-                    <!-- Fields khusus Dosen -->
-                    <div id="dosenFields" style="display: <?= ($data['jenis_pegawai'] ?? '') == 'dosen' ? 'block' : 'none' ?>;">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="nidn" class="form-label">NIDN</label>
-                                <input type="text" class="form-control" id="nidn" name="nidn" value="<?= htmlspecialchars($data['nidn'] ?? '') ?>">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="prodi" class="form-label">
-                                    Program Studi <span class="required">*</span>
-                                </label>
-                                <input type="text" class="form-control" id="prodi" name="prodi" value="<?= htmlspecialchars($data['prodi'] ?? '') ?>">
-                            </div>
-                        </div>
+                        Data Kepegawaian <span style="font-size: 12px; color: #16a34a; font-weight: normal;"></span>
                     </div>
 
                     <div class="row">
@@ -604,20 +519,6 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        function toggleDosenFields() {
-            const jenisPegawai = document.getElementById('jenis_pegawai').value;
-            const dosenFields = document.getElementById('dosenFields');
-            const prodiInput = document.getElementById('prodi');
-            
-            if(jenisPegawai === 'dosen') {
-                dosenFields.style.display = 'block';
-                prodiInput.setAttribute('required', 'required');
-            } else {
-                dosenFields.style.display = 'none';
-                prodiInput.removeAttribute('required');
-            }
-        }
-
         function toggleKontrakFields() {
             const jenisKepegawaian = document.getElementById('jenis_kepegawaian').value;
             const kontrakFields = document.getElementById('kontrakFields');
@@ -638,7 +539,6 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? $_POST : $pegawai;
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            toggleDosenFields();
             toggleKontrakFields();
         });
     </script>

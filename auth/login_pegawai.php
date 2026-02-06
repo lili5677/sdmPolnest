@@ -1,101 +1,206 @@
 <?php
+
+// STEP 1: Start session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// STEP 2: Database connection
 require_once '../config/database.php';
 
+// STEP 3: Kalau sudah login, redirect sesuai role
+if (isset($_SESSION['user_id']) && isset($_SESSION['user_type'])) {
+    if ($_SESSION['user_type'] == 'admin') {
+        header('Location: ' . BASE_URL . 'admin/index.php');
+        exit;
+    } elseif ($_SESSION['user_type'] == 'pegawai' || $_SESSION['user_type'] == 'dosen') {
+        header('Location: ' . BASE_URL . '/index.php');
+        exit;
+    }
+}
+
+// STEP 4: Handle login form
 $error = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $email = trim($_POST['email'] ?? '');
+    $input = trim($_POST['password'] ?? ''); // Bisa password atau token untuk pegawai lama
 
-    $email    = trim($_POST['email'] ?? '');
-    $input    = trim($_POST['password'] ?? ''); // bisa password / token
-
-    if ($email === '') {
-        $error = "Email harus diisi!";
+    if (empty($email) || empty($input)) {
+        $error = "Email dan password/token harus diisi!";
     } else {
+        try {
+            // Query cek user + pegawai + AMBIL is_pegawai_lama
+            $query = "SELECT u.user_id,
+                             u.email,
+                             u.password,
+                             u.user_type,
+                             u.password_changed,
+                             u.is_active,
+                             u.token,
+                             p.pelamar_id, 
+                             p.nama_lengkap,
+                             l.lamaran_id,
+                             l.status_lamaran,
+                             at.token as activation_token,
+                             at.is_used,
+                             at.expired_at,
+                             at.role,
+                             at.nidn,
+                             at.prodi,
+                             at.nip,
+                             peg.pegawai_id,
+                             peg.is_pegawai_lama
+                      FROM users u
+                      LEFT JOIN pelamar p ON u.user_id = p.user_id
+                      LEFT JOIN lamaran l ON p.pelamar_id = l.pelamar_id AND l.status_lamaran = 'diterima'
+                      LEFT JOIN activation_tokens at ON p.pelamar_id = at.pelamar_id
+                      LEFT JOIN pegawai peg ON u.user_id = peg.user_id
+                      WHERE u.email = :email 
+                      AND u.is_active = 1";
+            
+            $stmt = $conn->prepare($query);
+            $stmt->execute(['email' => $email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $stmt = $conn->prepare("
-            SELECT u.*, p.pegawai_id, p.is_pegawai_lama
-            FROM users u
-            LEFT JOIN pegawai p ON u.user_id = p.user_id
-            WHERE u.email = ?
-              AND u.is_active = 1
-            LIMIT 1
-        ");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$user) {
-            $error = "Email tidak ditemukan atau akun tidak aktif!";
-        }
-
-        // ================= ADMIN =================
-        elseif ($user['user_type'] === 'admin') {
-
-            if (!password_verify($input, $user['password'])) {
-                $error = "Password salah!";
+            // Validasi user exists
+            if (!$user) {
+                $error = "Email tidak ditemukan atau akun tidak aktif!";
             } else {
+                    
+                // ===== CASE 1: ADMIN =====
+                if ($user['user_type'] == 'admin') {
+                    
+                    // Admin selalu pakai password
+                    if (!password_verify($input, $user['password'])) {
+                        $error = "Password salah!";
+                    } else {
+                        $_SESSION['user_id'] = $user['user_id'];
+                        $_SESSION['email'] = $user['email'];
+                        $_SESSION['user_type'] = 'admin';
+                        $_SESSION['logged_in'] = true;
+                        $_SESSION['login_time'] = time();
 
-                $_SESSION['user_id']   = $user['user_id'];
-                $_SESSION['email']     = $user['email'];
-                $_SESSION['user_type'] = 'admin';
+                        if (isset($_POST['remember'])) {
+                            setcookie('remember_email', $email, time() + (86400 * 30), '/');
+                        }
 
-                header('Location: ../admin/index.php');
-                exit;
-            }
-        }
-
-        // ================= PEGAWAI / DOSEN =================
-        elseif (in_array($user['user_type'], ['pegawai', 'dosen'])) {
-
-            // ===== PEGAWAI LAMA =====
-            if ($user['is_pegawai_lama'] == 1 && $user['password_changed'] == 0) {
+                        header('Location: ../admin/index.php');
+                        exit;
+                    }
+                }
                 
-                if ($input === '') {
-                    $error = "Token login wajib diisi!";
+                // ===== CASE 2: PEGAWAI/DOSEN (sudah aktif di tabel pegawai) =====
+                elseif (!empty($user['pegawai_id'])) {
+                    
+                    // ===== SUB-CASE 2A: PEGAWAI LAMA (Login pertama kali dengan token) =====
+                    if ($user['is_pegawai_lama'] == 1 && $user['password_changed'] == 0) {
+                        
+                        // Pegawai lama harus pakai TOKEN, bukan password
+                        if ($input !== $user['token']) {
+                            $error = "Token login salah! Silakan gunakan token yang diberikan oleh admin.";
+                        } else {
+                            // Token benar - Ambil nama lengkap dari tabel pegawai
+                            $query_pegawai = "SELECT nama_lengkap FROM pegawai WHERE pegawai_id = :pegawai_id";
+                            $stmt_pegawai = $conn->prepare($query_pegawai);
+                            $stmt_pegawai->execute(['pegawai_id' => $user['pegawai_id']]);
+                            $pegawai_data = $stmt_pegawai->fetch(PDO::FETCH_ASSOC);
+                            
+                            // Set session data
+                            $_SESSION['user_id'] = $user['user_id'];
+                            $_SESSION['pegawai_id'] = $user['pegawai_id'];
+                            $_SESSION['nama_lengkap'] = $pegawai_data['nama_lengkap'] ?? 'Pegawai';
+                            $_SESSION['email'] = $user['email'];
+                            $_SESSION['user_type'] = $user['user_type'];
+                            $_SESSION['logged_in'] = true;
+                            $_SESSION['login_time'] = time();
+                            $_SESSION['is_first_login'] = true;
+
+                            if (isset($_POST['remember'])) {
+                                setcookie('remember_email', $email, time() + (86400 * 30), '/');
+                            }
+
+                            // Redirect ke keamanan akun untuk set password pertama kali
+                            header('Location: ../users/pegawai/keamanan_akun.php?first_login=1');
+                            exit;
+                        }
+                    }
+                    
+                    // ===== SUB-CASE 2B: PEGAWAI AKTIF (sudah punya password) =====
+                    else {
+                        
+                        // Pegawai aktif pakai password normal
+                        if (!password_verify($input, $user['password'])) {
+                            $error = "Password salah!";
+                        } else {
+                            // Password benar - Ambil nama lengkap dari tabel pegawai
+                            $query_pegawai = "SELECT nama_lengkap FROM pegawai WHERE pegawai_id = :pegawai_id";
+                            $stmt_pegawai = $conn->prepare($query_pegawai);
+                            $stmt_pegawai->execute(['pegawai_id' => $user['pegawai_id']]);
+                            $pegawai_data = $stmt_pegawai->fetch(PDO::FETCH_ASSOC);
+                            
+                            // Set session data
+                            $_SESSION['user_id'] = $user['user_id'];
+                            $_SESSION['pegawai_id'] = $user['pegawai_id'];
+                            $_SESSION['nama_lengkap'] = $pegawai_data['nama_lengkap'] ?? 'Pegawai';
+                            $_SESSION['email'] = $user['email'];
+                            $_SESSION['user_type'] = $user['user_type'];
+                            $_SESSION['logged_in'] = true;
+                            $_SESSION['login_time'] = time();
+
+                            if (isset($_POST['remember'])) {
+                                setcookie('remember_email', $email, time() + (86400 * 30), '/');
+                            }
+
+                            // ===== CEK PASSWORD_CHANGED =====
+                            if ($user['password_changed'] == 0) {
+                                // Belum pernah ganti password - redirect ke keamanan akun
+                                $_SESSION['is_first_login'] = true;
+                                header('Location: ../users/pegawai/keamanan_akun.php');
+                                exit;
+                            } else {
+                                // Password sudah pernah diganti - langsung ke administrasi
+                                header('Location: ../index.php');
+                                exit;
+                            }
+                        }
+                    }
                 }
-                elseif ($input !== $user['token']) {
-                    $error = "Token login salah!";
+                
+                // ===== CASE 3: PELAMAR DITERIMA (belum aktivasi) =====
+                elseif ($user['status_lamaran'] == 'diterima' && !empty($user['activation_token']) && $user['is_used'] == 0) {
+                    
+                    // Pelamar diterima, punya token, tapi belum aktivasi
+                    // Pelamar pakai password untuk login, bukan token
+                    if (!password_verify($input, $user['password'])) {
+                        $error = "Password salah!";
+                    } else {
+                        $_SESSION['user_id'] = $user['user_id'];
+                        $_SESSION['email'] = $user['email'];
+                        $_SESSION['user_type'] = 'pelamar';
+                        $_SESSION['pelamar_id'] = $user['pelamar_id'];
+                        $_SESSION['nama_lengkap'] = $user['nama_lengkap'];
+                        $_SESSION['logged_in'] = true;
+                        $_SESSION['login_time'] = time();
+                        $_SESSION['is_first_login'] = true;
+
+                        if (isset($_POST['remember'])) {
+                            setcookie('remember_email', $email, time() + (86400 * 30), '/');
+                        }
+
+                        // Redirect ke halaman aktivasi pegawai
+                        header('Location: ../users/pelamar/aktivasi_pegawai.php');
+                        exit;
+                    }
                 }
+                
+                // ===== CASE 4: PELAMAR BIASA =====
                 else {
-
-                    $_SESSION['user_id']   = $user['user_id'];
-                    $_SESSION['pegawai_id'] = $user['pegawai_id'];
-                    $_SESSION['email']     = $user['email'];
-                    $_SESSION['user_type'] = $user['user_type'];
-                    $_SESSION['first_login'] = true;
-
-                    header('Location: ../users/pegawai/keamanan.php?first_login=1');
-                    exit;
+                    $error = "Anda bukan pegawai di Politeknik NEST. Silakan login di halaman pelamar.";
                 }
             }
-
-            // ===== PEGAWAI AKTIF =====
-            else {
-
-                if ($input === '') {
-                    $error = "Password harus diisi!";
-                }
-                elseif (!password_verify($input, $user['password'])) {
-                    $error = "Password salah!";
-                }
-                else {
-
-                    $_SESSION['user_id']    = $user['user_id'];
-                    $_SESSION['pegawai_id'] = $user['pegawai_id'];
-                    $_SESSION['email']      = $user['email'];
-                    $_SESSION['user_type']  = $user['user_type'];
-
-                    header('Location: ../users/pegawai/administrasi.php');
-                    exit;
-                }
-            }
-        }
-
-        else {
-            $error = "Anda tidak memiliki akses.";
+        } catch (Exception $e) {
+            $error = "Terjadi kesalahan sistem: " . $e->getMessage();
         }
     }
 }
@@ -216,6 +321,13 @@ include '../users/partials/navbar.php';
     .form-control:focus {
         outline: none;
         border-color: #0d47a1;
+    }
+
+    .text-muted {
+        color: #9e9e9e;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
     }
 
     .error-message {
@@ -349,6 +461,25 @@ include '../users/partials/navbar.php';
             gap: 12px;
         }
     }
+
+    .password-field {
+        position: relative;
+    }
+
+    .toggle-password {
+        position: absolute;
+        top: 50%;
+        right: 15px;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #9e9e9e;
+        font-size: 18px;
+    }
+
+    .toggle-password:hover {
+        color: #0d47a1;
+    }
+
 </style>
 </head>
 
@@ -363,16 +494,16 @@ include '../users/partials/navbar.php';
                     <p class="form-subtitle">Sistem Manajemen Sumber Daya Manusia<br>Politeknik NEST</p>
                 </div>
 
-                <div class="info-box">
+                <!-- <div class="info-box">
                     <h4>
                         <i class="bi bi-info-circle-fill"></i>
                         Informasi Login
                     </h4>
                     <p>
-                        Portal ini khusus untuk <strong>pegawai</strong> Politeknik NEST. 
-                        Jika Anda adalah pelamar yang sudah diterima, Anda dapat login di sini untuk aktivasi akun pegawai.
+                        <strong>Pegawai Lama:</strong> Gunakan <strong>token login</strong> yang diberikan oleh admin pada field password.<br>
+                        <strong>Pegawai Baru:</strong> Gunakan password yang telah Anda buat.
                     </p>
-                </div>
+                </div> -->
 
                 <?php if ($error): ?>
                     <div class="error-message">
@@ -384,7 +515,7 @@ include '../users/partials/navbar.php';
                 <?php if (isset($_GET['logout'])): ?>
                     <div class="success-message">
                         <i class="bi bi-check-circle-fill"></i>
-                        <span>Anda telah berhasil logout</span>
+                        <span>Anda telah berhasil logout.</span>
                     </div>
                 <?php endif; ?>
 
@@ -392,6 +523,13 @@ include '../users/partials/navbar.php';
                     <div class="success-message">
                         <i class="bi bi-check-circle-fill"></i>
                         <span>Akun berhasil diaktivasi! Silakan login dengan password baru Anda.</span>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (isset($_GET['password_changed'])): ?>
+                    <div class="success-message">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span>Password berhasil diganti! Silakan login dengan password baru Anda.</span>
                     </div>
                 <?php endif; ?>
 
@@ -410,9 +548,22 @@ include '../users/partials/navbar.php';
                             required>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Password</label>
-                        <input type="password" class="form-control" name="password" placeholder="Password / Token Login" required>
+                    <div class="form-group password-wrapper">
+                        <label class="form-label">Password / Token Login</label>
+                        <div class="password-field">
+                            <input 
+                                type="password" 
+                                class="form-control" 
+                                id="passwordInput"
+                                name="password" 
+                                placeholder="Password atau Token Login"
+                                required
+                            >
+                            <span class="toggle-password" id="togglePassword">
+                                <i class="bi bi-eye"></i>
+                            </span>
+                        </div>
+                        <small class="text-muted">Pegawai lama: gunakan token login dari admin. Pegawai baru: gunakan password Anda.</small>
                     </div>
 
                     <div class="form-footer">
@@ -440,5 +591,20 @@ include '../users/partials/navbar.php';
             </div>
         </div>
     </div>
+
+    <script>
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('passwordInput');
+        const icon = togglePassword.querySelector('i');
+
+        togglePassword.addEventListener('click', () => {
+            const isPassword = passwordInput.type === 'password';
+            passwordInput.type = isPassword ? 'text' : 'password';
+
+            icon.classList.toggle('bi-eye');
+            icon.classList.toggle('bi-eye-slash');
+        });
+    </script>
+
 </body>
 </html>

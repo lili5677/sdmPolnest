@@ -20,92 +20,94 @@ if (!defined('BASE_URL')) {
 ?>
 <!-- Footer Section -->
 <footer class="footer">
-    <div class="footer-container">
-        <!-- Logo Section -->
-        <section class="footer-section logo-section animate-item" data-animation="slide-right" aria-label="Logo Politeknik Nest">
-            <div class="logo-wrapper">
-                <img src="<?php echo BASE_URL; ?>users/assets/logo.png" alt="Logo Politeknik Nest" class="footer-logo">
-                <div class="logo-text">
-                    <h3>POLITEKNIK</h3>
-                    <h3>NEST</h3>
+    <div class="footer-wrapper">
+        <div class="footer-container">
+            <!-- Logo Section -->
+            <section class="footer-section logo-section animate-item" data-animation="slide-right" aria-label="Logo Politeknik Nest">
+                <div class="logo-wrapper">
+                    <img src="<?php echo BASE_URL; ?>users/assets/logo.png" alt="Logo Politeknik Nest" class="footer-logo">
+                    <div class="logo-text">
+                        <h3>POLITEKNIK</h3>
+                        <h3>NEST</h3>
+                    </div>
                 </div>
+            </section>
+
+            <!-- Contact Section -->
+            <section class="footer-section contact-section animate-item" data-animation="slide-up" aria-labelledby="contact-title">
+                <h3 id="contact-title" class="footer-title">Hubungi Kami</h3>
+                <address class="contact-address">
+                    <ul class="contact-list">
+                        <li class="contact-item">
+                            <i class="bi bi-telephone-fill" aria-hidden="true"></i>
+                            <a href="tel:+6281129510003">+6281129510003</a>
+                        </li>
+                        <li class="contact-item">
+                            <i class="bi bi-whatsapp" aria-hidden="true"></i>
+                            <a href="https://wa.me/6281129510003" target="_blank" rel="noopener noreferrer">+6281129510003</a>
+                        </li>
+                        <li class="contact-item">
+                            <i class="bi bi-envelope-fill" aria-hidden="true"></i>
+                            <a href="mailto:info@politekniknest.ac.id">info@politekniknest.ac.id</a>
+                        </li>
+                    </ul>
+                </address>
+            </section>
+
+            <!-- Address Section -->
+            <section class="footer-section address-section animate-item" data-animation="slide-left" aria-labelledby="address-title">
+                <h3 id="address-title" class="footer-title">Alamat Kantor</h3>
+                <address class="address-text">
+                    Jl. Telukan - Cuplik, RT 03 RW 10,<br>
+                    Parangjoro, Kec.Grogol, Kab.Sukoharjo,<br>
+                    Jawa Tengah
+                </address>
+            </section>
+        </div>
+
+        <!-- Bottom Section -->
+        <div class="footer-bottom animate-item" data-animation="fade-in">
+            <div class="footer-bottom-container">
+                <p class="copyright">
+                    <small>Copyright <time datetime="2026">2026</time>. Politeknik Nest</small>
+                </p>
+                
+                <!-- Social Media Navigation -->
+                <nav class="social-nav" aria-label="Social Media Links">
+                    <ul class="social-icons">
+                        <li style="animation-delay: 0.1s;">
+                            <a href="https://instagram.com/politekniknest" class="social-link" aria-label="Instagram" data-bs-toggle="tooltip" title="Instagram" target="_blank" rel="noopener noreferrer">
+                                <i class="bi bi-instagram" aria-hidden="true"></i>
+                            </a>
+                        </li>
+                        <li style="animation-delay: 0.2s;">
+                            <a href="https://facebook.com/politekniknest" class="social-link" aria-label="Facebook" data-bs-toggle="tooltip" title="Facebook" target="_blank" rel="noopener noreferrer">
+                                <i class="bi bi-facebook" aria-hidden="true"></i>
+                            </a>
+                        </li>
+                        <li style="animation-delay: 0.3s;">
+                            <a href="https://twitter.com/politekniknest" class="social-link" aria-label="Twitter" data-bs-toggle="tooltip" title="Twitter" target="_blank" rel="noopener noreferrer">
+                                <i class="bi bi-twitter-x" aria-hidden="true"></i>
+                            </a>
+                        </li>
+                        <li style="animation-delay: 0.4s;">
+                            <a href="https://tiktok.com/@politekniknest" class="social-link" aria-label="TikTok" data-bs-toggle="tooltip" title="TikTok" target="_blank" rel="noopener noreferrer">
+                                <i class="bi bi-tiktok" aria-hidden="true"></i>
+                            </a>
+                        </li>
+                        <li style="animation-delay: 0.5s;">
+                            <a href="https://linkedin.com/company/politekniknest" class="social-link" aria-label="LinkedIn" data-bs-toggle="tooltip" title="LinkedIn" target="_blank" rel="noopener noreferrer">
+                                <i class="bi bi-linkedin" aria-hidden="true"></i>
+                            </a>
+                        </li>
+                        <li style="animation-delay: 0.6s;">
+                            <a href="https://youtube.com/@politekniknest" class="social-link" aria-label="YouTube" data-bs-toggle="tooltip" title="YouTube" target="_blank" rel="noopener noreferrer">
+                                <i class="bi bi-youtube" aria-hidden="true"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
             </div>
-        </section>
-
-        <!-- Contact Section -->
-        <section class="footer-section contact-section animate-item" data-animation="slide-up" aria-labelledby="contact-title">
-            <h3 id="contact-title" class="footer-title">Hubungi Kami</h3>
-            <address class="contact-address">
-                <ul class="contact-list">
-                    <li class="contact-item">
-                        <i class="bi bi-telephone-fill" aria-hidden="true"></i>
-                        <a href="tel:+6281129510003">+6281129510003</a>
-                    </li>
-                    <li class="contact-item">
-                        <i class="bi bi-whatsapp" aria-hidden="true"></i>
-                        <a href="https://wa.me/6281129510003" target="_blank" rel="noopener noreferrer">+6281129510003</a>
-                    </li>
-                    <li class="contact-item">
-                        <i class="bi bi-envelope-fill" aria-hidden="true"></i>
-                        <a href="mailto:info@politekniknest.ac.id">info@politekniknest.ac.id</a>
-                    </li>
-                </ul>
-            </address>
-        </section>
-
-        <!-- Address Section -->
-        <section class="footer-section address-section animate-item" data-animation="slide-left" aria-labelledby="address-title">
-            <h3 id="address-title" class="footer-title">Alamat Kantor</h3>
-            <address class="address-text">
-                Jl. Telukan - Cuplik, RT 03 RW 10,<br>
-                Parangjoro, Kec.Grogol, Kab.Sukoharjo,<br>
-                Jawa Tengah
-            </address>
-        </section>
-    </div>
-
-    <!-- Bottom Section -->
-    <div class="footer-bottom animate-item" data-animation="fade-in">
-        <div class="footer-bottom-container">
-            <p class="copyright">
-                <small>Copyright <time datetime="2026">2026</time>. Politeknik Nest</small>
-            </p>
-            
-            <!-- Social Media Navigation -->
-            <nav class="social-nav" aria-label="Social Media Links">
-                <ul class="social-icons">
-                    <li style="animation-delay: 0.1s;">
-                        <a href="https://instagram.com/politekniknest" class="social-link" aria-label="Instagram" data-bs-toggle="tooltip" title="Instagram" target="_blank" rel="noopener noreferrer">
-                            <i class="bi bi-instagram" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                    <li style="animation-delay: 0.2s;">
-                        <a href="https://facebook.com/politekniknest" class="social-link" aria-label="Facebook" data-bs-toggle="tooltip" title="Facebook" target="_blank" rel="noopener noreferrer">
-                            <i class="bi bi-facebook" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                    <li style="animation-delay: 0.3s;">
-                        <a href="https://twitter.com/politekniknest" class="social-link" aria-label="Twitter" data-bs-toggle="tooltip" title="Twitter" target="_blank" rel="noopener noreferrer">
-                            <i class="bi bi-twitter-x" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                    <li style="animation-delay: 0.4s;">
-                        <a href="https://tiktok.com/@politekniknest" class="social-link" aria-label="TikTok" data-bs-toggle="tooltip" title="TikTok" target="_blank" rel="noopener noreferrer">
-                            <i class="bi bi-tiktok" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                    <li style="animation-delay: 0.5s;">
-                        <a href="https://linkedin.com/company/politekniknest" class="social-link" aria-label="LinkedIn" data-bs-toggle="tooltip" title="LinkedIn" target="_blank" rel="noopener noreferrer">
-                            <i class="bi bi-linkedin" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                    <li style="animation-delay: 0.6s;">
-                        <a href="https://youtube.com/@politekniknest" class="social-link" aria-label="YouTube" data-bs-toggle="tooltip" title="YouTube" target="_blank" rel="noopener noreferrer">
-                            <i class="bi bi-youtube" aria-hidden="true"></i>
-                        </a>
-                    </li>
-                </ul>
-            </nav>
         </div>
     </div>
 </footer>
@@ -121,18 +123,25 @@ if (!defined('BASE_URL')) {
     .footer {
         background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
         color: white;
-        padding: 40px 20px 0;
+        padding: 0;
+        margin: 50px 0 0;
         width: 100%;
-        margin-top: 50px;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+    }
+
+    .footer-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 35px 30px 0;
     }
 
     .footer-container {
-        max-width: 1200px;
-        margin: 0 auto;
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 40px;
-        padding-bottom: 30px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 35px;
+        padding-bottom: 25px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     }
 
@@ -146,9 +155,9 @@ if (!defined('BASE_URL')) {
         opacity: 1;
     }
 
-    /* Slide Animations */
+    /* Slide Animations - Perbaikan Bug Animasi */
     .animate-item[data-animation="slide-right"] {
-        transform: translateX(-80px);
+        transform: translateX(-60px);
     }
 
     .animate-item[data-animation="slide-right"].visible {
@@ -156,7 +165,7 @@ if (!defined('BASE_URL')) {
     }
 
     .animate-item[data-animation="slide-left"] {
-        transform: translateX(80px);
+        transform: translateX(60px);
     }
 
     .animate-item[data-animation="slide-left"].visible {
@@ -164,7 +173,7 @@ if (!defined('BASE_URL')) {
     }
 
     .animate-item[data-animation="slide-up"] {
-        transform: translateY(60px);
+        transform: translateY(50px);
     }
 
     .animate-item[data-animation="slide-up"].visible {
@@ -172,7 +181,7 @@ if (!defined('BASE_URL')) {
     }
 
     .animate-item[data-animation="fade-in"] {
-        transform: translateY(30px);
+        transform: translateY(20px);
     }
 
     .animate-item[data-animation="fade-in"].visible {
@@ -181,23 +190,25 @@ if (!defined('BASE_URL')) {
 
     /* Logo Section */
     .logo-section {
-        /* Kolom 1 */
+        display: flex;
+        align-items: flex-start;
     }
 
     .logo-wrapper {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 12px;
     }
 
     .footer-logo {
-        width: 60px;
-        height: 60px;
+        width: 55px;
+        height: 55px;
         background: white;
         border-radius: 50%;
         padding: 5px;
         object-fit: contain;
         transition: transform 0.3s ease;
+        flex-shrink: 0;
     }
 
     .footer-logo:hover {
@@ -206,7 +217,7 @@ if (!defined('BASE_URL')) {
 
     .logo-text h3 {
         margin: 0;
-        font-size: 18px;
+        font-size: 17px;
         font-weight: bold;
         line-height: 1.2;
         color: white;
@@ -215,13 +226,14 @@ if (!defined('BASE_URL')) {
     /* Contact & Address Section */
     .contact-section,
     .address-section {
-        /* Kolom 2 & 3 */
+        display: flex;
+        flex-direction: column;
     }
 
     .footer-title {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 600;
-        margin-bottom: 15px;
+        margin-bottom: 12px;
         color: white;
     }
 
@@ -245,21 +257,23 @@ if (!defined('BASE_URL')) {
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 12px;
-        font-size: 15px;
+        margin-bottom: 10px;
+        font-size: 14px;
         color: rgba(255, 255, 255, 0.95);
     }
 
     .contact-item i {
-        font-size: 20px;
-        width: 24px;
+        font-size: 18px;
+        width: 22px;
         text-align: center;
+        flex-shrink: 0;
     }
 
     .contact-item a {
         color: rgba(255, 255, 255, 0.95);
         text-decoration: none;
         transition: color 0.3s ease;
+        word-break: break-word;
     }
 
     .contact-item a:hover {
@@ -268,25 +282,23 @@ if (!defined('BASE_URL')) {
     }
 
     .address-text {
-        font-size: 15px;
-        line-height: 1.8;
+        font-size: 14px;
+        line-height: 1.7;
         color: rgba(255, 255, 255, 0.95);
         margin: 0;
     }
 
     /* Footer Bottom */
     .footer-bottom {
-        padding: 20px 0;
+        padding: 18px 0;
     }
 
     .footer-bottom-container {
-        max-width: 1200px;
-        margin: 0 auto;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 20px;
+        gap: 15px;
     }
 
     .copyright {
@@ -294,7 +306,7 @@ if (!defined('BASE_URL')) {
     }
 
     .copyright small {
-        font-size: 14px;
+        font-size: 13px;
         color: rgba(255, 255, 255, 0.9);
     }
 
@@ -305,7 +317,7 @@ if (!defined('BASE_URL')) {
 
     .social-icons {
         display: flex;
-        gap: 12px;
+        gap: 10px;
         flex-wrap: wrap;
         list-style: none;
         padding: 0;
@@ -321,7 +333,7 @@ if (!defined('BASE_URL')) {
     @keyframes socialFadeIn {
         from {
             opacity: 0;
-            transform: translateY(20px) scale(0.8);
+            transform: translateY(15px) scale(0.8);
         }
         to {
             opacity: 1;
@@ -334,8 +346,8 @@ if (!defined('BASE_URL')) {
     }
 
     .social-link {
-        width: 42px;
-        height: 42px;
+        width: 38px;
+        height: 38px;
         background: rgba(0, 0, 0, 0.25);
         border-radius: 50%;
         display: flex;
@@ -350,7 +362,7 @@ if (!defined('BASE_URL')) {
     .social-link:hover,
     .social-link:focus {
         background: rgba(255, 255, 255, 0.2);
-        transform: translateY(-5px) scale(1.1) rotate(5deg);
+        transform: translateY(-4px) scale(1.08);
         border-color: rgba(255, 255, 255, 0.5);
         color: white;
         outline: 2px solid rgba(255, 255, 255, 0.3);
@@ -358,72 +370,123 @@ if (!defined('BASE_URL')) {
     }
 
     .social-link i {
-        font-size: 20px;
+        font-size: 18px;
     }
 
     /* Responsive Design */
+    @media (max-width: 992px) {
+        .footer-wrapper {
+            padding: 30px 30px 0;
+        }
+
+        .footer-container {
+            gap: 30px;
+        }
+    }
+
     @media (max-width: 768px) {
         .footer {
-            padding: 30px 15px 0;
-            margin-top: 30px;
+            border-radius: 15px 15px 0 0;
+            margin: 30px 0 0;
+        }
+
+        .footer-wrapper {
+            padding: 25px 20px 0;
         }
 
         .footer-container {
             grid-template-columns: 1fr;
             gap: 25px;
+            text-align: center;
+        }
+
+        .logo-section,
+        .contact-section,
+        .address-section {
+            align-items: center;
+        }
+
+        .logo-wrapper {
+            justify-content: center;
+        }
+
+        .contact-item {
+            justify-content: center;
         }
 
         .footer-bottom-container {
             flex-direction: column;
             text-align: center;
+            gap: 12px;
         }
 
         .social-icons {
             justify-content: center;
         }
 
-        .logo-wrapper {
-            justify-content: flex-start;
-        }
-
-        /* Mobile: semua slide dari bawah */
+        /* Mobile: semua animasi dari bawah */
         .animate-item[data-animation="slide-right"],
         .animate-item[data-animation="slide-left"],
         .animate-item[data-animation="slide-up"] {
             transform: translateY(40px);
         }
 
-        .animate-item.visible {
+        .animate-item[data-animation="slide-right"].visible,
+        .animate-item[data-animation="slide-left"].visible,
+        .animate-item[data-animation="slide-up"].visible {
             transform: translateY(0);
         }
     }
 
     @media (max-width: 480px) {
+        .footer-wrapper {
+            padding: 20px 15px 0;
+        }
+
         .footer-logo {
-            width: 50px;
-            height: 50px;
+            width: 48px;
+            height: 48px;
         }
 
         .logo-text h3 {
-            font-size: 16px;
+            font-size: 15px;
         }
 
         .footer-title {
-            font-size: 18px;
+            font-size: 16px;
         }
 
         .contact-item,
         .address-text {
-            font-size: 14px;
+            font-size: 13px;
+        }
+
+        .contact-item i {
+            font-size: 16px;
+            width: 20px;
         }
 
         .social-link {
-            width: 38px;
-            height: 38px;
+            width: 36px;
+            height: 36px;
         }
 
         .social-link i {
-            font-size: 18px;
+            font-size: 16px;
+        }
+
+        .copyright small {
+            font-size: 12px;
+        }
+    }
+
+    /* Pulse animation untuk social icons */
+    @keyframes pulse {
+        0%, 100% { 
+            transform: scale(1); 
+        }
+        50% { 
+            transform: scale(1.12); 
         }
     }
 </style>
@@ -442,8 +505,8 @@ if (!defined('BASE_URL')) {
 
         // Intersection Observer for animations
         const observerOptions = {
-            threshold: 0.15,
-            rootMargin: '0px 0px -50px 0px'
+            threshold: 0.1,
+            rootMargin: '0px 0px -30px 0px'
         };
 
         const observer = new IntersectionObserver(function(entries) {
@@ -452,7 +515,7 @@ if (!defined('BASE_URL')) {
                     // Add stagger delay
                     setTimeout(() => {
                         entry.target.classList.add('visible');
-                    }, index * 150); // 150ms delay between each element
+                    }, index * 120); // 120ms delay antara setiap elemen
                     
                     observer.unobserve(entry.target);
                 }
@@ -469,7 +532,7 @@ if (!defined('BASE_URL')) {
         const socialLinks = document.querySelectorAll('.social-link');
         socialLinks.forEach(link => {
             link.addEventListener('click', function(e) {
-                this.style.transform = 'scale(0.85) rotate(-5deg)';
+                this.style.transform = 'scale(0.85)';
                 setTimeout(() => {
                     this.style.transform = '';
                 }, 200);
@@ -493,17 +556,4 @@ if (!defined('BASE_URL')) {
             copyrightTime.setAttribute('datetime', currentYear);
         }
     });
-
-    // Pulse animation for social icons
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-        }
-    `;
-    document.head.appendChild(style);
 </script>
-
-</body>
-</html>

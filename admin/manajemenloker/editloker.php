@@ -16,7 +16,7 @@ $stmt->execute([$lowongan_id]);
 $lowongan = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$lowongan) {
-    header('Location: index.php');
+    header('Location: manajemen-loker.php');
     exit;
 }
 
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $lowongan_id
             ]);
 
-            header('Location: index.php');
+            header('Location: manajemen-loker.php');
             exit;
         } catch (PDOException $e) {
             $error = "Gagal mengupdate data: " . $e->getMessage();
@@ -196,7 +196,7 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
                         </div>
 
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-cancel" onclick="location.href='index.php'">
+                            <button type="button" class="btn btn-cancel" onclick="location.href='manajemen-loker.php'">
                                 <i class="bi bi-x-circle"></i> Batal
                             </button>
                             <button type="submit" class="btn btn-submit">

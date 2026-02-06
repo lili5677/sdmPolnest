@@ -17,7 +17,7 @@ $stmt->execute([$lowongan_id]);
 $lowongan = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$lowongan) {
-    header('Location: index.php');
+    header('Location: manajemen-loker.php');
     exit;
 }
 
@@ -118,7 +118,7 @@ $status_class = 'status-' . strtolower($lowongan['status']);
 
         <main class="main-content">
             <div class="content-wrapper">
-                <a href="index.php" class="back-button"><i class="fas fa-arrow-left"></i> Kembali ke Daftar Lowongan</a>
+                <a href="manajemen-loker.php" class="back-button"><i class="fas fa-arrow-left"></i> Kembali ke Daftar Lowongan</a>
 
                 <!-- Header -->
                 <div class="header-card">

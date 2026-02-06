@@ -1,18 +1,10 @@
 <?php
-/**
- * Halaman: Tambah Pegawai
- * File: admin/tambah_pegawai.php
- * Deskripsi: Form dan proses tambah pegawai baru
- * 
- */
-
-// ===== UNTUK AUTHORIZATION  =====
-// session_start();
-// if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
-//     header('Location: ../login.php');
-//     exit();
-// }
-// ================================================
+//  UNTUK AUTHORIZATION  
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
+    header('Location: ../login.php');
+    exit();
+}
 
 // Koneksi Database
 require_once '../../config/database.php';

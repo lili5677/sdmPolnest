@@ -1,13 +1,4 @@
 <?php
-/**
- * DASHBOARD PELAMAR - UPDATED VERSION
- * File: users/pelamar/dashboard.php
- * 
- * UPDATE:
- * - Auto hide lowongan yang expired (deadline lewat atau formasi penuh)
- * - Show badge "Formasi Penuh" jika sudah ada yang diterima
- * - Improved UI untuk expired lowongan
- */
 
 // STEP 1: Start session
 if (session_status() === PHP_SESSION_NONE) {
@@ -31,10 +22,6 @@ if ($is_logged_in) {
 // STEP 4: Database
 require_once '../../config/database.php';
 
-// STEP 5: Auto-update jumlah_diterima dari lamaran
-// ⚠️ PENTING: Hitung HANYA yang status_lamaran = 'diterima'
-// Bukan yang 'dikirim', 'lolos_administrasi', dll
-// Jadi formasi 2 orang = butuh 2 orang DITERIMA, bukan 2 orang DAFTAR
 try {
     $conn->exec("
         UPDATE lowongan_pekerjaan lp

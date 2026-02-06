@@ -50,24 +50,51 @@ function formatTanggal($date) {
     
     <style>
         .hero-section {
-            background: url('<?php echo BASE_URL; ?>users/assets/dashboard.png') center/cover;
-            min-height: 500px;
+            background: url('<?php echo BASE_URL; ?>users/assets/dashboard.png') center center/cover no-repeat;
+            min-height: 750px;
             display: flex;
             align-items: center;
-            padding: 80px 0;
+            padding-top: 80px;
+            padding-bottom: 80px;
+            position: relative;
         }
+        
+        /* Overlay untuk meningkatkan kontras teks */
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+        
+        .hero-section .container {
+            position: relative;
+            z-index: 2;
+        }
+
         .hero-title {
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.6);
+            font-size: clamp(1.5rem, 4vw + 0.5rem, 3rem);
+            line-height: 1.3;
         }
+        
         .btn-pink {
             background: linear-gradient(135deg, #FF6B9D, #ff4d85);
             color: white !important;
             font-weight: 600;
-            padding: 15px 50px;
+            padding: 16px 48px;
             border-radius: 50px; 
             box-shadow: 0 8px 25px rgba(255, 107, 157, 0.5);
             text-decoration: none;
             display: inline-block;
+            font-size: 1.1rem !important;
+            transition: all 0.3s ease;
+            min-width: 200px;
+            text-align: center;
         }
 
         .btn-pink:hover {
@@ -75,6 +102,95 @@ function formatTanggal($date) {
             transform: translateY(-3px); 
             box-shadow: 0 12px 35px rgba(255, 107, 157, 0.6); 
         }
+
+        /* Responsive styles untuk layar sangat besar */
+        @media (min-width: 1400px) {
+            .hero-section {
+                min-height: 750px;
+            }
+            .btn-pink {
+                padding: 18px 56px;
+                font-size: 1.2rem !important;
+                min-width: 240px;
+            }
+        }
+
+        /* Desktop */
+        @media (max-width: 1199px) {
+            .hero-section {
+                min-height: 550px;
+            }
+            .btn-pink {
+                padding: 15px 44px;
+                font-size: 1.05rem !important;
+                min-width: 200px;
+            }
+        }
+
+        /* Tablet landscape */
+        @media (max-width: 991px) {
+            .hero-section {
+                min-height: 500px;
+                padding-top: 60px;
+                padding-bottom: 60px;
+            }
+            
+            .btn-pink {
+                padding: 14px 40px;
+                font-size: 1rem !important;
+                min-width: 180px;
+            }
+        }
+
+        /* Tablet portrait */
+        @media (max-width: 767px) {
+            .hero-section {
+                min-height: 450px;
+                padding-top: 50px;
+                padding-bottom: 50px;
+                background-position: center center;
+            }
+            
+            .btn-pink {
+                padding: 13px 36px;
+                font-size: 0.95rem !important;
+                min-width: 160px;
+            }
+        }
+
+        /* Mobile landscape */
+        @media (max-width: 575px) {
+            .hero-section {
+                min-height: 400px;
+                padding-top: 40px;
+                padding-bottom: 40px;
+            }
+            
+            .btn-pink {
+                padding: 12px 32px;
+                font-size: 0.9rem !important;
+                min-width: 140px;
+                max-width: 280px;
+                width: 100%;
+            }
+        }
+
+        /* Mobile portrait very small */
+        @media (max-width: 400px) {
+            .hero-section {
+                min-height: 350px;
+                padding-top: 30px;
+                padding-bottom: 30px;
+            }
+            
+            .btn-pink {
+                padding: 11px 28px;
+                font-size: 0.85rem !important;
+                min-width: 120px;
+                max-width: 260px;
+            }
+        }
+
         .pelatihan-section {
             background-color: #F5F7FA;
         }
@@ -150,7 +266,7 @@ function formatTanggal($date) {
                     <h1 class="hero-title display-4 fw-bold text-white mb-4">
                         Manajemen & Pengembangan SDM Politeknik Nest
                     </h1>
-                    <a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php" class="btn btn-pink btn-lg rounded-pill px-5">
+                    <a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php" class="btn btn-pink rounded-pill">
                         Lihat Lowongan
                     </a>
                 </div>
