@@ -180,14 +180,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_pengajuan'])) {
             $surat_penerimaan_path,
             $surat_penerimaan_size
         ])) {
-            $success_message = "Pengajuan studi lanjut berhasil dikirim!";
-            // Reload data pengajuan terakhir
-            $stmt_check->execute([$pegawai_id]);
-            $pengajuan_terakhir = $stmt_check->fetch(PDO::FETCH_ASSOC);
+            // REDIRECT dengan session message
+            $_SESSION['success_message'] = "Pengajuan studi lanjut berhasil dikirim!";
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
         } else {
             $errors[] = "Gagal menyimpan pengajuan";
         }
     }
+}
+
+// Ambil success message dari session (jika ada)
+$success_message = null;
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
 }
 ?>
 <!DOCTYPE html>
@@ -482,6 +489,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_pengajuan'])) {
             margin-top: 5px;
         }
         
+        /* Status Rejected Styling */
+        .status-item.rejected {
+            border-left: 3px solid #dc3545 !important;
+        }
+
+        .status-item.rejected::before {
+            border-color: #dc3545 !important;
+            background: #dc3545 !important;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Smooth scroll */
+        html {
+            scroll-behavior: smooth;
+        }
         /* Buttons */
         .form-actions {
             display: flex;
@@ -714,60 +740,129 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_pengajuan'])) {
             <!-- Status Pengajuan (jika sudah pernah mengajukan) -->
             <?php if ($pengajuan_terakhir): ?>
                 <div class="status-section">
-                    <h3 class="section-title">Status Pengajuan</h3>
-                    <div class="status-timeline">
-                        <div class="status-item <?php echo ($pengajuan_terakhir['status_pengajuan'] == 'diajukan') ? 'active' : 'completed'; ?>">
-                            <div class="status-title">
-                                Dokumen Diajukan
-                                <?php if ($pengajuan_terakhir['status_pengajuan'] == 'diajukan'): ?>
-                                    <span class="status-badge badge-info">Aktif</span>
-                                <?php endif; ?>
+                    <h3 class="section-title">Status Pengajuan Terakhir</h3>
+                    
+                    <!-- Info Pengajuan -->
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                            <div>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Institusi</div>
+                                <div style="font-size: 14px; font-weight: 600; color: #333;"><?php echo htmlspecialchars($pengajuan_terakhir['nama_institusi']); ?></div>
                             </div>
-                            <div class="status-date"><?php echo date('d F Y', strtotime($pengajuan_terakhir['created_at'])); ?></div>
-                        </div>
-                        
-                        <div class="status-item <?php echo in_array($pengajuan_terakhir['status_pengajuan'], ['ditinjau', 'menunggu_persetujuan', 'disetujui']) ? 'active' : ''; ?>">
-                            <div class="status-title">
-                                Sedang Ditinjau HRD
-                                <?php if ($pengajuan_terakhir['status_pengajuan'] == 'ditinjau'): ?>
-                                    <span class="status-badge badge-warning">Dalam Proses</span>
-                                <?php endif; ?>
+                            <div>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Program Studi</div>
+                                <div style="font-size: 14px; font-weight: 600; color: #333;"><?php echo htmlspecialchars($pengajuan_terakhir['program_studi']); ?></div>
                             </div>
-                            <div class="status-date">Dalam proses review</div>
-                        </div>
-                        
-                        <div class="status-item <?php echo in_array($pengajuan_terakhir['status_pengajuan'], ['menunggu_persetujuan', 'disetujui']) ? 'active' : ''; ?>">
-                            <div class="status-title">
-                                Menunggu Persetujuan
-                                <?php if ($pengajuan_terakhir['status_pengajuan'] == 'menunggu_persetujuan'): ?>
-                                    <span class="status-badge badge-warning">Menunggu</span>
-                                <?php endif; ?>
+                            <div>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Jenjang</div>
+                                <div style="font-size: 14px; font-weight: 600; color: #333;"><?php echo strtoupper($pengajuan_terakhir['jenjang_pendidikan']); ?></div>
                             </div>
-                            <div class="status-date">Menunggu keputusan akhir</div>
-                        </div>
-                        
-                        <div class="status-item <?php echo ($pengajuan_terakhir['status_pengajuan'] == 'disetujui') ? 'completed' : ''; ?>">
-                            <div class="status-title">
-                                Disetujui
-                                <?php if ($pengajuan_terakhir['status_pengajuan'] == 'disetujui'): ?>
-                                    <span class="status-badge badge-success">Selesai</span>
-                                <?php endif; ?>
+                            <div>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Tanggal Pengajuan</div>
+                                <div style="font-size: 14px; font-weight: 600; color: #333;"><?php echo date('d F Y', strtotime($pengajuan_terakhir['created_at'])); ?></div>
                             </div>
-                            <div class="status-date">Dokumen berhasil disetujui</div>
                         </div>
                     </div>
                     
-                    <?php if (!empty($pengajuan_terakhir['catatan_hrd'])): ?>
-                        <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #f5a3b4;">
-                            <strong style="font-size: 14px; color: #333;">Catatan HRD:</strong>
-                            <p style="margin-top: 8px; font-size: 13px; color: #666;"><?php echo nl2br(htmlspecialchars($pengajuan_terakhir['catatan_hrd'])); ?></p>
+                    <!-- Timeline Status (Hanya 2 Langkah) -->
+                    <div class="status-timeline">
+                        <!-- Step 1: Dokumen Diajukan -->
+                        <div class="status-item <?php echo in_array($pengajuan_terakhir['status_pengajuan'], ['diajukan', 'ditinjau']) ? 'active' : 'completed'; ?>">
+                            <div class="status-title">
+                                Dokumen Diajukan
+                                <?php if (in_array($pengajuan_terakhir['status_pengajuan'], ['diajukan', 'ditinjau'])): ?>
+                                    <span class="status-badge badge-warning">Menunggu Persetujuan HRD</span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="status-date">
+                                Diajukan pada <?php echo date('d F Y, H:i', strtotime($pengajuan_terakhir['created_at'])); ?> WIB
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2: Hasil Keputusan (Disetujui/Ditolak) -->
+                        <?php if ($pengajuan_terakhir['status_pengajuan'] == 'disetujui'): ?>
+                            <!-- DISETUJUI -->
+                            <div class="status-item completed">
+                                <div class="status-title">
+                                    <i class="bi bi-check-circle-fill" style="color: #4caf50; margin-right: 8px;"></i>
+                                    Pengajuan Disetujui
+                                    <span class="status-badge badge-success">Selesai</span>
+                                </div>
+                                <div class="status-date">
+                                    Disetujui pada <?php echo date('d F Y, H:i', strtotime($pengajuan_terakhir['updated_at'])); ?> WIB
+                                </div>
+                            </div>
+                        
+                        <?php elseif ($pengajuan_terakhir['status_pengajuan'] == 'ditolak'): ?>
+                            <!-- DITOLAK -->
+                            <div class="status-item" style="border-left: 3px solid #dc3545;">
+                                <div class="status-title">
+                                    <i class="bi bi-x-circle-fill" style="color: #dc3545; margin-right: 8px;"></i>
+                                    Pengajuan Ditolak
+                                    <span class="status-badge" style="background: #f8d7da; color: #721c24;">Ditolak</span>
+                                </div>
+                                <div class="status-date">
+                                    Ditolak pada <?php echo date('d F Y, H:i', strtotime($pengajuan_terakhir['updated_at'])); ?> WIB
+                                </div>
+                            </div>
+                        
+                        <?php else: ?>
+                            <!-- MENUNGGU KEPUTUSAN -->
+                            <div class="status-item">
+                                <div class="status-title">
+                                    <i class="bi bi-hourglass-split" style="color: #999; margin-right: 8px;"></i>
+                                    Menunggu Keputusan HRD
+                                </div>
+                                <div class="status-date">
+                                    Dokumen sedang ditinjau oleh tim HRD
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <!-- Catatan Admin (Alasan Penolakan) -->
+                    <?php if (!empty($pengajuan_terakhir['catatan_admin'])): ?>
+                        <div style="margin-top: 25px; padding: 20px; background: <?php echo $pengajuan_terakhir['status_pengajuan'] == 'ditolak' ? '#fff5f5' : '#f8f9fa'; ?>; border-radius: 10px; border-left: 4px solid <?php echo $pengajuan_terakhir['status_pengajuan'] == 'ditolak' ? '#dc3545' : '#f5a3b4'; ?>;">
+                            <div style="display: flex; align-items: start; gap: 10px;">
+                                <i class="bi bi-<?php echo $pengajuan_terakhir['status_pengajuan'] == 'ditolak' ? 'exclamation-triangle-fill' : 'info-circle-fill'; ?>" style="font-size: 20px; color: <?php echo $pengajuan_terakhir['status_pengajuan'] == 'ditolak' ? '#dc3545' : '#f5a3b4'; ?>; margin-top: 2px;"></i>
+                                <div>
+                                    <strong style="font-size: 14px; color: #333; display: block; margin-bottom: 8px;">
+                                        <?php echo $pengajuan_terakhir['status_pengajuan'] == 'ditolak' ? 'Alasan Penolakan:' : 'Catatan HRD:'; ?>
+                                    </strong>
+                                    <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.7;">
+                                        <?php echo nl2br(htmlspecialchars($pengajuan_terakhir['catatan_admin'])); ?>
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     <?php endif; ?>
+                    
+                    <!-- Tombol Aksi -->
+                    <div style="margin-top: 25px; display: flex; gap: 12px; flex-wrap: wrap;">
+                        <?php if ($pengajuan_terakhir['status_pengajuan'] == 'ditolak'): ?>
+                            <button type="button" class="btn btn-primary" onclick="scrollToForm()" style="display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="bi bi-arrow-repeat"></i> Ajukan Ulang
+                            </button>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($pengajuan_terakhir['surat_permohonan_path'])): ?>
+                            <a href="<?php echo htmlspecialchars($pengajuan_terakhir['surat_permohonan_path']); ?>" class="btn btn-secondary" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="bi bi-file-earmark-pdf"></i> Lihat Surat Permohonan
+                            </a>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($pengajuan_terakhir['surat_penerimaan_path'])): ?>
+                            <a href="<?php echo htmlspecialchars($pengajuan_terakhir['surat_penerimaan_path']); ?>" class="btn btn-secondary" target="_blank" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="bi bi-file-earmark-check"></i> Lihat Surat Penerimaan
+                            </a>
+                        <?php endif; ?>
+                    </div>
+        
                 </div>
             <?php endif; ?>
             
             <!-- Form Pengajuan -->
-            <div class="form-section">
+            <div class="form-section" id="form-pengajuan">
                 <h3 class="section-title">Pengajuan Izin Belajar / Studi Lanjut</h3>
                 
                 <form method="POST" enctype="multipart/form-data">
@@ -833,6 +928,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_pengajuan'])) {
     <?php include '../partials/footer.php'; ?>
     
     <script>
+        // Fungsi scroll ke form
+        function scrollToForm() {
+            const formSection = document.getElementById('form-pengajuan');
+            if (formSection) {
+                formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                // Highlight form sebentar
+                formSection.style.transition = 'all 0.3s';
+                formSection.style.boxShadow = '0 0 0 4px rgba(245, 163, 180, 0.3)';
+                setTimeout(() => {
+                    formSection.style.boxShadow = '';
+                }, 2000);
+            }
+        }
+        
         // Auto-hide alerts after 5 seconds
         setTimeout(function() {
             const alerts = document.querySelectorAll('.alert');

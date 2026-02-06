@@ -184,7 +184,7 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
         .page-header h2 {
             margin: 0px 0px 8px;
             font-weight: 700;
-            font-size: 24px;
+            font-size: 28px;
         }
 
         .page-header p {
@@ -616,7 +616,7 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
 
     <div class="main-content">
         <div class="page-header">
-            <h2><i class="fas fa-users-cog me-2"></i>Manajemen Pegawai Lama</h2>
+            <h2><i class=""></i>Manajemen Pegawai Lama</h2>
             <p>Kelola data pegawai yang sudah bekerja sebelum sistem diterapkan</p>
         </div>
 
