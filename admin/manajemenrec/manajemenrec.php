@@ -1,4 +1,5 @@
 <?php
+
 // Koneksi database
 require_once '../../config/database.php';
 
@@ -50,7 +51,7 @@ switch ($tahapFilter) {
         break;
 }
 
-// GET DATA LAMARAN
+// GET DATA LAMARAN (FIXED: Removed lp.kategori)
 try {
     $queryLamaran = "
         SELECT 
@@ -64,16 +65,22 @@ try {
             l.surat_terkirim_at,
             p.nama_lengkap,
             p.email_aktif,
+            p.user_id,
             lp.posisi,
+            lp.lowongan_id,
             jp.jadwal_psikotes_id,
             jp.tanggal_psikotes,
             ji.jadwal_interview_id,
-            ji.tanggal_interview
+            ji.tanggal_interview,
+            at.token as activation_token,
+            at.expired_at as token_expired,
+            at.role as token_role
         FROM lamaran l
         INNER JOIN pelamar p ON l.pelamar_id = p.pelamar_id
         INNER JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
         LEFT JOIN jadwal_psikotes jp ON l.lamaran_id = jp.lamaran_id
         LEFT JOIN jadwal_interview ji ON l.lamaran_id = ji.lamaran_id
+        LEFT JOIN activation_tokens at ON l.pelamar_id = at.pelamar_id AND at.is_used = 0
         $whereClause
         ORDER BY l.tanggal_daftar DESC
     ";
@@ -373,6 +380,38 @@ include '../sidebar/sidebar.php';
             color: white;
         }
         
+        /* TOKEN BADGE */
+        .token-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: #dbeafe;
+            color: #3b82f6;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        .token-badge:hover {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .role-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            background: #f3e8ff;
+            color: #9333ea;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
         /* EMPTY STATE */
         .empty-state {
             text-align: center;
@@ -382,6 +421,25 @@ include '../sidebar/sidebar.php';
             font-size: 64px;
             color: #d1d5db;
             margin-bottom: 16px;
+        }
+        
+        /* LOGIN LINK */
+        .login-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            background: #e0f2fe;
+            color: #0284c7;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .login-link:hover {
+            background: #0284c7;
+            color: white;
         }
         
         @media (max-width: 968px) {
@@ -448,7 +506,7 @@ include '../sidebar/sidebar.php';
     <div class="card mb-4" style="background: linear-gradient(135deg, rgb(132, 151, 234) 0%, #1245b5 100%); border-radius: 16px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
         <div class="card-body p-4">
             <div class="d-flex align-items-center justify-content-between text-white">
-                <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items: center gap-3">
                     <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
                         <i class="bi bi-file-earmark-text" style="font-size: 28px;"></i>
                     </div>
@@ -513,7 +571,7 @@ include '../sidebar/sidebar.php';
                         <th>POSISI</th>
                         <th>TAHAP</th>
                         <th>STATUS</th>
-                        <th style="min-width: 250px;">AKSI</th>
+                        <th style="min-width: 300px;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -526,7 +584,7 @@ include '../sidebar/sidebar.php';
                         <td><?= getStatusBadge($row['status_lamaran']) ?></td>
                         <td>
                             <div class="action-buttons">
-                                <!-- LIHAT DETAIL - TANPA target="_blank" -->
+                                <!-- LIHAT DETAIL -->
                                 <a href="detail_pelamar.php?id=<?= $row['lamaran_id'] ?>" class="action-btn view" title="Lihat Detail">
                                     <i class="bi bi-eye"></i> Lihat
                                 </a>
@@ -588,14 +646,36 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // HASIL - KIRIM SURAT
+                                <?php // HASIL - KIRIM SURAT DAN TOKEN
                                 elseif ($status == 'diterima'): 
-                                    if (!empty($row['surat_resmi_path'])): ?>
+                                    if (!empty($row['activation_token'])): ?>
+                                        <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                                            <span class="token-badge" onclick="copyToken('<?= htmlspecialchars($row['activation_token']) ?>')" title="Klik untuk copy token">
+                                                <i class="bi bi-key-fill"></i>
+                                                <?= substr($row['activation_token'], 0, 10) ?>...
+                                            </span>
+                                            <?php if (!empty($row['token_role'])): ?>
+                                                <span class="role-badge">
+                                                    <i class="bi bi-<?= $row['token_role'] == 'dosen' ? 'mortarboard' : 'person-badge' ?>-fill"></i>
+                                                    <?= strtoupper($row['token_role']) ?>
+                                                </span>
+                                            <?php endif; ?>
+                                            <a href="../../auth/login_pegawai.php?email=<?= urlencode($row['email_aktif']) ?>" 
+                                               class="login-link" 
+                                               target="_blank"
+                                               title="Buka link login">
+                                                <i class="bi bi-box-arrow-up-right"></i>
+                                                Link Login
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (!empty($row['surat_resmi_path'])): ?>
                                         <span class="badge bg-success">
                                             <i class="bi bi-file-earmark-check me-1"></i>
                                             Surat Terkirim
                                         </span>
-                                        <a href="<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
+                                        <a href="../../<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
                                             <i class="bi bi-download"></i> Unduh
                                         </a>
                                     <?php else: ?>
@@ -610,7 +690,7 @@ include '../sidebar/sidebar.php';
                                             <i class="bi bi-file-earmark-x me-1"></i>
                                             Surat Terkirim
                                         </span>
-                                        <a href="<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
+                                        <a href="../../<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
                                             <i class="bi bi-download"></i> Unduh
                                         </a>
                                     <?php else: ?>
@@ -762,7 +842,7 @@ include '../sidebar/sidebar.php';
                             <i class="bi bi-file-earmark-pdf me-2"></i>Unggah Surat Keterangan Diterima
                         </label>
                         <input type="file" class="form-control" name="surat_file" id="suratDiterimaFile" 
-                               accept=".pdf,.doc,.docx" required>
+                               accept=".pdf" required>
                         <small class="text-muted">Format: PDF (Maks. 5MB)</small>
                     </div>
                     
@@ -817,8 +897,8 @@ include '../sidebar/sidebar.php';
                             <i class="bi bi-file-earmark-pdf me-2"></i>Unggah Surat Keterangan Penolakan
                         </label>
                         <input type="file" class="form-control" name="surat_file" id="suratDitolakFile" 
-                               accept=".pdf,.doc,.docx" required>
-                        <small class="text-muted">Format: PDF, DOC, DOCX (Maks. 5MB)</small>
+                               accept=".pdf" required>
+                        <small class="text-muted">Format: PDF (Maks. 5MB)</small>
                     </div>
                     
                     <div class="mb-3">
@@ -844,6 +924,21 @@ include '../sidebar/sidebar.php';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
 
 <script>
+// COPY TOKEN
+function copyToken(token) {
+    navigator.clipboard.writeText(token).then(() => {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Token berhasil dicopy!',
+            text: token,
+            showConfirmButton: false,
+            timer: 3000
+        });
+    });
+}
+
 // ACTIONS
 function loloskanAdmin(lamaranId, nama) {
     Swal.fire({
@@ -899,7 +994,7 @@ function loloskanPsikotes(lamaranId, nama) {
 function terimaLamaran(lamaranId, nama) {
     Swal.fire({
         title: 'Terima Pelamar',
-        html: `Terima pelamar <strong>${nama}</strong> sebagai pegawai?`,
+        html: `Terima pelamar <strong>${nama}</strong> sebagai pegawai?<br><br><small class="text-muted"><i class="bi bi-info-circle"></i> Token aktivasi akan dibuat otomatis dan role akan di-detect dari posisi lowongan</small>`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#10b981',
@@ -908,7 +1003,8 @@ function terimaLamaran(lamaranId, nama) {
         cancelButtonText: 'Batal'
     }).then((result) => {
         if (result.isConfirmed) {
-            updateStatus(lamaranId, 'diterima');
+            // Update status + generate token
+            updateStatusWithToken(lamaranId, 'diterima');
         }
     });
 }
@@ -968,6 +1064,87 @@ function updateStatus(lamaranId, status, catatan = '') {
                 text: data.message || 'Terjadi kesalahan',
                 icon: 'error'
             });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            title: 'Error!',
+            text: 'Terjadi kesalahan: ' + error,
+            icon: 'error'
+        });
+    });
+}
+
+// UPDATE STATUS + GENERATE TOKEN (Untuk penerimaan)
+function updateStatusWithToken(lamaranId, status) {
+    Swal.fire({
+        title: 'Memproses...',
+        html: 'Menerima pelamar dan membuat token aktivasi...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    // Update status dulu
+    fetch('update_status_lamaran.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            lamaran_id: lamaranId,
+            status: status
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Setelah update status berhasil, generate token
+            return fetch('generate_token_pegawai.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    lamaran_id: lamaranId
+                })
+            });
+        } else {
+            throw new Error(data.message || 'Gagal update status');
+        }
+    })
+    .then(response => response.json())
+    .then(tokenData => {
+        if (tokenData.success) {
+            Swal.fire({
+                title: 'Berhasil!',
+                html: `
+                    <div class="text-start">
+                        <p><i class="bi bi-check-circle-fill text-success"></i> Pelamar berhasil diterima</p>
+                        <p><i class="bi bi-check-circle-fill text-success"></i> Token aktivasi berhasil dibuat</p>
+                        <hr>
+                        <div class="alert alert-info mb-0">
+                            <div class="mb-2"><strong>Token Aktivasi:</strong></div>
+                            <code style="font-size: 16px; background: #f0f0f0; padding: 8px; display: block; border-radius: 4px; font-family: 'Courier New', monospace;">
+                                ${tokenData.data.token}
+                            </code>
+                            <div class="mt-2">
+                                <small><strong>Role:</strong> <span class="badge bg-primary">${tokenData.data.role.toUpperCase()}</span></small>
+                            </div>
+                            <div class="mt-1">
+                                <small class="text-muted">Berlaku hingga: ${new Date(tokenData.data.expired_at).toLocaleString('id-ID')}</small>
+                            </div>
+                        </div>
+                        <p class="mt-3 mb-0"><small><i class="bi bi-info-circle"></i> Token akan ditampilkan di tabel dan bisa dicopy</small></p>
+                    </div>
+                `,
+                icon: 'success',
+                confirmButtonColor: '#10b981',
+                confirmButtonText: 'OK',
+                width: '600px'
+            }).then(() => location.reload());
+        } else {
+            Swal.fire({
+                title: 'Peringatan!',
+                html: `Status berhasil diupdate, namun token gagal dibuat:<br><small class="text-danger">${tokenData.message}</small>`,
+                icon: 'warning',
+                confirmButtonColor: '#f59e0b'
+            }).then(() => location.reload());
         }
     })
     .catch(error => {
@@ -1052,6 +1229,57 @@ function jadwalkanInterview(lamaranId, nama) {
     modal.show();
 }
 
+function submitJadwalInterview() {
+    const form = document.getElementById('formInterview');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const formData = new FormData(form);
+    const tanggal = formData.get('tanggal_interview');
+    const waktu = formData.get('waktu_mulai');
+    formData.set('tanggal_interview', tanggal + ' ' + waktu + ':00');
+    formData.delete('waktu_mulai');
+
+    Swal.fire({
+        title: 'Memproses...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    fetch('jadwalkan_interview.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
+        if (data.success) {
+            Swal.fire({
+                title: 'Berhasil!',
+                text: 'Jadwal interview berhasil dibuat',
+                icon: 'success',
+                confirmButtonColor: '#10b981'
+            }).then(() => location.reload());
+        } else {
+            Swal.fire({
+                title: 'Gagal!',
+                text: data.message || 'Terjadi kesalahan',
+                icon: 'error'
+            });
+        }
+    })
+    .catch(error => {
+        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
+        Swal.fire({
+            title: 'Error!',
+            text: 'Terjadi kesalahan: ' + error,
+            icon: 'error'
+        });
+    });
+}
+
 // KIRIM SURAT DITERIMA
 function kirimSuratDiterima(lamaranId, nama, posisi) {
     document.getElementById('diterimaLamaranId').value = lamaranId;
@@ -1082,7 +1310,6 @@ function submitSuratDiterima() {
         return;
     }
 
-    // Validate file type
     const file = fileInput.files[0];
     const allowedTypes = ['application/pdf'];
     if (!allowedTypes.includes(file.type)) {
@@ -1094,8 +1321,7 @@ function submitSuratDiterima() {
         return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
         Swal.fire({
             title: 'Gagal!',
@@ -1178,7 +1404,6 @@ function submitSuratDitolak() {
         return;
     }
 
-    // Validate file type
     const file = fileInput.files[0];
     const allowedTypes = ['application/pdf'];
     if (!allowedTypes.includes(file.type)) {
@@ -1190,8 +1415,7 @@ function submitSuratDitolak() {
         return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
         Swal.fire({
             title: 'Gagal!',
@@ -1236,57 +1460,6 @@ function submitSuratDitolak() {
     })
     .catch(error => {
         bootstrap.Modal.getInstance(document.getElementById('modalSuratDitolak')).hide();
-        Swal.fire({
-            title: 'Error!',
-            text: 'Terjadi kesalahan: ' + error,
-            icon: 'error'
-        });
-    });
-}
-
-function submitJadwalInterview() {
-    const form = document.getElementById('formInterview');
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-
-    const formData = new FormData(form);
-    const tanggal = formData.get('tanggal_interview');
-    const waktu = formData.get('waktu_mulai');
-    formData.set('tanggal_interview', tanggal + ' ' + waktu + ':00');
-    formData.delete('waktu_mulai');
-
-    Swal.fire({
-        title: 'Memproses...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
-    fetch('jadwalkan_interview.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
-        if (data.success) {
-            Swal.fire({
-                title: 'Berhasil!',
-                text: 'Jadwal interview berhasil dibuat',
-                icon: 'success',
-                confirmButtonColor: '#10b981'
-            }).then(() => location.reload());
-        } else {
-            Swal.fire({
-                title: 'Gagal!',
-                text: data.message || 'Terjadi kesalahan',
-                icon: 'error'
-            });
-        }
-    })
-    .catch(error => {
-        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
         Swal.fire({
             title: 'Error!',
             text: 'Terjadi kesalahan: ' + error,
