@@ -8,6 +8,7 @@
  * - Toggle aktif/nonaktif manual
  * - Show expired badge
  * - Flash message support
+ * - Tampilkan jenis_posisi (dosen/staff/tendik)
  */
 
 // Koneksi Database
@@ -32,15 +33,11 @@ if (isset($_GET['toggle_id']) && isset($_GET['action'])) {
         $_SESSION['flash_message'] = 'Lowongan berhasil dinonaktifkan';
     }
     $_SESSION['flash_type'] = 'success';
-    header('Location: index.php');
+    header('Location: loker.php');
     exit();
 }
 
 // Auto-update jumlah_diterima & status
-// ⚠️ PENTING: 
-// - Hitung HANYA yang status_lamaran = 'diterima'
-// - UPDATE kolom jumlah_diterima, BUKAN kolom formasi!
-// - Kolom formasi TIDAK BOLEH BERUBAH (formasi = target rekrutmen)
 try {
     // Update jumlah_diterima berdasarkan yang sudah diterima
     $conn->exec("
@@ -55,7 +52,6 @@ try {
     ");
     
     // Auto-close yang expired/penuh
-    // Penuh = jumlah_diterima >= formasi (bukan jumlah pendaftar!)
     $conn->exec("
         UPDATE lowongan_pekerjaan
         SET status = 'ditutup'
@@ -155,6 +151,11 @@ unset($_SESSION['flash_message'], $_SESSION['flash_type']);
         .badge-gray { background-color: #f1f5f9; color: #475569; }
         .badge-warning { background-color: #fef3c7; color: #92400e; }
         .badge-danger { background-color: #fee2e2; color: #991b1b; }
+        
+        /* Badge jenis posisi */
+        .badge-dosen { background-color: #dbeafe; color: #1e40af; }
+        .badge-staff { background-color: #d1fae5; color: #065f46; }
+        .badge-tendik { background-color: #fef3c7; color: #92400e; }
 
         .action-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .btn-icon {
@@ -193,7 +194,7 @@ unset($_SESSION['flash_message'], $_SESSION['flash_type']);
         }
         @media (max-width: 768px) {
             .table-card { overflow-x: auto; }
-            table { min-width: 1000px; }
+            table { min-width: 1200px; }
         }
     </style>
 </head>
@@ -244,6 +245,7 @@ unset($_SESSION['flash_message'], $_SESSION['flash_type']);
                             <tr>
                                 <th>No</th>
                                 <th>Posisi</th>
+                                <th>Jenis</th>
                                 <th>Kualifikasi</th>
                                 <th>Formasi</th>
                                 <th>Pendaftar</th>
@@ -257,6 +259,26 @@ unset($_SESSION['flash_message'], $_SESSION['flash_type']);
                                 <?php
                                     $jumlah_pendaftar = $data_pendaftar[$lowongan['lowongan_id']] ?? 0;
                                     $status_class = 'status-' . strtolower($lowongan['status']);
+                                    
+                                    // Jenis posisi badge
+                                    $jenis_posisi = $lowongan['jenis_posisi'] ?? 'staff';
+                                    $jenis_badge_class = '';
+                                    $jenis_icon = '';
+                                    
+                                    switch ($jenis_posisi) {
+                                        case 'dosen':
+                                            $jenis_badge_class = 'badge-dosen';
+                                            $jenis_icon = 'fa-chalkboard-teacher';
+                                            break;
+                                        case 'tendik':
+                                            $jenis_badge_class = 'badge-tendik';
+                                            $jenis_icon = 'fa-tools';
+                                            break;
+                                        default:
+                                            $jenis_badge_class = 'badge-staff';
+                                            $jenis_icon = 'fa-user-tie';
+                                            break;
+                                    }
                                     
                                     // Determine status reason
                                     $status_reason = '';
@@ -288,6 +310,12 @@ unset($_SESSION['flash_message'], $_SESSION['flash_type']);
                                 <tr>
                                     <td><?= $index + 1 ?></td>
                                     <td><strong><?= htmlspecialchars($lowongan['posisi']) ?></strong></td>
+                                    <td>
+                                        <span class="badge <?= $jenis_badge_class ?>">
+                                            <i class="fas <?= $jenis_icon ?>"></i>
+                                            <?= ucfirst($jenis_posisi) ?>
+                                        </span>
+                                    </td>
                                     <td><?= htmlspecialchars(substr($lowongan['kualifikasi'] ?? '', 0, 50)) ?>...</td>
                                     <td>
                                         <span class="badge <?= $lowongan['is_full'] ? 'badge-danger' : 'badge-primary' ?>">
