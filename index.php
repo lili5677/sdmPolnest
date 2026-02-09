@@ -1,14 +1,57 @@
 <?php
 require_once 'config/database.php';
 
+// Check if user is logged in
+// Guest (tidak login) tetap bisa mengakses halaman ini
+// Namun section "Layanan MSDM" hanya ditampilkan untuk user yang ada di tabel pegawai
+$is_logged_in = isset($_SESSION['user_id']);
+$user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+
+// Check if user is pegawai and get jenis_pegawai from database
+$is_pegawai = false;
+$jenis_pegawai = null;
+
+if ($is_logged_in && $user_id) {
+    try {
+        $stmt = $conn->prepare("SELECT jenis_pegawai FROM pegawai WHERE user_id = ?");
+        $stmt->execute([$user_id]);
+        $pegawai_data = $stmt->fetch();
+        
+        if ($pegawai_data) {
+            $is_pegawai = true;
+            $jenis_pegawai = $pegawai_data['jenis_pegawai'];
+        }
+    } catch (PDOException $e) {
+        // Error handling - user tidak ditemukan di tabel pegawai
+        $is_pegawai = false;
+    }
+}
+
 // Fetch pelatihan data from database
 try {
-    // Ambil 6 pelatihan terbaru
-    $stmt = $conn->query("SELECT * FROM pelatihan ORDER BY created_at DESC LIMIT 6");
+    // Ambil 6 pelatihan terbaru dengan kolom yang benar
+    $stmt = $conn->query("SELECT pelatihan_id, judul_pelatihan, deskripsi, tanggal_mulai, tanggal_selesai, lokasi, instruktur, flyer, undangan, created_at FROM pelatihan ORDER BY created_at DESC LIMIT 6");
     $pelatihan_data = $stmt->fetchAll();
     
-    // Ambil 6 reward terbaru
-    $stmt = $conn->query("SELECT * FROM reward ORDER BY created_at DESC LIMIT 6");
+    // Ambil 6 reward terbaru dengan join ke tabel pegawai
+    $stmt = $conn->query("
+        SELECT 
+            r.reward_id,
+            r.judul_reward,
+            r.deskripsi,
+            r.tanggal_reward,
+            r.kategori,
+            r.file_bukti,
+            r.created_at,
+            p.nama_lengkap,
+            p.jenis_pegawai,
+            p.prodi,
+            p.foto_path
+        FROM reward_pegawai r
+        LEFT JOIN pegawai p ON r.pegawai_id = p.pegawai_id
+        ORDER BY r.created_at DESC 
+        LIMIT 6
+    ");
     $reward_data = $stmt->fetchAll();
 } catch (PDOException $e) {
     $pelatihan_data = [];
@@ -30,6 +73,69 @@ function formatTanggal($date) {
     $m = date('n', strtotime($date));
     $y = date('Y', strtotime($date));
     return $d . ' ' . $bulan[$m] . ' ' . $y;
+}
+
+// Format range tanggal
+function formatRangeTanggal($tanggal_mulai, $tanggal_selesai) {
+    if (empty($tanggal_mulai)) return '-';
+    
+    $tgl_mulai = formatTanggal($tanggal_mulai);
+    
+    if (empty($tanggal_selesai) || $tanggal_mulai == $tanggal_selesai) {
+        return $tgl_mulai;
+    }
+    
+    $tgl_selesai = formatTanggal($tanggal_selesai);
+    return $tgl_mulai . ' - ' . $tgl_selesai;
+}
+
+// Define services based on jenis_pegawai from database (hanya untuk user yang ada di tabel pegawai)
+$services = [];
+if ($is_pegawai) {
+    if ($jenis_pegawai === 'dosen') {
+        // Dosen mendapat 4 layanan
+        $services = [
+            [
+                'title' => 'Layanan Administrasi Kepegawaian',
+                'image' => 'users/assets/layanan/administrasi.png',
+                'link' => BASE_URL . 'users/pegawai/administrasi.php'
+            ],
+            [
+                'title' => 'Pengembangan SDM',
+                'image' => 'users/assets/layanan/sdm.png', 
+                'link' => BASE_URL . 'users/pegawai/pengembangan.php'
+            ],
+            [
+                'title' => 'Sertifikasi Dosen',
+                'image' => 'users/assets/layanan/sertifikasi.png', 
+                'link' => BASE_URL . 'users/pegawai/sertifikasi.php'
+            ],
+            [
+                'title' => 'Penilaian & Kinerja Pegawai',
+                'image' => 'users/assets/layanan/evaluasi.png',
+                'link' => BASE_URL . 'users/pegawai/penilaian.php'
+            ]
+        ];
+    } elseif ($jenis_pegawai === 'tendik' || $jenis_pegawai === 'staff') {
+        // Tendik dan Staff mendapat 3 layanan
+        $services = [
+            [
+                'title' => 'Layanan Administrasi Kepegawaian',
+                'image' => 'users/assets/layanan/administrasi.png', 
+                'link' => BASE_URL . 'users/pegawai/administrasi.php'
+            ],
+            [
+                'title' => 'Pengembangan SDM',
+                'image' => 'users/assets/layanan/pengembangan_sdm.png', 
+                'link' => BASE_URL . 'users/pegawai/pengembangan.php'
+            ],
+            [
+                'title' => 'Penilaian & Kinerja Pegawai',
+                'image' => 'users/assets/layanan/penilaian.png',
+                'link' => BASE_URL . 'users/pegawai/penilaian.php'
+            ]
+        ];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -81,37 +187,11 @@ function formatTanggal($date) {
             font-size: clamp(1.5rem, 4vw + 0.5rem, 3rem);
             line-height: 1.3;
         }
-        
-        .btn-pink {
-            background: linear-gradient(135deg, #FF6B9D, #ff4d85);
-            color: white !important;
-            font-weight: 600;
-            padding: 16px 48px;
-            border-radius: 50px; 
-            box-shadow: 0 8px 25px rgba(255, 107, 157, 0.5);
-            text-decoration: none;
-            display: inline-block;
-            font-size: 1.1rem !important;
-            transition: all 0.3s ease;
-            min-width: 200px;
-            text-align: center;
-        }
-
-        .btn-pink:hover {
-            background: linear-gradient(135deg, #ff4d85, #FF6B9D);
-            transform: translateY(-3px); 
-            box-shadow: 0 12px 35px rgba(255, 107, 157, 0.6); 
-        }
 
         /* Responsive styles untuk layar sangat besar */
         @media (min-width: 1400px) {
             .hero-section {
                 min-height: 750px;
-            }
-            .btn-pink {
-                padding: 18px 56px;
-                font-size: 1.2rem !important;
-                min-width: 240px;
             }
         }
 
@@ -119,11 +199,6 @@ function formatTanggal($date) {
         @media (max-width: 1199px) {
             .hero-section {
                 min-height: 550px;
-            }
-            .btn-pink {
-                padding: 15px 44px;
-                font-size: 1.05rem !important;
-                min-width: 200px;
             }
         }
 
@@ -133,12 +208,6 @@ function formatTanggal($date) {
                 min-height: 500px;
                 padding-top: 60px;
                 padding-bottom: 60px;
-            }
-            
-            .btn-pink {
-                padding: 14px 40px;
-                font-size: 1rem !important;
-                min-width: 180px;
             }
         }
 
@@ -150,12 +219,6 @@ function formatTanggal($date) {
                 padding-bottom: 50px;
                 background-position: center center;
             }
-            
-            .btn-pink {
-                padding: 13px 36px;
-                font-size: 0.95rem !important;
-                min-width: 160px;
-            }
         }
 
         /* Mobile landscape */
@@ -164,14 +227,6 @@ function formatTanggal($date) {
                 min-height: 400px;
                 padding-top: 40px;
                 padding-bottom: 40px;
-            }
-            
-            .btn-pink {
-                padding: 12px 32px;
-                font-size: 0.9rem !important;
-                min-width: 140px;
-                max-width: 280px;
-                width: 100%;
             }
         }
 
@@ -182,18 +237,122 @@ function formatTanggal($date) {
                 padding-top: 30px;
                 padding-bottom: 30px;
             }
-            
-            .btn-pink {
-                padding: 11px 28px;
-                font-size: 0.85rem !important;
-                min-width: 120px;
-                max-width: 260px;
-            }
         }
 
         .pelatihan-section {
             background-color: #F5F7FA;
         }
+        
+        .services-section {
+            background-color: #F5F7FA;
+            padding: 80px 0;
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1e3a5f;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 50px;
+            font-size: 1.1rem;
+        }
+
+        .service-card {
+            border: none;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transition: all 0.4s ease;
+            height: 300px;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+            position: relative;
+        }
+
+        .service-card:hover {
+            transform: translateY(-15px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+        }
+
+        .service-card-image {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .service-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+            /* Support untuk PNG dengan transparansi */
+            background-blend-mode: normal;
+        }
+
+        .service-card:hover .service-card-image img {
+            transform: scale(1.15);
+        }
+
+        .service-card-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 35px 25px;
+            transition: background 0.3s ease;
+        }
+
+        .service-card:hover .service-card-overlay {
+            background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.85) 100%);
+        }
+
+        .service-card-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+            text-align: center;
+            line-height: 1.4;
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.7);
+            transition: transform 0.3s ease;
+        }
+
+        .service-card:hover .service-card-title {
+            transform: scale(1.05);
+        }
+
+        /* Responsive untuk service cards */
+        @media (max-width: 991px) {
+            .service-card {
+                height: 350px;
+            }
+            .service-card-title {
+                font-size: 1.2rem;
+            }
+        }
+
+        @media (max-width: 767px) {
+            .service-card {
+                height: 300px;
+            }
+            .service-card-title {
+                font-size: 1.1rem;
+            }
+        }
+        
         .pelatihan-card, .reward-card {
             border: none;
             border-radius: 15px;
@@ -208,7 +367,8 @@ function formatTanggal($date) {
             position: relative;
             height: 220px;
             overflow: hidden;
-            background: #2c3e50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px 15px 0 0;
         }
         .card-image img {
             width: 100%;
@@ -224,6 +384,7 @@ function formatTanggal($date) {
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+            color: #667eea;
         }
         .card-meta {
             font-size: 13px;
@@ -252,6 +413,33 @@ function formatTanggal($date) {
             font-size: 13px;
             line-height: 1.4;
         }
+        
+        .badge {
+            font-size: 11px;
+            padding: 6px 12px;
+            font-weight: 600;
+        }
+        
+        .card-image-reward img {
+            transition: transform 0.3s ease;
+        }
+        
+        .reward-card:hover .card-image-reward img {
+            transform: scale(1.05);
+        }
+        
+        /* Style untuk flyer placeholder */
+        .flyer-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -266,13 +454,38 @@ function formatTanggal($date) {
                     <h1 class="hero-title display-4 fw-bold text-white mb-4">
                         Manajemen & Pengembangan SDM Politeknik Nest
                     </h1>
-                    <a href="<?php echo BASE_URL; ?>users/pelamar/dashboard.php" class="btn btn-pink rounded-pill">
-                        Lihat Lowongan
-                    </a>
                 </div>
             </div>
         </div>
     </section>
+
+    <!-- Services Section (Only show if user is pegawai in database) -->
+    <?php if ($is_pegawai && !empty($services)): ?>
+    <section class="services-section">
+        <div class="container">
+            <h2 class="section-title">Layanan MSDM</h2>
+            <p class="section-subtitle">Layanan terintegrasi untuk pengelolaan dan pengembangan sumber daya manusia</p>
+
+            <div class="row g-4">
+                <?php foreach ($services as $service): ?>
+                <div class="col-lg-3 col-md-6">
+                    <a href="<?php echo $service['link']; ?>" class="service-card">
+                        <div class="service-card-image">
+                            <img src="<?php echo BASE_URL . $service['image']; ?>" 
+                                 alt="<?php echo $service['title']; ?>"
+                                 loading="lazy"
+                                 onerror="this.onerror=null; this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)';">
+                            <div class="service-card-overlay">
+                                <h5 class="service-card-title"><?php echo $service['title']; ?></h5>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <!-- Pelatihan Section -->
     <section class="pelatihan-section py-5">
@@ -293,31 +506,49 @@ function formatTanggal($date) {
                     <div class="col-md-4 mb-4">
                         <div class="card pelatihan-card h-100">
                             <div class="card-image">
-                                <img src="https://via.placeholder.com/400x250/2c3e50/ffffff?text=Pelatihan" 
-                                     class="card-img-top" alt="Pelatihan">
+                                <?php if (!empty($pelatihan['flyer'])): ?>
+                                    <img src="<?php echo BASE_URL . htmlspecialchars($pelatihan['flyer']); ?>" 
+                                         class="card-img-top" 
+                                         alt="<?php echo htmlspecialchars($pelatihan['judul_pelatihan'] ?? 'Pelatihan'); ?>"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="flyer-placeholder" style="display: none;">
+                                        <i class="fas fa-chalkboard-teacher fa-3x"></i>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="flyer-placeholder">
+                                        <i class="fas fa-chalkboard-teacher fa-3x"></i>
+                                    </div>
+                                <?php endif; ?>
                                 <span class="badge-overlay">Pelatihan</span>
                             </div>
                             <div class="card-body">
-                                <h5 class="card-title"><?php echo htmlspecialchars($pelatihan['judul']); ?></h5>
-                                <p class="card-text text-muted"><?php echo htmlspecialchars($pelatihan['deskripsi']); ?></p>
+                                <h5 class="card-title"><?php echo htmlspecialchars($pelatihan['judul_pelatihan'] ?? 'Pelatihan'); ?></h5>
+                                <p class="card-text text-muted">
+                                    <?php 
+                                    $deskripsi = $pelatihan['deskripsi'] ?? 'Tidak ada deskripsi';
+                                    echo strlen($deskripsi) > 100 ? substr(htmlspecialchars($deskripsi), 0, 100) . '...' : htmlspecialchars($deskripsi);
+                                    ?>
+                                </p>
                                 
                                 <div class="card-meta mb-3">
                                     <div class="meta-item">
                                         <i class="far fa-calendar text-primary"></i>
-                                        <span><?php echo formatTanggal($pelatihan['tanggal']); ?></span>
+                                        <span><?php echo formatRangeTanggal($pelatihan['tanggal_mulai'] ?? null, $pelatihan['tanggal_selesai'] ?? null); ?></span>
                                     </div>
                                     <div class="meta-item">
                                         <i class="fas fa-map-marker-alt text-primary"></i>
-                                        <span><?php echo htmlspecialchars($pelatihan['lokasi']); ?></span>
+                                        <span><?php echo htmlspecialchars($pelatihan['lokasi'] ?? '-'); ?></span>
                                     </div>
+                                    <?php if (!empty($pelatihan['instruktur'])): ?>
                                     <div class="meta-item">
-                                        <i class="fas fa-users text-primary"></i>
-                                        <span><?php echo htmlspecialchars($pelatihan['pembicara']); ?></span>
+                                        <i class="fas fa-user-tie text-primary"></i>
+                                        <span><?php echo htmlspecialchars($pelatihan['instruktur']); ?></span>
                                     </div>
+                                    <?php endif; ?>
                                 </div>
                                 
                                 <div class="d-grid">
-                                    <button class="btn btn-primary" onclick='showPelatihanDetail(<?php echo json_encode($pelatihan); ?>)'>
+                                    <button class="btn btn-primary" onclick='showPelatihanDetail(<?php echo json_encode($pelatihan, JSON_HEX_APOS | JSON_HEX_QUOT); ?>)'>
                                         <i class="fas fa-info-circle me-1"></i> Detail
                                     </button>
                                 </div>
@@ -335,6 +566,7 @@ function formatTanggal($date) {
         <div class="container">
             <div class="text-center mb-5">
                 <h2 class="section-title fw-bold">Reward Pegawai</h2>
+                <p class="text-muted">Apresiasi untuk pegawai berprestasi</p>
             </div>
 
             <?php if (empty($reward_data)): ?>
@@ -344,19 +576,65 @@ function formatTanggal($date) {
                 </div>
             <?php else: ?>
                 <div class="row justify-content-center">
-                    <?php foreach ($reward_data as $reward): ?>
+                    <?php foreach ($reward_data as $reward): 
+                        // Tentukan jenis pegawai untuk tampilan
+                        $jenis_display = 'Pegawai';
+                        if (!empty($reward['jenis_pegawai'])) {
+                            switch($reward['jenis_pegawai']) {
+                                case 'dosen':
+                                    $jenis_display = 'Dosen';
+                                    if (!empty($reward['prodi'])) {
+                                        $jenis_display .= ' - ' . htmlspecialchars($reward['prodi']);
+                                    }
+                                    break;
+                                case 'staff':
+                                    $jenis_display = 'Staff';
+                                    break;
+                                case 'tendik':
+                                    $jenis_display = 'Tenaga Kependidikan';
+                                    break;
+                            }
+                        }
+                    ?>
                     <div class="col-md-4 mb-4">
                         <div class="card reward-card h-100">
                             <div class="card-image-reward">
-                                <img src="https://via.placeholder.com/300x350/f0f0f0/333333?text=Employee" 
-                                     class="card-img-top" alt="<?php echo htmlspecialchars($reward['nama']); ?>">
+                                <?php if (!empty($reward['file_bukti'])): ?>
+                                    <?php 
+                                    // Path file bukti reward - PRIORITAS UTAMA
+                                    $file_bukti_path = 'uploads/reward/' . htmlspecialchars($reward['file_bukti']);
+                                    ?>
+                                    <img src="<?php echo BASE_URL . $file_bukti_path; ?>" 
+                                         class="card-img-top" 
+                                         alt="Bukti Reward - <?php echo htmlspecialchars($reward['nama_lengkap'] ?? 'Pegawai'); ?>"
+                                         onerror="console.error('Gagal memuat gambar:', '<?php echo $file_bukti_path; ?>'); this.src='https://via.placeholder.com/300x350/667eea/ffffff?text=<?php echo urlencode(substr($reward['nama_lengkap'] ?? 'P', 0, 1)); ?>'">
+                                <?php elseif (!empty($reward['foto_path'])): ?>
+                                    <img src="<?php echo BASE_URL . htmlspecialchars($reward['foto_path']); ?>" 
+                                         class="card-img-top" 
+                                         alt="<?php echo htmlspecialchars($reward['nama_lengkap'] ?? 'Pegawai'); ?>"
+                                         onerror="this.src='https://via.placeholder.com/300x350/667eea/ffffff?text=<?php echo urlencode(substr($reward['nama_lengkap'] ?? 'P', 0, 1)); ?>'">
+                                <?php else: ?>
+                                    <img src="https://via.placeholder.com/300x350/667eea/ffffff?text=<?php echo urlencode(substr($reward['nama_lengkap'] ?? 'P', 0, 1)); ?>" 
+                                         class="card-img-top" 
+                                         alt="<?php echo htmlspecialchars($reward['nama_lengkap'] ?? 'Pegawai'); ?>">
+                                <?php endif; ?>
                             </div>
                             <div class="card-body text-center">
-                                <h5 class="fw-bold mb-1"><?php echo htmlspecialchars($reward['nama']); ?></h5>
-                                <p class="text-muted small mb-3"><?php echo htmlspecialchars($reward['posisi']); ?></p>
+                                <h5 class="fw-bold mb-1"><?php echo htmlspecialchars($reward['nama_lengkap'] ?? 'Nama Pegawai'); ?></h5>
+                                <p class="text-muted small mb-2"><?php echo htmlspecialchars($jenis_display); ?></p>
+                                <?php if (!empty($reward['kategori'])): ?>
+                                <span class="badge bg-primary mb-2"><?php echo htmlspecialchars($reward['kategori']); ?></span>
+                                <?php endif; ?>
                                 <div class="achievement-badge">
-                                    <?php echo htmlspecialchars($reward['achievement']); ?>
+                                    <i class="fas fa-trophy me-2"></i>
+                                    <?php echo htmlspecialchars($reward['judul_reward'] ?? 'Reward'); ?>
                                 </div>
+                                <?php if (!empty($reward['tanggal_reward'])): ?>
+                                <p class="text-muted small mt-2 mb-0">
+                                    <i class="far fa-calendar me-1"></i>
+                                    <?php echo formatTanggal($reward['tanggal_reward']); ?>
+                                </p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -390,34 +668,54 @@ function formatTanggal($date) {
         
         // Show pelatihan detail
         function showPelatihanDetail(pelatihan) {
-            Swal.fire({
-                title: pelatihan.judul,
-                html: `
-                    <div class="text-start">
-                        <p><strong>Deskripsi:</strong></p>
-                        <p>${pelatihan.deskripsi}</p>
-                        
-                        <hr>
-                        
-                        <p><strong><i class="far fa-calendar me-2"></i>Tanggal:</strong> ${pelatihan.tanggal}</p>
-                        <p><strong><i class="fas fa-map-marker-alt me-2"></i>Lokasi:</strong> ${pelatihan.lokasi}</p>
-                        <p><strong><i class="fas fa-users me-2"></i>Pembicara:</strong> ${pelatihan.pembicara}</p>
-                    </div>
-                `,
+            const tanggalMulai = pelatihan.tanggal_mulai ? new Date(pelatihan.tanggal_mulai).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}) : '-';
+            const tanggalSelesai = pelatihan.tanggal_selesai ? new Date(pelatihan.tanggal_selesai).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}) : '-';
+            
+            let tanggalText = '';
+            if (pelatihan.tanggal_mulai && pelatihan.tanggal_selesai && pelatihan.tanggal_mulai !== pelatihan.tanggal_selesai) {
+                tanggalText = tanggalMulai + ' - ' + tanggalSelesai;
+            } else if (pelatihan.tanggal_mulai) {
+                tanggalText = tanggalMulai;
+            } else {
+                tanggalText = '-';
+            }
+            
+            let htmlContent = `
+                <div class="text-start">
+                    <p><strong>Deskripsi:</strong></p>
+                    <p>${pelatihan.deskripsi || 'Tidak ada deskripsi'}</p>
+                    
+                    <hr>
+                    
+                    <p><strong><i class="far fa-calendar me-2"></i>Tanggal:</strong> ${tanggalText}</p>
+                    <p><strong><i class="fas fa-map-marker-alt me-2"></i>Lokasi:</strong> ${pelatihan.lokasi || '-'}</p>
+            `;
+            
+            if (pelatihan.instruktur) {
+                htmlContent += `<p><strong><i class="fas fa-user-tie me-2"></i>Instruktur:</strong> ${pelatihan.instruktur}</p>`;
+            }
+            
+            htmlContent += `</div>`;
+            
+            const swalConfig = {
+                title: pelatihan.judul_pelatihan || 'Detail Pelatihan',
+                html: htmlContent,
                 icon: 'info',
-                showCancelButton: true,
-                confirmButtonText: '<i class="fas fa-download me-2"></i>Unduh Undangan',
+                showCancelButton: pelatihan.undangan ? true : false,
+                confirmButtonText: pelatihan.undangan ? '<i class="fas fa-download me-2"></i>Unduh Undangan' : 'Tutup',
                 cancelButtonText: 'Tutup',
                 confirmButtonColor: '#0D5E9D',
                 width: '600px'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'Download',
-                        text: 'Fitur download akan segera tersedia!',
-                        showConfirmButton: true
-                    });
+            };
+            
+            if (!pelatihan.undangan) {
+                swalConfig.showCancelButton = false;
+            }
+            
+            Swal.fire(swalConfig).then((result) => {
+                if (result.isConfirmed && pelatihan.undangan) {
+                    // Download undangan
+                    window.open('<?php echo BASE_URL; ?>' + pelatihan.undangan, '_blank');
                 }
             });
         }
