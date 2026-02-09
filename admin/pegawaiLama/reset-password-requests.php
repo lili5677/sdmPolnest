@@ -21,7 +21,7 @@ try {
         AND approved_at < DATE_SUB(NOW(), INTERVAL 3 DAY)
     ");
     
-    // user gagal verifikasi token yang expired
+    // User gagal verifikasi token yang expired
     $stmt = $conn->prepare("
         UPDATE password_reset_requests r
         JOIN users u ON r.user_id = u.user_id
@@ -53,10 +53,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
 
     // Get request detail
     $stmt = $conn->prepare("
-        SELECT r.*, p.nama_lengkap, p.email, u.reset_token, u.reset_token_expires
+        SELECT r.*, 
+               COALESCE(p.nama_lengkap, pel.nama_lengkap) as nama_lengkap,
+               COALESCE(p.email, pel.email_aktif) as user_email,
+               u.reset_token, 
+               u.reset_token_expires,
+               u.user_type
         FROM password_reset_requests r
         JOIN users u ON r.user_id = u.user_id
-        LEFT JOIN pegawai p ON r.user_id = p.user_id
+        LEFT JOIN pegawai p ON u.user_id = p.user_id
+        LEFT JOIN pelamar pel ON u.user_id = pel.user_id
         WHERE r.request_id = ? AND r.status = 'pending'
         LIMIT 1
     ");
@@ -67,10 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
         $_SESSION['error'] = "Request tidak ditemukan atau sudah diproses.";
     } else {
         
-        //  token 6 karakter (huruf & angka uppercase)
+        // Generate token 6 karakter (huruf & angka uppercase)
         $token = strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
-        $expires = date('Y-m-d H:i:s', time() + 1800); // 30 mnt
-        //$expires = date('Y-m-d H:i:s', time() + 60); 
+        //$expires = date('Y-m-d H:i:s', time() + 60); // 1 mnt
+        $expires = date('Y-m-d H:i:s', time() + 86400); // 24 jam
 
         
         try {
@@ -106,7 +112,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
             
             $_SESSION['success'] = "Token berhasil digenerate!";
             $_SESSION['generated_token'] = $token;
-            $_SESSION['pegawai_nama'] = $request['nama_lengkap'];
+            $_SESSION['user_nama'] = $request['nama_lengkap'];
+            $_SESSION['user_type_label'] = strtoupper($request['user_type']);
             
         } catch (Exception $e) {
             $conn->rollBack();
@@ -164,6 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_request'])) {
     exit();
 }
 
+/* REVOKE TOKEN */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['revoke_token'])) {
     
     $request_id = (int)$_POST['request_id'];
@@ -207,21 +215,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['revoke_token'])) {
     exit();
 }
 
-/* GET PENDING REQUESTS*/
+/* GET PENDING REQUESTS - INCLUDE PELAMAR */
 $stmt = $conn->query("
-    SELECT r.*, p.nama_lengkap, p.email as pegawai_email
+    SELECT r.*, 
+           COALESCE(p.nama_lengkap, pel.nama_lengkap) as nama_lengkap,
+           COALESCE(p.email, pel.email_aktif) as user_email,
+           u.user_type
     FROM password_reset_requests r
     JOIN users u ON r.user_id = u.user_id
-    LEFT JOIN pegawai p ON r.user_id = p.user_id
+    LEFT JOIN pegawai p ON u.user_id = p.user_id
+    LEFT JOIN pelamar pel ON u.user_id = pel.user_id
     WHERE r.status = 'pending'
     ORDER BY r.requested_at DESC
 ");
 $pending_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* GET APPROVED REQUESTS  */
+/* GET APPROVED REQUESTS - INCLUDE PELAMAR */
 $stmt = $conn->query("
-    SELECT r.*, p.nama_lengkap, p.email as pegawai_email,
+    SELECT r.*, 
+           COALESCE(p.nama_lengkap, pel.nama_lengkap) as nama_lengkap,
+           COALESCE(p.email, pel.email_aktif) as user_email,
            u.reset_token_expires,
+           u.user_type,
            CASE 
                WHEN u.reset_token_expires < NOW() THEN 'expired'
                ELSE 'valid'
@@ -229,18 +244,24 @@ $stmt = $conn->query("
            TIMESTAMPDIFF(MINUTE, NOW(), u.reset_token_expires) as minutes_remaining
     FROM password_reset_requests r
     JOIN users u ON r.user_id = u.user_id
-    LEFT JOIN pegawai p ON r.user_id = p.user_id
+    LEFT JOIN pegawai p ON u.user_id = p.user_id
+    LEFT JOIN pelamar pel ON u.user_id = pel.user_id
     WHERE r.status = 'approved'
     ORDER BY r.approved_at DESC
 ");
 $approved_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* GET RECENT HISTORY */
+/* GET RECENT HISTORY - INCLUDE PELAMAR */
 $stmt = $conn->query("
-    SELECT r.*, p.nama_lengkap, p.email as pegawai_email, a.email as admin_email
+    SELECT r.*, 
+           COALESCE(p.nama_lengkap, pel.nama_lengkap) as nama_lengkap,
+           COALESCE(p.email, pel.email_aktif) as user_email,
+           u.user_type,
+           a.email as admin_email
     FROM password_reset_requests r
     JOIN users u ON r.user_id = u.user_id
-    LEFT JOIN pegawai p ON r.user_id = p.user_id
+    LEFT JOIN pegawai p ON u.user_id = p.user_id
+    LEFT JOIN pelamar pel ON u.user_id = pel.user_id
     LEFT JOIN users a ON r.approved_by = a.user_id
     WHERE r.status IN ('completed', 'rejected')
     ORDER BY r.approved_at DESC
@@ -248,7 +269,7 @@ $stmt = $conn->query("
 ");
 $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* STATISTICS*/
+/* STATISTICS */
 $stats_pending = $conn->query("
     SELECT COUNT(*) as total FROM password_reset_requests WHERE status = 'pending'
 ")->fetch()['total'];
@@ -415,6 +436,11 @@ $page_title = 'Kelola Reset Password - Admin';
 
         .badge-secondary {
             background: #6b7280;
+            color: white;
+        }
+
+        .badge-primary {
+            background: #8b5cf6;
             color: white;
         }
 
@@ -759,6 +785,12 @@ $page_title = 'Kelola Reset Password - Admin';
             50% { transform: scale(1.2) rotate(10deg); }
             100% { transform: scale(1) rotate(0deg); }
         }
+
+        .user-type-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
@@ -767,7 +799,7 @@ $page_title = 'Kelola Reset Password - Admin';
     <div class="main-content">
         <div class="page-header">
             <h2><i class="fas fa-key me-2"></i>Kelola Reset Password</h2>
-            <p>Manage permintaan reset password dari pegawai</p>
+            <p>Manage permintaan reset password dari pegawai dan pelamar</p>
         </div>
 
         <ul class="nav custom-tabs mb-4" role="tablist">
@@ -805,7 +837,7 @@ $page_title = 'Kelola Reset Password - Admin';
         <?php if (isset($_SESSION['generated_token'])): ?>
             <div class="token-success-box">
                 <h4><i class="fas fa-check-circle"></i> Token Berhasil Digenerate!</h4>
-                <p><strong>Pegawai:</strong> <?php echo htmlspecialchars($_SESSION['pegawai_nama']); ?></p>
+                <p><strong><?php echo htmlspecialchars($_SESSION['user_type_label'] ?? 'User'); ?>:</strong> <?php echo htmlspecialchars($_SESSION['user_nama']); ?></p>
                 <div class="mb-3">
                     <span class="token-display" onclick="copyToken('<?php echo $_SESSION['generated_token']; ?>')">
                         <?php echo $_SESSION['generated_token']; ?>
@@ -818,16 +850,17 @@ $page_title = 'Kelola Reset Password - Admin';
                     <i class="fab fa-whatsapp"></i> 
                     <strong>Langkah Selanjutnya:</strong><br>
                     1. Copy token di atas (klik token atau icon copy)<br>
-                    2. Kirim token ini ke WhatsApp pegawai secara manual<br>
-                    3. Pegawai akan input token di halaman lupa password
+                    2. Kirim token ini ke WhatsApp/Email user secara manual<br>
+                    3. User akan input token di halaman lupa password
                 </div>
                 <small class="text-muted d-block mt-2">
-                    <i class="fas fa-clock"></i> Token berlaku selama 30 menit
+                    <i class="fas fa-clock"></i> Token berlaku selama 24 jam
                 </small>
             </div>
             <?php 
             unset($_SESSION['generated_token']); 
-            unset($_SESSION['pegawai_nama']); 
+            unset($_SESSION['user_nama']);
+            unset($_SESSION['user_type_label']); 
             ?>
         <?php endif; ?>
 
@@ -868,7 +901,7 @@ $page_title = 'Kelola Reset Password - Admin';
                         <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th>Nama Pegawai</th>
+                                    <th>Nama & Tipe User</th>
                                     <th>Email</th>
                                     <th>Waktu Request</th>
                                     <th>IP Address</th>
@@ -878,8 +911,14 @@ $page_title = 'Kelola Reset Password - Admin';
                             <tbody>
                                 <?php foreach ($pending_requests as $req): ?>
                                     <tr>
-                                        <td><strong><?php echo htmlspecialchars($req['nama_lengkap']); ?></strong></td>
-                                        <td><?php echo htmlspecialchars($req['email']); ?></td>
+                                        <td>
+                                            <strong><?php echo htmlspecialchars($req['nama_lengkap']); ?></strong>
+                                            <br>
+                                            <span class="badge user-type-badge badge-<?php echo $req['user_type'] === 'pelamar' ? 'primary' : 'secondary'; ?>">
+                                                <?php echo strtoupper($req['user_type']); ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo htmlspecialchars($req['user_email']); ?></td>
                                         <td>
                                             <span class="time-badge">
                                                 <i class="fas fa-clock me-1"></i>
@@ -891,7 +930,7 @@ $page_title = 'Kelola Reset Password - Admin';
                                             <div class="action-buttons">
                                                 <form method="POST" class="approve-form" style="display:inline;">
                                                     <input type="hidden" name="request_id" value="<?php echo $req['request_id']; ?>">
-                                                    <input type="hidden" name="pegawai_nama" value="<?php echo htmlspecialchars($req['nama_lengkap']); ?>">
+                                                    <input type="hidden" name="user_nama" value="<?php echo htmlspecialchars($req['nama_lengkap']); ?>">
                                                     <button type="button" name="approve_request" class="btn btn-success btn-sm btn-approve">
                                                         <i class="fas fa-check"></i> Generate Token
                                                     </button>
@@ -925,7 +964,7 @@ $page_title = 'Kelola Reset Password - Admin';
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Nama</th>
+                                <th>Nama & Tipe User</th>
                                 <th>Email</th>
                                 <th>Token</th>
                                 <th>Status</th>
@@ -936,8 +975,14 @@ $page_title = 'Kelola Reset Password - Admin';
                         <tbody>
                             <?php foreach ($approved_requests as $a): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($a['nama_lengkap']); ?></td>
-                                    <td><?php echo htmlspecialchars($a['email']); ?></td>
+                                    <td>
+                                        <?php echo htmlspecialchars($a['nama_lengkap']); ?>
+                                        <br>
+                                        <span class="badge user-type-badge badge-<?php echo $a['user_type'] === 'pelamar' ? 'primary' : 'secondary'; ?>">
+                                            <?php echo strtoupper($a['user_type']); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($a['user_email']); ?></td>
                                     <td>
                                         <span class="token-display <?php echo $a['token_status'] === 'expired' ? 'expired' : ''; ?>" 
                                               style="font-size: 0.85rem; padding: 5px 8px;">
@@ -995,7 +1040,7 @@ $page_title = 'Kelola Reset Password - Admin';
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Nama</th>
+                                <th>Nama & Tipe User</th>
                                 <th>Email</th>
                                 <th>Status</th>
                                 <th>Token</th>
@@ -1013,8 +1058,14 @@ $page_title = 'Kelola Reset Password - Admin';
                             <?php else: ?>
                                 <?php foreach ($history as $h): ?>
                                     <tr>
-                                        <td><?php echo htmlspecialchars($h['nama_lengkap']); ?></td>
-                                        <td><?php echo htmlspecialchars($h['email']); ?></td>
+                                        <td>
+                                            <?php echo htmlspecialchars($h['nama_lengkap']); ?>
+                                            <br>
+                                            <span class="badge user-type-badge badge-<?php echo $h['user_type'] === 'pelamar' ? 'primary' : 'secondary'; ?>">
+                                                <?php echo strtoupper($h['user_type']); ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo htmlspecialchars($h['user_email']); ?></td>
                                         <td>
                                             <?php
                                             $badge_class = 'secondary';
@@ -1144,17 +1195,16 @@ $page_title = 'Kelola Reset Password - Admin';
             btn.addEventListener('click', async function(e) {
                 e.preventDefault();
                 const form = this.closest('form');
-                const nama = form.querySelector('input[name="pegawai_nama"]').value;
+                const nama = form.querySelector('input[name="user_nama"]').value;
                 
                 const confirmed = await showCustomConfirm({
                     type: 'success',
                     title: 'Generate Token',
-                    message: `Apakah Anda yakin ingin generate token untuk <strong>${nama}</strong>?<br><br>Token akan berlaku selama <strong>30 menit</strong> dan akan dikirim ke pegawai.`,
+                    message: `Apakah Anda yakin ingin generate token untuk <strong>${nama}</strong>?<br><br>Token akan berlaku selama <strong>24 jam</strong> dan akan dikirim ke user.`,
                     confirmText: 'Ya, Generate'
                 });
                 
                 if (confirmed) {
-                    //  hidden input ketika approve_request
                     const input = document.createElement('input');
                     input.type = 'hidden';
                     input.name = 'approve_request';
@@ -1174,7 +1224,7 @@ $page_title = 'Kelola Reset Password - Admin';
                 const confirmed = await showCustomConfirm({
                     type: 'danger',
                     title: 'Tolak Request',
-                    message: 'Apakah Anda yakin ingin <strong>menolak</strong> permintaan reset password ini?<br><br>Pegawai harus mengajukan request baru jika masih membutuhkan reset password.',
+                    message: 'Apakah Anda yakin ingin <strong>menolak</strong> permintaan reset password ini?<br><br>User harus mengajukan request baru jika masih membutuhkan reset password.',
                     confirmText: 'Ya, Tolak'
                 });
                 
@@ -1198,7 +1248,7 @@ $page_title = 'Kelola Reset Password - Admin';
                 const confirmed = await showCustomConfirm({
                     type: 'warning',
                     title: 'Batalkan Token',
-                    message: 'Apakah Anda yakin ingin <strong>membatalkan</strong> token ini?<br><br>Token yang sudah dibatalkan tidak dapat digunakan lagi dan pegawai harus request ulang.',
+                    message: 'Apakah Anda yakin ingin <strong>membatalkan</strong> token ini?<br><br>Token yang sudah dibatalkan tidak dapat digunakan lagi dan user harus request ulang.',
                     confirmText: 'Ya, Batalkan'
                 });
                 
@@ -1240,7 +1290,7 @@ $page_title = 'Kelola Reset Password - Admin';
             Toast.fire({
                 icon: 'success',
                 title: 'Token berhasil disalin!',
-                text: 'Kirim ke WhatsApp pegawai.'
+                text: 'Kirim ke WhatsApp/Email user.'
             });
         }
 

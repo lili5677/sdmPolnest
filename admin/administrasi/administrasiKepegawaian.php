@@ -27,6 +27,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         so.jabatan_struktur,
                         so.level_struktur,
                         so.parent_id,
+                        so.path_gambar,
                         p.nama_lengkap,
                         p.email,
                         p.jenis_pegawai,
@@ -115,7 +116,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         so.level_struktur
                     FROM struktur_organisasi so
                     INNER JOIN pegawai p ON so.pegawai_id = p.pegawai_id
-                    WHERE so.level_struktur < 3
+                    WHERE so.level_struktur < 4
                     ORDER BY so.level_struktur ASC, p.nama_lengkap ASC";
             
             $stmt = $conn->prepare($query);
@@ -130,31 +131,69 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         
         // ADD NEW ANGGOTA
         elseif($action == 'add' && $_SERVER['REQUEST_METHOD'] == 'POST') {
-            $data = json_decode(file_get_contents("php://input"), true);
+            // Handle foto upload jika ada
+            $foto_path = null;
             
-            if(!empty($data['pegawai_id']) && !empty($data['jabatan_struktur']) && !empty($data['level_struktur'])) {
+            if(isset($_FILES['foto']) && $_FILES['foto']['error'] == UPLOAD_ERR_OK) {
+                $allowed_types = ['image/jpeg', 'image/jpg', 'image/png'];
+                $max_size = 5 * 1024 * 1024; // 5MB dalam bytes
+                
+                if(!in_array($_FILES['foto']['type'], $allowed_types)) {
+                    $response['message'] = 'Format foto harus JPG, JPEG, atau PNG';
+                    echo json_encode($response);
+                    exit;
+                }
+                
+                if($_FILES['foto']['size'] > $max_size) {
+                    $response['message'] = 'Ukuran foto maksimal 5MB';
+                    echo json_encode($response);
+                    exit;
+                }
+                
+                // Upload foto
+                $upload_dir = '../../uploads/struktur_organisasi/';
+                if(!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_ext = pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION);
+                $file_name = 'foto_' . $_POST['pegawai_id'] . '_' . time() . '.' . $file_ext;
+                $foto_path = $upload_dir . $file_name;
+                
+                if(!move_uploaded_file($_FILES['foto']['tmp_name'], $foto_path)) {
+                    $foto_path = null;
+                }
+            }
+            
+            // Ambil data dari POST
+            $pegawai_id = $_POST['pegawai_id'] ?? null;
+            $jabatan_struktur = $_POST['jabatan_struktur'] ?? null;
+            $level_struktur = $_POST['level_struktur'] ?? null;
+            $parent_id = !empty($_POST['parent_id']) ? $_POST['parent_id'] : null;
+            
+            if(!empty($pegawai_id) && !empty($jabatan_struktur) && !empty($level_struktur)) {
                 // Cek apakah pegawai sudah terdaftar
                 $check_query = "SELECT struktur_id FROM struktur_organisasi WHERE pegawai_id = :pegawai_id";
                 $check_stmt = $conn->prepare($check_query);
-                $check_stmt->bindParam(':pegawai_id', $data['pegawai_id']);
+                $check_stmt->bindParam(':pegawai_id', $pegawai_id);
                 $check_stmt->execute();
                 
                 if($check_stmt->rowCount() > 0) {
                     $response['message'] = 'Pegawai sudah terdaftar dalam struktur organisasi';
                 } else {
                     $admin_id = $_SESSION['user_id'];
-                    $parent_id = !empty($data['parent_id']) ? $data['parent_id'] : null;
                     
                     $query = "INSERT INTO struktur_organisasi 
-                             (pegawai_id, jabatan_struktur, level_struktur, parent_id, created_by)
+                             (pegawai_id, jabatan_struktur, level_struktur, parent_id, path_gambar, created_by)
                              VALUES 
-                             (:pegawai_id, :jabatan_struktur, :level_struktur, :parent_id, :created_by)";
+                             (:pegawai_id, :jabatan_struktur, :level_struktur, :parent_id, :path_gambar, :created_by)";
                     
                     $stmt = $conn->prepare($query);
-                    $stmt->bindParam(':pegawai_id', $data['pegawai_id']);
-                    $stmt->bindParam(':jabatan_struktur', $data['jabatan_struktur']);
-                    $stmt->bindParam(':level_struktur', $data['level_struktur']);
+                    $stmt->bindParam(':pegawai_id', $pegawai_id);
+                    $stmt->bindParam(':jabatan_struktur', $jabatan_struktur);
+                    $stmt->bindParam(':level_struktur', $level_struktur);
                     $stmt->bindParam(':parent_id', $parent_id);
+                    $stmt->bindParam(':path_gambar', $foto_path);
                     $stmt->bindParam(':created_by', $admin_id);
                     
                     if($stmt->execute()) {
@@ -172,23 +211,106 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         
         // UPDATE ANGGOTA
         elseif($action == 'update' && $_SERVER['REQUEST_METHOD'] == 'POST') {
-            $data = json_decode(file_get_contents("php://input"), true);
+            // Handle foto upload jika ada
+            $foto_path = null;
+            $update_foto = false;
             
-            if(!empty($data['struktur_id']) && !empty($data['jabatan_struktur']) && !empty($data['level_struktur'])) {
-                $parent_id = !empty($data['parent_id']) ? $data['parent_id'] : null;
+            $struktur_id = $_POST['struktur_id'] ?? null;
+            
+            if(!$struktur_id) {
+                $response['message'] = 'ID struktur tidak ditemukan';
+                echo json_encode($response);
+                exit;
+            }
+            
+            // Ambil pegawai_id dari database (karena field disabled di form)
+            $get_pegawai = "SELECT pegawai_id FROM struktur_organisasi WHERE struktur_id = :id";
+            $get_stmt = $conn->prepare($get_pegawai);
+            $get_stmt->bindParam(':id', $struktur_id);
+            $get_stmt->execute();
+            $current_data = $get_stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if(!$current_data) {
+                $response['message'] = 'Data tidak ditemukan';
+                echo json_encode($response);
+                exit;
+            }
+            
+            $pegawai_id = $current_data['pegawai_id'];
+            
+            if(isset($_FILES['foto']) && $_FILES['foto']['error'] == UPLOAD_ERR_OK) {
+                $allowed_types = ['image/jpeg', 'image/jpg', 'image/png'];
+                $max_size = 5 * 1024 * 1024; // 5MB dalam bytes
                 
-                $query = "UPDATE struktur_organisasi 
-                         SET jabatan_struktur = :jabatan_struktur,
-                             level_struktur = :level_struktur,
-                             parent_id = :parent_id,
-                             updated_at = CURRENT_TIMESTAMP
-                         WHERE struktur_id = :struktur_id";
+                if(!in_array($_FILES['foto']['type'], $allowed_types)) {
+                    $response['message'] = 'Format foto harus JPG, JPEG, atau PNG';
+                    echo json_encode($response);
+                    exit;
+                }
+                
+                if($_FILES['foto']['size'] > $max_size) {
+                    $response['message'] = 'Ukuran foto maksimal 5MB';
+                    echo json_encode($response);
+                    exit;
+                }
+                
+                // Upload foto
+                $upload_dir = '../../uploads/struktur_organisasi/';
+                if(!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_ext = pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION);
+                $file_name = 'foto_' . $pegawai_id . '_' . time() . '.' . $file_ext;
+                $foto_path = $upload_dir . $file_name;
+                
+                if(move_uploaded_file($_FILES['foto']['tmp_name'], $foto_path)) {
+                    $update_foto = true;
+                    
+                    // Hapus foto lama jika ada
+                    $old_query = "SELECT path_gambar FROM struktur_organisasi WHERE struktur_id = :id";
+                    $old_stmt = $conn->prepare($old_query);
+                    $old_stmt->bindParam(':id', $struktur_id);
+                    $old_stmt->execute();
+                    $old_data = $old_stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if($old_data && $old_data['path_gambar'] && file_exists($old_data['path_gambar'])) {
+                        unlink($old_data['path_gambar']);
+                    }
+                }
+            }
+            
+            $jabatan_struktur = $_POST['jabatan_struktur'] ?? null;
+            $level_struktur = $_POST['level_struktur'] ?? null;
+            $parent_id = !empty($_POST['parent_id']) ? $_POST['parent_id'] : null;
+            
+            if(!empty($struktur_id) && !empty($jabatan_struktur) && !empty($level_struktur)) {
+                if($update_foto) {
+                    $query = "UPDATE struktur_organisasi 
+                             SET jabatan_struktur = :jabatan_struktur,
+                                 level_struktur = :level_struktur,
+                                 parent_id = :parent_id,
+                                 path_gambar = :path_gambar,
+                                 updated_at = CURRENT_TIMESTAMP
+                             WHERE struktur_id = :struktur_id";
+                } else {
+                    $query = "UPDATE struktur_organisasi 
+                             SET jabatan_struktur = :jabatan_struktur,
+                                 level_struktur = :level_struktur,
+                                 parent_id = :parent_id,
+                                 updated_at = CURRENT_TIMESTAMP
+                             WHERE struktur_id = :struktur_id";
+                }
                 
                 $stmt = $conn->prepare($query);
-                $stmt->bindParam(':jabatan_struktur', $data['jabatan_struktur']);
-                $stmt->bindParam(':level_struktur', $data['level_struktur']);
+                $stmt->bindParam(':jabatan_struktur', $jabatan_struktur);
+                $stmt->bindParam(':level_struktur', $level_struktur);
                 $stmt->bindParam(':parent_id', $parent_id);
-                $stmt->bindParam(':struktur_id', $data['struktur_id']);
+                $stmt->bindParam(':struktur_id', $struktur_id);
+                
+                if($update_foto) {
+                    $stmt->bindParam(':path_gambar', $foto_path);
+                }
                 
                 if($stmt->execute()) {
                     $response['success'] = true;
@@ -216,11 +338,22 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                     $response['message'] =
                         'Tidak dapat menghapus data karena masih memiliki bawahan. Hapus bawahan terlebih dahulu.';
                 } else {
+                    // Ambil path foto untuk dihapus
+                    $foto_query = "SELECT path_gambar FROM struktur_organisasi WHERE struktur_id = :id";
+                    $foto_stmt = $conn->prepare($foto_query);
+                    $foto_stmt->execute([':id' => $id]);
+                    $foto_data = $foto_stmt->fetch(PDO::FETCH_ASSOC);
+                    
                     $stmt = $conn->prepare(
                         "DELETE FROM struktur_organisasi WHERE struktur_id = :id"
                     );
 
                     if ($stmt->execute([':id' => $id])) {
+                        // Hapus foto jika ada
+                        if($foto_data && $foto_data['path_gambar'] && file_exists($foto_data['path_gambar'])) {
+                            unlink($foto_data['path_gambar']);
+                        }
+                        
                         $response['success'] = true;
                         $response['message'] = 'Data anggota berhasil dihapus';
                     } else {
@@ -232,9 +365,9 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             }
         }
 
-        // GET ALL PEGAWAI - DIPERBAIKI UNTUK MENGAMBIL DATA TERBARU
+        // GET ALL PEGAWAI - DIPERBAIKI UNTUK MENGAMBIL DATA TERBARU + PTKP
         elseif($action == 'get_all_pegawai') {
-            // PERBAIKAN: Gunakan subquery untuk mengambil status_kepegawaian terbaru
+            // PERBAIKAN: Gunakan subquery untuk mengambil status_kepegawaian terbaru + PTKP
             $query = "SELECT 
                         p.pegawai_id,
                         p.nama_lengkap,
@@ -245,6 +378,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         sk.unit_kerja,
                         sk.status_aktif,
                         sk.jenis_kepegawaian,
+                        sk.ptkp,
                         sk.masa_kontrak_mulai,
                         sk.masa_kontrak_selesai,
                         DATEDIFF(sk.masa_kontrak_selesai, CURDATE()) as sisa_hari_kontrak
@@ -529,7 +663,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="formAnggota">
+                    <form id="formAnggota" enctype="multipart/form-data">
                         <input type="hidden" id="struktur_id" name="struktur_id">
                         <input type="hidden" id="mode" name="mode" value="add">
                         
@@ -557,9 +691,10 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                             </label>
                             <select class="form-select" id="level_struktur" name="level_struktur" required>
                                 <option value="">-- Pilih Level --</option>
-                                <option value="1">Level 1 - Pimpinan Tertinggi</option>
+                                <option value="1">Level 1 - Direktur</option>
                                 <option value="2">Level 2 - Kepala Unit</option>
-                                <option value="3">Level 3 - Anggota</option>
+                                <option value="3">Level 3 - Laboran</option>
+                                <option value="4">Level 4 - Tendik</option>
                             </select>
                         </div>
 
@@ -571,6 +706,26 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                                 <option value="">-- Tidak ada atasan --</option>
                             </select>
                             <small class="text-muted">Pilih atasan langsung jika ada</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="foto" class="form-label">
+                                <i class="fas fa-image me-1"></i> Foto (Opsional)
+                            </label>
+                            
+                            <!-- Preview Foto yang Sudah Ada -->
+                            <div id="current-foto-preview" style="display: none; margin-bottom: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+                                    <img id="preview-img" src="" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover;">
+                                    <div style="flex: 1;">
+                                        <div style="font-size: 13px; color: #374151; font-weight: 500;">Foto saat ini</div>
+                                        <div style="font-size: 12px; color: #6b7280;">Upload foto baru untuk menggantinya</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <input type="file" class="form-control" id="foto" name="foto" accept="image/jpeg,image/jpg,image/png">
+                            <small class="text-muted">Format: JPG, JPEG, PNG. Maksimal 5MB. Jika tidak diupload akan menggunakan avatar nama.</small>
                         </div>
                     </form>
                 </div>

@@ -10,27 +10,27 @@ $success = '';
 /* INIT STEP */
 if (isset($_GET['reset_flow']) && $_GET['reset_flow'] === 'new') {
     unset(
-        $_SESSION['reset_step'],
-        $_SESSION['verified_user_id'],
-        $_SESSION['reset_email'],
-        $_SESSION['token_expired'],
-        $_SESSION['token_rejected_message'],
-        $_SESSION['auto_redirect']
+        $_SESSION['reset_step_pelamar'],
+        $_SESSION['verified_pelamar_user_id'],
+        $_SESSION['reset_pelamar_email'],
+        $_SESSION['token_expired_pelamar'],
+        $_SESSION['token_rejected_message_pelamar'],
+        $_SESSION['auto_redirect_pelamar']
     );
-    $_SESSION['reset_step'] = 'request';
+    $_SESSION['reset_step_pelamar'] = 'request';
     
-    header("Location: lupa-password.php");
+    header("Location: lupa-password-pelamar.php");
     exit;
 }
 
-if (!isset($_SESSION['reset_step'])) {
-    $_SESSION['reset_step'] = 'request';
+if (!isset($_SESSION['reset_step_pelamar'])) {
+    $_SESSION['reset_step_pelamar'] = 'request';
 }
-$step = $_SESSION['reset_step'];
+$step = $_SESSION['reset_step_pelamar'];
 
 // AUTO-CHECK: Jika di step verify, cek apakah request sudah di-reject/complete oleh admin
-if ($step === 'verify' && isset($_SESSION['reset_email'])) {
-    $email = $_SESSION['reset_email'];
+if ($step === 'verify' && isset($_SESSION['reset_pelamar_email'])) {
+    $email = $_SESSION['reset_pelamar_email'];
     
     $stmt = $conn->prepare("
         SELECT request_id, status 
@@ -44,27 +44,27 @@ if ($step === 'verify' && isset($_SESSION['reset_email'])) {
     
     // Jika request sudah rejected/completed, redirect ke step 1
     if ($latest_request && in_array($latest_request['status'], ['rejected', 'completed'])) {
-        unset($_SESSION['reset_step'], $_SESSION['reset_email'], $_SESSION['verified_user_id']);
-        $_SESSION['reset_step'] = 'request';
+        unset($_SESSION['reset_step_pelamar'], $_SESSION['reset_pelamar_email'], $_SESSION['verified_pelamar_user_id']);
+        $_SESSION['reset_step_pelamar'] = 'request';
         
         if ($latest_request['status'] === 'rejected') {
-            $_SESSION['token_expired'] = true;
-            $_SESSION['token_rejected_message'] = "Permintaan reset password Anda telah ditolak atau dibatalkan oleh admin. Silakan ajukan permintaan baru.";
+            $_SESSION['token_expired_pelamar'] = true;
+            $_SESSION['token_rejected_message_pelamar'] = "Permintaan reset password Anda telah ditolak atau dibatalkan oleh admin. Silakan ajukan permintaan baru.";
         } else {
-            $_SESSION['token_expired'] = true;
-            $_SESSION['token_rejected_message'] = "Token sudah digunakan. Silakan ajukan permintaan baru jika masih membutuhkan reset password.";
+            $_SESSION['token_expired_pelamar'] = true;
+            $_SESSION['token_rejected_message_pelamar'] = "Token sudah digunakan. Silakan ajukan permintaan baru jika masih membutuhkan reset password.";
         }
         
-        header("Location: lupa-password.php");
+        header("Location: lupa-password-pelamar.php");
         exit;
     }
 }
 
 // Tampilkan pesan jika token expired
 $token_expired_message = '';
-if (isset($_SESSION['token_expired']) && $_SESSION['token_expired'] === true) {
+if (isset($_SESSION['token_expired_pelamar']) && $_SESSION['token_expired_pelamar'] === true) {
     $token_expired_message = "Token Anda sudah kadaluarsa (lebih dari 24 jam). Silakan ajukan permintaan reset password baru di bawah ini.";
-    unset($_SESSION['token_expired']);
+    unset($_SESSION['token_expired_pelamar']);
 }
 
 /* STEP 1 — REQUEST RESET (Simpan ke Database)*/
@@ -72,12 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_reset'])) {
 
     // Reset flow setiap request baru
     unset(
-        $_SESSION['reset_step'],
-        $_SESSION['verified_user_id'],
-        $_SESSION['reset_email']
+        $_SESSION['reset_step_pelamar'],
+        $_SESSION['verified_pelamar_user_id'],
+        $_SESSION['reset_pelamar_email']
     );
 
-    $_SESSION['reset_step'] = 'request';
+    $_SESSION['reset_step_pelamar'] = 'request';
 
     $email = trim($_POST['email']);
 
@@ -85,21 +85,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_reset'])) {
         $error = "Email harus diisi!";
     } else {
 
-        // Cek user
+        // Cek user pelamar
         $stmt = $conn->prepare("
             SELECT u.user_id, u.email, p.nama_lengkap
             FROM users u
-            LEFT JOIN pegawai p ON u.user_id = p.user_id
+            LEFT JOIN pelamar p ON u.user_id = p.user_id
             WHERE u.email = ?
               AND u.is_active = 1
-              AND u.user_type IN ('pegawai','dosen')
+              AND u.user_type = 'pelamar'
             LIMIT 1
         ");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user) {
-            $error = "Email tidak terdaftar sebagai pegawai aktif.";
+            $error = "Email tidak terdaftar sebagai pelamar aktif.";
         } else {
 
             // Cek request pending dalam 1 jam terakhir
@@ -133,18 +133,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_reset'])) {
                     $ip
                 ]);
 
-                $_SESSION['reset_email'] = $email;
-                $_SESSION['reset_step'] = 'verify';
+                $_SESSION['reset_pelamar_email'] = $email;
+                $_SESSION['reset_step_pelamar'] = 'verify';
 
-                header("Location: lupa-password.php");
+                header("Location: lupa-password-pelamar.php");
                 exit;
             }
         }
     }
 }
 
-/*  VERIFY TOKEN */
-
+/* STEP 2 — VERIFY TOKEN */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_token'])) {
 
     $token = strtoupper(trim($_POST['token']));
@@ -154,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_token'])) {
         $error = "Email dan kode verifikasi wajib diisi!";
     } else {
 
-        // cek request yang approved untuk email 
+        // Cek request yang approved untuk email 
         $stmt = $conn->prepare("
             SELECT request_id, status 
             FROM password_reset_requests
@@ -169,18 +168,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_token'])) {
         if ($latest_request && in_array($latest_request['status'], ['rejected', 'completed'])) {
             
             // Clear session
-            unset($_SESSION['reset_step'], $_SESSION['reset_email'], $_SESSION['verified_user_id']);
-            $_SESSION['reset_step'] = 'request';
+            unset($_SESSION['reset_step_pelamar'], $_SESSION['reset_pelamar_email'], $_SESSION['verified_pelamar_user_id']);
+            $_SESSION['reset_step_pelamar'] = 'request';
             
             if ($latest_request['status'] === 'rejected') {
-                $_SESSION['token_expired'] = true;
-                $_SESSION['token_rejected_message'] = "Token Anda sudah dibatalkan atau ditolak oleh admin. Silakan ajukan permintaan reset password baru.";
+                $_SESSION['token_expired_pelamar'] = true;
+                $_SESSION['token_rejected_message_pelamar'] = "Token Anda sudah dibatalkan atau ditolak oleh admin. Silakan ajukan permintaan reset password baru.";
             } else {
-                $_SESSION['token_expired'] = true;
-                $_SESSION['token_rejected_message'] = "Token sudah digunakan. Silakan ajukan permintaan baru jika masih membutuhkan reset password.";
+                $_SESSION['token_expired_pelamar'] = true;
+                $_SESSION['token_rejected_message_pelamar'] = "Token sudah digunakan. Silakan ajukan permintaan baru jika masih membutuhkan reset password.";
             }
             
-            header("Location: lupa-password.php");
+            header("Location: lupa-password-pelamar.php");
             exit;
         }
 
@@ -200,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_token'])) {
         if (!$user) {
             $error = "Kode verifikasi tidak valid atau sudah dibatalkan. Pastikan Anda memasukkan kode yang benar dari admin.";
             
-            $_SESSION['auto_redirect'] = true;
+            $_SESSION['auto_redirect_pelamar'] = true;
             
         } else {
             // Cek apakah token sudah expired
@@ -228,31 +227,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['verify_token'])) {
                 }
                 
                 // Clear session dan kembalikan ke step 1
-                unset($_SESSION['reset_step'], $_SESSION['reset_email'], $_SESSION['verified_user_id']);
-                $_SESSION['reset_step'] = 'request';
-                $_SESSION['token_expired'] = true;
+                unset($_SESSION['reset_step_pelamar'], $_SESSION['reset_pelamar_email'], $_SESSION['verified_pelamar_user_id']);
+                $_SESSION['reset_step_pelamar'] = 'request';
+                $_SESSION['token_expired_pelamar'] = true;
                 
-                header("Location: lupa-password.php");
+                header("Location: lupa-password-pelamar.php");
                 exit;
                 
             } else {
                 // Token valid dan belum expired
-                $_SESSION['verified_user_id'] = $user['user_id'];
-                $_SESSION['reset_step']       = 'reset';
+                $_SESSION['verified_pelamar_user_id'] = $user['user_id'];
+                $_SESSION['reset_step_pelamar'] = 'reset';
 
-                header("Location: lupa-password.php");
+                header("Location: lupa-password-pelamar.php");
                 exit;
             }
         }
     }
 }
 
-/* RESET PASSWORD */
+/* STEP 3 — RESET PASSWORD */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
 
-    $new      = $_POST['new_password'] ?? '';
+    $new = $_POST['new_password'] ?? '';
     $confirm = $_POST['confirm_password'] ?? '';
-    $user_id = $_SESSION['verified_user_id'] ?? 0;
+    $user_id = $_SESSION['verified_pelamar_user_id'] ?? 0;
 
     if ($new === '' || $confirm === '') {
         $error = "Password harus diisi!";
@@ -279,7 +278,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
             $stmt = $conn->prepare("
                 UPDATE users
                 SET password = ?,
-                    password_changed = 1,
                     reset_token = NULL,
                     reset_token_expires = NULL
                 WHERE user_id = ?
@@ -294,11 +292,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
             ");
             $stmt->execute([$user_id]);
 
-            // hapus session
+            // Hapus session
             session_unset();
             session_destroy();
 
-            header("Location: login_pegawai.php?reset_success=1");
+            header("Location: login_pelamar.php?reset_success=1");
             exit;
             
         } catch (PDOException $e) {
@@ -308,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_password'])) {
     }
 }
 
-$page_title = 'Lupa Password - Politeknik NEST';
+$page_title = 'Lupa Password Pelamar - Politeknik NEST';
 include '../users/partials/navbar.php';
 ?>
 
@@ -704,45 +702,7 @@ include '../users/partials/navbar.php';
         text-decoration: underline;
     }
 
-    /* Token Expired  */
-    .expired-notice {
-        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        border-left: 4px solid #dc2626;
-        padding: 16px 18px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-    }
-
-    .expired-notice h4 {
-        color: #991b1b;
-        font-size: 15px;
-        font-weight: 700;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .expired-notice p {
-        color: #991b1b;
-        font-size: 13px;
-        line-height: 1.6;
-        margin: 0;
-    }
-
-    .expired-notice ul {
-        margin: 10px 0 0 20px;
-        padding: 0;
-    }
-
-    .expired-notice li {
-        color: #991b1b;
-        font-size: 13px;
-        line-height: 1.6;
-        margin-bottom: 5px;
-    }
-
-    /* Kekuatan Password */
+    /* Password Strength Meter */
     .password-strength-meter {
         margin-top: 10px;
         margin-bottom: 10px;
@@ -874,186 +834,6 @@ include '../users/partials/navbar.php';
             right: 40px;
         }
     }
-
-    /* CUSTOM ALERT MODAL */
-    .custom-alert-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(4px);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        animation: fadeIn 0.3s ease-out;
-    }
-
-    .custom-alert-overlay.active {
-        display: flex;
-    }
-
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
-    }
-
-    .custom-alert-box {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        max-width: 450px;
-        width: 90%;
-        overflow: hidden;
-        animation: slideDown 0.4s ease-out;
-    }
-
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-50px) scale(0.9);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
-    }
-
-    .custom-alert-header {
-        padding: 24px 24px 16px;
-        text-align: center;
-    }
-
-    .custom-alert-icon {
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        margin: 0 auto 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 32px;
-    }
-
-    .custom-alert-icon.error {
-        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-        color: #dc2626;
-    }
-
-    .custom-alert-icon.success {
-        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-        color: #059669;
-    }
-
-    .custom-alert-icon.warning {
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-        color: #f59e0b;
-    }
-
-    .custom-alert-icon.info {
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        color: #3b82f6;
-    }
-
-    .custom-alert-title {
-        font-size: 20px;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 8px;
-    }
-
-    .custom-alert-body {
-        padding: 0 24px 24px;
-        text-align: center;
-    }
-
-    .custom-alert-message {
-        color: #64748b;
-        font-size: 14px;
-        line-height: 1.6;
-        margin-bottom: 20px;
-    }
-
-    .custom-alert-list {
-        text-align: left;
-        background: #f8fafc;
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 20px;
-    }
-
-    .custom-alert-list ul {
-        margin: 0;
-        padding-left: 20px;
-    }
-
-    .custom-alert-list li {
-        color: #475569;
-        font-size: 13px;
-        line-height: 1.8;
-        margin-bottom: 4px;
-    }
-
-    .custom-alert-buttons {
-        display: flex;
-        gap: 10px;
-    }
-
-    .custom-alert-btn {
-        flex: 1;
-        padding: 12px 20px;
-        border: none;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        font-family: 'Inter', sans-serif;
-    }
-
-    .custom-alert-btn-primary {
-        background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(13, 71, 161, 0.3);
-    }
-
-    .custom-alert-btn-primary:hover {
-        background: linear-gradient(135deg, #0b3d91 0%, #1565c0 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(13, 71, 161, 0.4);
-    }
-
-    .custom-alert-btn-secondary {
-        background: #e2e8f0;
-        color: #475569;
-    }
-
-    .custom-alert-btn-secondary:hover {
-        background: #cbd5e1;
-    }
-
-    /* animasi icon */
-    .custom-alert-icon i {
-        animation: iconPop 0.5s ease-out 0.2s both;
-    }
-
-    @keyframes iconPop {
-        0% {
-            transform: scale(0);
-        }
-        50% {
-            transform: scale(1.2);
-        }
-        100% {
-            transform: scale(1);
-        }
-    }
 </style>
 
 </head>
@@ -1063,33 +843,9 @@ include '../users/partials/navbar.php';
             <div class="reset-header">
                 <img src="<?php echo BASE_URL; ?>users/assets/logo.png" alt="Logo Politeknik NEST">
                 <h2>Lupa Password</h2>
-                <p>Reset password akun pegawai Anda</p>
+                <p>Reset password akun pelamar Anda</p>
             </div>
 
-            <!-- Custom Alert Modal -->
-            <div class="custom-alert-overlay" id="customAlert">
-                <div class="custom-alert-box">
-                    <div class="custom-alert-header">
-                        <div class="custom-alert-icon" id="alertIcon">
-                            <i class="bi bi-exclamation-circle-fill"></i>
-                        </div>
-                        <h3 class="custom-alert-title" id="alertTitle">Peringatan</h3>
-                    </div>
-                    <div class="custom-alert-body">
-                        <div class="custom-alert-message" id="alertMessage">
-                            Pesan default
-                        </div>
-                        <div class="custom-alert-list" id="alertList" style="display: none;">
-                            <ul id="alertListContent"></ul>
-                        </div>
-                        <div class="custom-alert-buttons">
-                            <button class="custom-alert-btn custom-alert-btn-primary" id="alertOkBtn">
-                                OK
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <div class="reset-body">
                 <!-- Progress Steps -->
                 <div class="progress-steps">
@@ -1115,14 +871,13 @@ include '../users/partials/navbar.php';
                     </div>
                 <?php endif; ?>
 
-                <?php if (isset($_SESSION['token_rejected_message'])): ?>
+                <?php if (isset($_SESSION['token_rejected_message_pelamar'])): ?>
                     <div class="alert alert-error">
                         <i class="bi bi-x-circle-fill"></i>
-                        <span><?php echo htmlspecialchars($_SESSION['token_rejected_message']); ?></span>
+                        <span><?php echo htmlspecialchars($_SESSION['token_rejected_message_pelamar']); ?></span>
                     </div>
-                    <?php unset($_SESSION['token_rejected_message']); ?>
+                    <?php unset($_SESSION['token_rejected_message_pelamar']); ?>
                 <?php endif; ?>
-
 
                 <!-- Error Alert -->
                 <?php if ($error): ?>
@@ -1132,22 +887,22 @@ include '../users/partials/navbar.php';
                     </div>
                     
                     <!-- Auto redirect notice -->
-                    <?php if (isset($_SESSION['auto_redirect'])): ?>
+                    <?php if (isset($_SESSION['auto_redirect_pelamar'])): ?>
                         <div class="alert alert-info" style="margin-top: 10px;">
                             <i class="bi bi-arrow-clockwise"></i>
                             <span>Anda akan dialihkan ke halaman request baru dalam <strong><span id="countdown">5</span> detik</strong>...</span>
                         </div>
-                        <?php unset($_SESSION['auto_redirect']); ?>
+                        <?php unset($_SESSION['auto_redirect_pelamar']); ?>
                     <?php endif; ?>
                 <?php endif; ?>
 
-                <!-- Request Reset -->
+                <!-- STEP 1: Request Reset -->
                 <?php if ($step === 'request'): ?>
                     <form method="POST" action="">
                         <div class="form-group">
-                            <label class="form-label">Email Pegawai</label>
+                            <label class="form-label">Email Pelamar</label>
                             <input type="email" class="form-control" name="email" 
-                                   placeholder="Masukkan email pegawai Anda" required>
+                                   placeholder="Masukkan email pelamar Anda" required>
                         </div>
 
                         <button type="submit" name="request_reset" class="btn-primary">
@@ -1156,18 +911,18 @@ include '../users/partials/navbar.php';
                     </form>
                 <?php endif; ?>
 
-                <!-- verifikasi Token -->
+                <!-- STEP 2: Verify Token -->
                 <?php if ($step === 'verify'): ?>
                     <div class="waiting-box">
                         <i class="bi bi-hourglass-half"></i>
                         <h4>Menunggu Persetujuan Admin</h4>
-                        <p><strong>Email:</strong> <?php echo htmlspecialchars($_SESSION['reset_email'] ?? ''); ?></p>
+                        <p><strong>Email:</strong> <?php echo htmlspecialchars($_SESSION['reset_pelamar_email'] ?? ''); ?></p>
                         <p style="margin-top: 15px;">
                             Silakan <strong>hubungi admin</strong> untuk mendapatkan token reset password.
-                            Admin akan mengirimkan token ke WhatsApp Anda.
+                            Admin akan mengirimkan token ke WhatsApp/Email Anda.
                         </p>
                         <p style="margin-top: 10px; font-size: 12px;">
-                            <i class="bi bi-arrow-clockwise"></i> Halaman akan otomatis refresh setiap 30 detik untuk mengecek status request...
+                            <i class="bi bi-arrow-clockwise"></i> Halaman akan otomatis refresh setiap 30 detik untuk mengecek status request
                         </p>
                     </div>
 
@@ -1186,7 +941,7 @@ include '../users/partials/navbar.php';
                             <label class="form-label">Email</label>
                             <input type="email" name="email" class="form-control"
                                    placeholder="Masukkan email Anda"
-                                   value="<?php echo htmlspecialchars($_SESSION['reset_email'] ?? ''); ?>"
+                                   value="<?php echo htmlspecialchars($_SESSION['reset_pelamar_email'] ?? ''); ?>"
                                    required>
                         </div>
 
@@ -1215,7 +970,7 @@ include '../users/partials/navbar.php';
                     </script>
                 <?php endif; ?>
 
-                <!--  Reset Password -->
+                <!-- STEP 3: Reset Password -->
                 <?php if ($step === 'reset'): ?>
                     <div class="alert alert-success">
                         <i class="bi bi-check-circle-fill"></i>
@@ -1298,7 +1053,7 @@ include '../users/partials/navbar.php';
                 <?php endif; ?>
 
                 <div class="back-link">
-                    <a href="login_pegawai.php">
+                    <a href="login_pelamar.php">
                         <i class="bi bi-arrow-left"></i> Kembali ke Login
                     </a>
                 </div>
@@ -1307,223 +1062,131 @@ include '../users/partials/navbar.php';
     </div>
 
     <script>
+        // PASSWORD FUNCTIONS
+        function togglePassword(inputId, icon) {
+            const input = document.getElementById(inputId);
+            const iconElement = icon.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                iconElement.classList.remove('bi-eye');
+                iconElement.classList.add('bi-eye-slash');
+            } else {
+                input.type = 'password';
+                iconElement.classList.remove('bi-eye-slash');
+                iconElement.classList.add('bi-eye');
+            }
+        }
 
-    // CUSTOM ALERT FUNCTION
-    function showCustomAlert(options) {
-        const overlay = document.getElementById('customAlert');
-        const icon = document.getElementById('alertIcon');
-        const iconElement = icon.querySelector('i');
-        const title = document.getElementById('alertTitle');
-        const message = document.getElementById('alertMessage');
-        const listContainer = document.getElementById('alertList');
-        const listContent = document.getElementById('alertListContent');
-        const okBtn = document.getElementById('alertOkBtn');
+        function checkPasswordStrength(password) {
+            let strength = 0;
+            const requirements = {
+                length: password.length >= 8,
+                uppercase: /[A-Z]/.test(password),
+                lowercase: /[a-z]/.test(password),
+                number: /[0-9]/.test(password),
+                symbol: /[@$!%*?&#]/.test(password)
+            };
 
-        // Set type (error, success, warning, info)
-        const type = options.type || 'error';
-        icon.className = 'custom-alert-icon ' + type;
-
-        const icons = {
-            error: 'bi-exclamation-circle-fill',
-            success: 'bi-check-circle-fill',
-            warning: 'bi-exclamation-triangle-fill',
-            info: 'bi-info-circle-fill'
-        };
-        iconElement.className = 'bi ' + icons[type];
-
-        const titles = {
-            error: 'Kesalahan',
-            success: 'Berhasil',
-            warning: 'Peringatan',
-            info: 'Informasi'
-        };
-        title.textContent = options.title || titles[type];
-
-        // Set pesan
-        message.textContent = options.message || '';
-
-        if (options.list && Array.isArray(options.list)) {
-            listContent.innerHTML = '';
-            options.list.forEach(item => {
-                const li = document.createElement('li');
-                li.textContent = item;
-                listContent.appendChild(li);
+            Object.values(requirements).forEach(met => {
+                if (met) strength++;
             });
-            listContainer.style.display = 'block';
-        } else {
-            listContainer.style.display = 'none';
+
+            return { strength, requirements };
         }
 
-        //  overlay
-        overlay.classList.add('active');
+        function updateStrengthMeter(password) {
+            const strengthMeter = document.getElementById('strengthMeter');
+            const strengthFill = document.getElementById('strengthFill');
+            const strengthText = document.getElementById('strengthText');
+            const strengthLabel = document.getElementById('strengthLabel');
 
-        okBtn.onclick = () => {
-            overlay.classList.remove('active');
-            if (options.callback) {
-                options.callback();
+            if (password.length === 0) {
+                strengthMeter.style.display = 'none';
+                return;
             }
-        };
 
-        overlay.onclick = (e) => {
-            if (e.target === overlay) {
-                overlay.classList.remove('active');
+            strengthMeter.style.display = 'block';
+
+            const { strength, requirements } = checkPasswordStrength(password);
+
+            document.getElementById('req-length').classList.toggle('met', requirements.length);
+            document.getElementById('req-uppercase').classList.toggle('met', requirements.uppercase);
+            document.getElementById('req-lowercase').classList.toggle('met', requirements.lowercase);
+            document.getElementById('req-number').classList.toggle('met', requirements.number);
+            document.getElementById('req-symbol').classList.toggle('met', requirements.symbol);
+
+            strengthFill.classList.remove('strength-weak', 'strength-fair', 'strength-good', 'strength-strong');
+            strengthText.classList.remove('strength-weak', 'strength-fair', 'strength-good', 'strength-strong');
+
+            if (strength <= 2) {
+                strengthFill.classList.add('strength-weak');
+                strengthText.classList.add('strength-weak');
+                strengthLabel.textContent = 'Lemah';
+            } else if (strength === 3) {
+                strengthFill.classList.add('strength-fair');
+                strengthText.classList.add('strength-fair');
+                strengthLabel.textContent = 'Cukup';
+            } else if (strength === 4) {
+                strengthFill.classList.add('strength-good');
+                strengthText.classList.add('strength-good');
+                strengthLabel.textContent = 'Baik';
+            } else {
+                strengthFill.classList.add('strength-strong');
+                strengthText.classList.add('strength-strong');
+                strengthLabel.textContent = 'Kuat';
             }
-        };
-    }
-
-    // PASSWORD FUNCTIONS
-    function togglePassword(inputId, icon) {
-        const input = document.getElementById(inputId);
-        const iconElement = icon.querySelector('i');
-        
-        if (input.type === 'password') {
-            input.type = 'text';
-            iconElement.classList.remove('bi-eye');
-            iconElement.classList.add('bi-eye-slash');
-        } else {
-            input.type = 'password';
-            iconElement.classList.remove('bi-eye-slash');
-            iconElement.classList.add('bi-eye');
-        }
-    }
-
-    function checkPasswordStrength(password) {
-        let strength = 0;
-        const requirements = {
-            length: password.length >= 8,
-            uppercase: /[A-Z]/.test(password),
-            lowercase: /[a-z]/.test(password),
-            number: /[0-9]/.test(password),
-            symbol: /[@$!%*?&#]/.test(password)
-        };
-
-        Object.values(requirements).forEach(met => {
-            if (met) strength++;
-        });
-
-        return { strength, requirements };
-    }
-
-    function updateStrengthMeter(password) {
-        const strengthMeter = document.getElementById('strengthMeter');
-        const strengthFill = document.getElementById('strengthFill');
-        const strengthText = document.getElementById('strengthText');
-        const strengthLabel = document.getElementById('strengthLabel');
-
-        if (password.length === 0) {
-            strengthMeter.style.display = 'none';
-            return;
         }
 
-        strengthMeter.style.display = 'block';
+        // FORM VALIDATION
+        const resetForm = document.getElementById('resetForm');
+        if (resetForm) {
+            const newPasswordInput = document.getElementById('newPassword');
+            if (newPasswordInput) {
+                newPasswordInput.addEventListener('input', function() {
+                    updateStrengthMeter(this.value);
+                });
+            }
 
-        const { strength, requirements } = checkPasswordStrength(password);
-
-        document.getElementById('req-length').classList.toggle('met', requirements.length);
-        document.getElementById('req-uppercase').classList.toggle('met', requirements.uppercase);
-        document.getElementById('req-lowercase').classList.toggle('met', requirements.lowercase);
-        document.getElementById('req-number').classList.toggle('met', requirements.number);
-        document.getElementById('req-symbol').classList.toggle('met', requirements.symbol);
-
-        strengthFill.classList.remove('strength-weak', 'strength-fair', 'strength-good', 'strength-strong');
-        strengthText.classList.remove('strength-weak', 'strength-fair', 'strength-good', 'strength-strong');
-
-        if (strength <= 2) {
-            strengthFill.classList.add('strength-weak');
-            strengthText.classList.add('strength-weak');
-            strengthLabel.textContent = 'Lemah';
-        } else if (strength === 3) {
-            strengthFill.classList.add('strength-fair');
-            strengthText.classList.add('strength-fair');
-            strengthLabel.textContent = 'Cukup';
-        } else if (strength === 4) {
-            strengthFill.classList.add('strength-good');
-            strengthText.classList.add('strength-good');
-            strengthLabel.textContent = 'Baik';
-        } else {
-            strengthFill.classList.add('strength-strong');
-            strengthText.classList.add('strength-strong');
-            strengthLabel.textContent = 'Kuat';
-        }
-    }
-
-    // FORM VALIDATION
-    const resetForm = document.getElementById('resetForm');
-    if (resetForm) {
-        const newPasswordInput = document.getElementById('newPassword');
-        if (newPasswordInput) {
-            newPasswordInput.addEventListener('input', function() {
-                updateStrengthMeter(this.value);
+            resetForm.addEventListener('submit', function(e) {
+                const newPass = document.getElementById('newPassword').value;
+                const confirmPass = document.getElementById('confirmPassword').value;
+                
+                if (newPass !== confirmPass) {
+                    e.preventDefault();
+                    alert('Password dan konfirmasi password tidak cocok!');
+                    return false;
+                }
+                
+                const { requirements } = checkPasswordStrength(newPass);
+                
+                if (!requirements.length || !requirements.uppercase || !requirements.lowercase || 
+                    !requirements.number || !requirements.symbol) {
+                    e.preventDefault();
+                    alert('Password tidak memenuhi syarat yang ditentukan!');
+                    return false;
+                }
             });
         }
 
-        resetForm.addEventListener('submit', function(e) {
-            const newPass = document.getElementById('newPassword').value;
-            const confirmPass = document.getElementById('confirmPassword').value;
+        // AUTO-REDIRECT COUNTDOWN
+        <?php if (isset($error) && isset($_SESSION['auto_redirect_pelamar'])): ?>
+            let countdown = 5;
+            const countdownElement = document.getElementById('countdown');
             
-            // cek kecocokan password 
-            if (newPass !== confirmPass) {
-                e.preventDefault();
-                showCustomAlert({
-                    type: 'error',
-                    title: 'Password Tidak Cocok',
-                    message: 'Password dan konfirmasi password tidak cocok! Silakan periksa kembali.'
-                });
-                return false;
-            }
-            
-            // Cek kekuatan password 
-            const { requirements } = checkPasswordStrength(newPass);
-            const errors = [];
-            
-            if (!requirements.length) {
-                errors.push('Password minimal 8 karakter');
-            }
-            if (!requirements.uppercase) {
-                errors.push('Mengandung minimal 1 huruf besar (A-Z)');
-            }
-            if (!requirements.lowercase) {
-                errors.push('Mengandung minimal 1 huruf kecil (a-z)');
-            }
-            if (!requirements.number) {
-                errors.push('Mengandung minimal 1 angka (0-9)');
-            }
-            if (!requirements.symbol) {
-                errors.push('Mengandung minimal 1 simbol (@$!%*?&#)');
-            }
-            
-            if (errors.length > 0) {
-                e.preventDefault();
-                showCustomAlert({
-                    type: 'error',
-                    title: 'Password Tidak Valid',
-                    message: 'Password Anda tidak memenuhi syarat berikut:',
-                    list: errors
-                });
-                return false;
-            }
-        });
-    }
-
-    // AUTO-REDIRECT COUNTDOWN
-    <?php if (isset($error) && isset($_SESSION['auto_redirect'])): ?>
-        let countdown = 5;
-        const countdownElement = document.getElementById('countdown');
-        
-        const interval = setInterval(() => {
-            countdown--;
-            if (countdownElement) {
-                countdownElement.textContent = countdown;
-            }
-            
-            if (countdown <= 0) {
-                clearInterval(interval);
-                window.location.href = 'lupa-password.php?reset_flow=new';
-            }
-        }, 1000);
-    <?php endif; ?>
-</script>
-
+            const interval = setInterval(() => {
+                countdown--;
+                if (countdownElement) {
+                    countdownElement.textContent = countdown;
+                }
+                
+                if (countdown <= 0) {
+                    clearInterval(interval);
+                    window.location.href = 'lupa-password-pelamar.php?reset_flow=new';
+                }
+            }, 1000);
+        <?php endif; ?>
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
