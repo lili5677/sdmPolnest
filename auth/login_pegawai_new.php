@@ -1,9 +1,15 @@
 <?php
 /**
- * AKTIVASI AKUN PEGAWAI BARU - DATABASE COMPATIBLE VERSION
+ * AKTIVASI AKUN PEGAWAI BARU - FINAL FIXED VERSION
  * File: auth/login_pegawai.php
  * 
- * FIXED: Disesuaikan dengan struktur database aktual
+ * FIXED: Role otomatis sesuai jenis_posisi lowongan yang dilamar
+ * 
+ * UPDATE LOG:
+ * - Ambil jenis_posisi dari lowongan yang dilamar
+ * - Auto-set jenis_pegawai sesuai jenis_posisi lowongan
+ * - Fallback ke NIDN/Prodi jika jenis_posisi NULL
+ * - Auto-insert ke tabel pegawai saat aktivasi
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -12,7 +18,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once '../config/database.php';
 
-// Redirect if already logged in
+// ========================================
+// REDIRECT IF ALREADY LOGGED IN
+// ========================================
 if (isset($_SESSION['user_id']) && isset($_SESSION['user_type'])) {
     if (in_array($_SESSION['user_type'], ['pegawai', 'dosen'])) {
         header('Location: ../users/pegawai/administrasi.php');
@@ -30,7 +38,9 @@ $nama_pegawai = '';
 $role_pegawai = '';
 $data_loaded = false;
 
+// ========================================
 // AUTO-LOAD EMAIL & TOKEN FROM URL
+// ========================================
 $url_email = isset($_GET['email']) ? trim($_GET['email']) : '';
 
 if ($url_email) {
@@ -70,14 +80,17 @@ if ($url_email) {
     }
 }
 
-// ================================================================
+// ========================================
 // PROSES AKTIVASI - WITH AUTO INSERT TO PEGAWAI TABLE
-// ================================================================
+// ========================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
     $input_email = trim($_POST['email'] ?? '');
     $input_token = trim($_POST['token'] ?? '');
 
     try {
+        // ========================================
+        // GET DATA TOKEN & PELAMAR
+        // ========================================
         $stmtToken = $conn->prepare("
             SELECT 
                 at.*,
@@ -107,21 +120,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
         $tokenData = $stmtToken->fetch(PDO::FETCH_ASSOC);
         
         if (!$tokenData) {
-            $error = "Token tidak valid atau sudah kadaluarsa!";
+            $error = "Token tidak valid, sudah digunakan, atau sudah kadaluarsa!";
         } else {
             $conn->beginTransaction();
             
             try {
-                // 1. Update token → hangus
+                // ========================================
+                // 1. UPDATE TOKEN → HANGUS
+                // ========================================
                 $stmtUpdateToken = $conn->prepare("
                     UPDATE activation_tokens 
-                    SET is_used = 1, created_at = NOW()
+                    SET is_used = 1, 
+                        created_at = NOW()
                     WHERE token = :token
                 ");
                 $stmtUpdateToken->execute(['token' => $input_token]);
                 
-                // 2. Update user → set user_type
-                $newRole = $tokenData['role'];
+                // ========================================
+                // 2. AMBIL JENIS_POSISI DARI LOWONGAN YANG DILAMAR
+                // ========================================
+                $stmtLowongan = $conn->prepare("
+                    SELECT 
+                        lp.jenis_posisi, 
+                        lp.posisi,
+                        lp.lowongan_id
+                    FROM lamaran l
+                    INNER JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
+                    WHERE l.pelamar_id = :pelamar_id
+                      AND l.status_lamaran = 'diterima'
+                    ORDER BY l.tanggal_update DESC
+                    LIMIT 1
+                ");
+                $stmtLowongan->execute(['pelamar_id' => $tokenData['pelamar_id']]);
+                $lowonganData = $stmtLowongan->fetch(PDO::FETCH_ASSOC);
+                
+                // ========================================
+                // 3. TENTUKAN JENIS_PEGAWAI DAN USER_TYPE
+                // PRIORITAS:
+                // 1. jenis_posisi dari lowongan (PRIORITAS UTAMA)
+                // 2. NIDN + Prodi (fallback)
+                // 3. Deteksi dari nama posisi (fallback terakhir)
+                // ========================================
+                $jenis_pegawai = 'staff'; // Default
+                $user_type = 'pegawai';   // Default
+                $is_dosen_nest = 0;
+                
+                if ($lowonganData && !empty($lowonganData['jenis_posisi'])) {
+                    // GUNAKAN JENIS_POSISI DARI LOWONGAN
+                    $jenis_pegawai = strtolower($lowonganData['jenis_posisi']);
+                    $user_type = ($jenis_pegawai === 'dosen') ? 'dosen' : 'pegawai';
+                    
+                } elseif ($tokenData['nidn'] && $tokenData['prodi']) {
+                    // FALLBACK: Jika ada NIDN & Prodi
+                    $jenis_pegawai = 'dosen';
+                    $user_type = 'dosen';
+                    
+                } elseif ($lowonganData && stripos($lowonganData['posisi'], 'dosen') !== false) {
+                    // FALLBACK: Deteksi dari nama posisi
+                    $jenis_pegawai = 'dosen';
+                    $user_type = 'dosen';
+                }
+                
+                // Cek apakah email institusi (untuk is_dosen_nest)
+                $email_check = $tokenData['email_aktif'];
+                if (
+                    $jenis_pegawai === 'dosen' && 
+                    (strpos($email_check, '@polnest.ac.id') !== false || 
+                     strpos($email_check, '@nest.ac.id') !== false)
+                ) {
+                    $is_dosen_nest = 1;
+                }
+                
+                // ========================================
+                // 4. UPDATE USER → SET USER_TYPE
+                // ========================================
                 $stmtUpdateUser = $conn->prepare("
                     UPDATE users 
                     SET user_type = :user_type,
@@ -131,11 +203,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                     WHERE user_id = :user_id
                 ");
                 $stmtUpdateUser->execute([
-                    'user_type' => $newRole,
+                    'user_type' => $user_type,
                     'user_id' => $tokenData['user_id']
                 ]);
                 
-                // 3. Update pelamar → is_pegawai = 1
+                // ========================================
+                // 5. UPDATE PELAMAR → IS_PEGAWAI = 1
+                // ========================================
                 $stmtUpdatePelamar = $conn->prepare("
                     UPDATE pelamar 
                     SET is_pegawai = 1
@@ -143,9 +217,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                 ");
                 $stmtUpdatePelamar->execute(['pelamar_id' => $tokenData['pelamar_id']]);
                 
-                // ================================================================
-                // 4. INSERT KE TABEL PEGAWAI (SESUAI STRUKTUR DATABASE)
-                // ================================================================
+                // ========================================
+                // 6. INSERT KE TABEL PEGAWAI
+                // ========================================
                 // Cek dulu apakah sudah ada di tabel pegawai
                 $stmtCheckPegawai = $conn->prepare("
                     SELECT pegawai_id FROM pegawai WHERE user_id = :user_id
@@ -186,19 +260,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                         )
                     ");
                     
-                    // Tentukan jenis_pegawai dan is_dosen_nest
-                    $jenis_pegawai = 'staff';
-                    $is_dosen_nest = 0;
-                    
-                    if ($tokenData['nidn'] && $tokenData['prodi']) {
-                        $jenis_pegawai = 'dosen';
-                        // Cek apakah email institusi
-                        $email_check = $tokenData['email_aktif'];
-                        if (strpos($email_check, '@polnest.ac.id') !== false || strpos($email_check, '@nest.ac.id') !== false) {
-                            $is_dosen_nest = 1;
-                        }
-                    }
-                    
                     $stmtInsertPegawai->execute([
                         'user_id' => $tokenData['user_id'],
                         'nama_lengkap' => $tokenData['nama_lengkap'],
@@ -222,25 +283,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                     $existingPegawai = $stmtCheckPegawai->fetch(PDO::FETCH_ASSOC);
                     $pegawai_id = $existingPegawai['pegawai_id'];
                 }
-                // ================================================================
                 
+                // ========================================
+                // 7. COMMIT TRANSACTION
+                // ========================================
                 $conn->commit();
                 
-                // Set session
-                $_SESSION['user_id']    = $tokenData['user_id'];
-                $_SESSION['pegawai_id'] = $pegawai_id;
-                $_SESSION['email']      = $tokenData['email_login'];
-                $_SESSION['user_type']  = $newRole;
+                // ========================================
+                // 8. SET SESSION
+                // ========================================
+                $_SESSION['user_id']      = $tokenData['user_id'];
+                $_SESSION['pegawai_id']   = $pegawai_id;
+                $_SESSION['email']        = $tokenData['email_login'];
+                $_SESSION['user_type']    = $user_type;
                 $_SESSION['nama_lengkap'] = $tokenData['nama_lengkap'];
-                $_SESSION['first_login'] = true;
+                $_SESSION['first_login']  = true;
 
-                // REDIRECT KE KEAMANAN
+                // ========================================
+                // 9. REDIRECT KE KEAMANAN AKUN
+                // ========================================
                 header('Location: ../users/pegawai/keamanan_akun.php?first_login=1');
                 exit;
                 
             } catch (Exception $e) {
                 $conn->rollBack();
-                $error = "Gagal aktivasi: " . $e->getMessage();
+                $error = "Gagal aktivasi akun: " . $e->getMessage();
             }
         }
     } catch (Exception $e) {
@@ -443,6 +510,24 @@ include '../users/partials/navbar.php';
         margin: 0;
     }
 
+    /* SUCCESS INFO */
+    .success-info {
+        background: #e8f5e9;
+        border-left: 4px solid #4caf50;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+    }
+
+    .success-info p {
+        color: #2e7d32;
+        font-size: 14px;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
     /* FOOTER */
     .footer-section {
         background: #0891b2;
@@ -553,16 +638,23 @@ include '../users/partials/navbar.php';
                         <img src="<?php echo BASE_URL; ?>users/assets/logo.png" alt="Logo">
                     </div>
                     <h1>Selamat Datang</h1>
-                    <p>Silahkan Daftarkan Akun Anda untuk Pengalaman<br>Menarik Bersama Politeknik NEST</p>
+                    <p>Silakan Aktivasi Akun Anda untuk Bergabung<br>Bersama Politeknik NEST</p>
                 </div>
 
                 <?php if ($error): ?>
                     <div class="error-alert">
-                        <p><?= htmlspecialchars($error) ?></p>
+                        <p><i class="bi bi-exclamation-triangle-fill"></i> <?= htmlspecialchars($error) ?></p>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($data_loaded): ?>
+                    <div class="success-info">
+                        <p>
+                            <i class="bi bi-check-circle-fill"></i>
+                            <strong>Token valid!</strong> Klik "Aktivasi Akun" untuk melanjutkan.
+                        </p>
+                    </div>
+                    
                     <form method="POST" action="">
                         <div class="form-group">
                             <label class="form-label">Alamat Email</label>
@@ -578,7 +670,7 @@ include '../users/partials/navbar.php';
                         </div>
 
                         <div class="form-group">
-                            <label class="form-label">Token</label>
+                            <label class="form-label">Token Aktivasi</label>
                             <div class="input-wrapper">
                                 <input type="text" 
                                        class="form-control token-field" 
@@ -590,11 +682,13 @@ include '../users/partials/navbar.php';
                             </div>
                         </div>
 
-                        <button type="submit" class="btn-submit">Masuk Akun</button>
+                        <button type="submit" class="btn-submit">
+                            <i class="bi bi-check-circle-fill"></i> Aktivasi Akun
+                        </button>
                     </form>
                 <?php else: ?>
                     <div class="error-alert">
-                        <p>Link aktivasi tidak valid. Silakan gunakan link yang diberikan oleh admin.</p>
+                        <p><i class="bi bi-exclamation-triangle-fill"></i> Link aktivasi tidak valid. Silakan gunakan link yang diberikan oleh admin.</p>
                     </div>
                 <?php endif; ?>
             </div>
