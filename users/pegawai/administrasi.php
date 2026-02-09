@@ -5,13 +5,7 @@ session_start();
 // STEP 2: Include database
 require_once '../../config/database.php';
 
-// STEP 3: Cek login -DIGANTI
-// if (!isset($_SESSION['user_id']) || !isset($_SESSION['logged_in'])) {
-//     header("Location: ../../auth/login_pegawai.php");
-//     exit;
-// }
-
-//JADI INI
+// STEP 3: Cek login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
     header("Location: ../../auth/login_pegawai.php");
     exit;
@@ -23,19 +17,32 @@ if ($_SESSION['user_type'] === 'admin' && isset($_GET['pegawai_id'])) {
     $pegawai_id = (int)$_GET['pegawai_id'];
 } else {
     // Pegawai biasa hanya bisa lihat data sendiri
-    $pegawai_id = $_SESSION['pegawai_id']; // ← PAKAI DARI SESSION
+    $pegawai_id = $_SESSION['pegawai_id'];
 }
 
 // STEP 5: Security check - pegawai biasa tidak boleh akses data orang lain
 if ($_SESSION['user_type'] !== 'admin' && isset($_GET['pegawai_id']) && (int)$_GET['pegawai_id'] !== $_SESSION['pegawai_id']) {
-    header("Location: administrasi.php"); // redirect ke data sendiri
+    header("Location: administrasi.php");
     exit;
 }
-
-// Query Data Pegawai dengan Status Kepegawaian
+// Query Data Pegawai dengan Status Kepegawaian - DIPERBAIKI
 $stmt = $conn->prepare("
     SELECT 
-        p.*, 
+        p.pegawai_id,
+        p.nik,
+        p.nip,
+        p.nidn,
+        p.prodi,
+        p.nama_lengkap,
+        p.jenis_pegawai,
+        p.is_dosen_nest,
+        p.tempat_lahir,
+        p.tanggal_lahir,
+        p.jenis_kelamin,
+        p.email,
+        p.no_telepon,
+        p.alamat_domisili,
+        p.alamat_ktp,
         sk.jabatan, 
         sk.jenis_kepegawaian, 
         sk.status_aktif, 
@@ -51,14 +58,11 @@ $stmt->execute([$pegawai_id]);
 $pegawai = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$pegawai) {
-    die("Pegawai tidak ditemukan. Pegawai ID: " . $pegawai_id); // ← UNTUK DEBUG
+    die("Pegawai tidak ditemukan. Pegawai ID: " . $pegawai_id);
 }
-
-// ... sisa kode ...
 
 // Tentukan jenis pegawai untuk menampilkan dokumen yang sesuai
 $is_dosen = ($pegawai['jenis_pegawai'] === 'dosen' || $pegawai['is_dosen_nest'] == 1);
-
 
 // Query Dokumen Pegawai
 $stmt_dokumen = $conn->prepare("
@@ -77,6 +81,10 @@ if (!empty($pegawai['masa_kontrak_mulai']) && !empty($pegawai['masa_kontrak_sele
     $tanggal_mulai = new DateTime($pegawai['masa_kontrak_mulai']);
     $tanggal_selesai = new DateTime($pegawai['masa_kontrak_selesai']);
     $sekarang = new DateTime();
+    
+    // Set semua waktu ke midnight untuk perhitungan yang akurat
+    $tanggal_selesai->setTime(0, 0, 0);
+    $sekarang->setTime(0, 0, 0);
     
     // Hitung selisih dari sekarang ke tanggal selesai
     $interval = $sekarang->diff($tanggal_selesai);
@@ -100,27 +108,26 @@ if (!empty($pegawai['masa_kontrak_mulai']) && !empty($pegawai['masa_kontrak_sele
         $parts = [];
         if ($tahun > 0) $parts[] = $tahun . ' tahun';
         if ($bulan > 0) $parts[] = $bulan . ' bulan';
-        if ($hari > 0) $parts[] = $hari . ' hari';  // Hapus kondisi tahun dan bulan == 0
+        if ($hari > 0) $parts[] = $hari . ' hari';
         
-        $sisa_kontrak_text = !empty($parts) ? implode(', ', $parts) : 'Kurang dari 1 hari';
+        $sisa_kontrak_text = !empty($parts) ? implode(', ', $parts) : 'Hari ini terakhir';
         
         // Tentukan warna badge berdasarkan sisa waktu
         $total_bulan = ($tahun * 12) + $bulan;
         if ($total_bulan <= 1) {
-            $badge_kontrak = 'badge-danger'; // Merah jika sisa <= 1 bulan
+            $badge_kontrak = 'badge-danger';
         } elseif ($total_bulan <= 3) {
-            $badge_kontrak = 'badge-warning'; // Kuning jika sisa <= 3 bulan
+            $badge_kontrak = 'badge-warning';
         } else {
-            $badge_kontrak = 'badge-success'; // Hijau jika masih lama
+            $badge_kontrak = 'badge-success';
         }
     }
 } elseif (!empty($pegawai['masa_kontrak_mulai'])) {
-    // Jika hanya ada tanggal mulai (pegawai tetap)
     $sisa_kontrak_text = 'Tetap';
     $badge_kontrak = 'badge-info';
 }
 
-// Mapping jenis dokumen berdasarkan jenis pegawai (OPSIONAL - BISA KOSONG)
+// Mapping jenis dokumen berdasarkan jenis pegawai
 if ($is_dosen) {
     $jenis_dokumen_label = [
         'cv' => 'Curriculum Vitae (CV)',
@@ -152,34 +159,158 @@ $message_type = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'update_pegawai') {
         try {
-            $sql = "UPDATE pegawai SET 
-                    nama_lengkap = ?,
-                    tempat_lahir = ?,
-                    tanggal_lahir = ?,
-                    jenis_kelamin = ?,
-                    email = ?,
-                    no_telepon = ?,
-                    alamat_domisili = ?,
-                    alamat_ktp = ?
-                    WHERE pegawai_id = ?";
+            // Helper function untuk handle empty string -> NULL
+            function emptyToNull($value) {
+                // PERBAIKAN: Cek null dulu sebelum trim
+                if ($value === null || $value === '') {
+                    return null;
+                }
+                $trimmed = trim($value);
+                return ($trimmed === '') ? null : $trimmed;
+            }
             
-            $stmt = $conn->prepare($sql);
-            $stmt->execute([
-                $_POST['nama_lengkap'],
-                $_POST['tempat_lahir'],
-                $_POST['tanggal_lahir'],
-                $_POST['jenis_kelamin'],
-                $_POST['email'],
-                $_POST['no_telepon'],
-                $_POST['alamat_domisili'],
-                $_POST['alamat_ktp'],
-                $pegawai_id
-            ]);
+            // Process data - convert empty to NULL
+            // PERBAIKAN: Gunakan isset() untuk cek keberadaan key
+            $nik = emptyToNull($_POST['nik'] ?? null);
+            $nip = emptyToNull($_POST['nip'] ?? null);
+            $nidn = emptyToNull($_POST['nidn'] ?? null); // Bisa null jika bukan dosen
+            $prodi = emptyToNull($_POST['prodi'] ?? null); // Bisa null jika bukan dosen
+            $nama_lengkap = emptyToNull($_POST['nama_lengkap'] ?? null);
+            $jenis_pegawai = emptyToNull($_POST['jenis_pegawai'] ?? null);
+            $tempat_lahir = emptyToNull($_POST['tempat_lahir'] ?? null);
+            $tanggal_lahir = emptyToNull($_POST['tanggal_lahir'] ?? null);
+            $jenis_kelamin = emptyToNull($_POST['jenis_kelamin'] ?? null);
+            $email = emptyToNull($_POST['email'] ?? null);
+            $no_telepon = emptyToNull($_POST['no_telepon'] ?? null);
+            $alamat_domisili = emptyToNull($_POST['alamat_domisili'] ?? null);
+            $alamat_ktp = emptyToNull($_POST['alamat_ktp'] ?? null);
             
-            header("Location: " . $_SERVER['PHP_SELF'] . "?pegawai_id=" . $pegawai_id . "&success=1");
-            exit;
+            // ===== VALIDASI DATA WAJIB =====
+            $errors = [];
+            
+            if (empty($nama_lengkap)) {
+                $errors[] = 'Nama lengkap wajib diisi!';
+            }
+            
+            if (empty($email)) {
+                $errors[] = 'Email wajib diisi!';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Format email tidak valid!';
+            }
+            
+            if (empty($jenis_pegawai)) {
+                $errors[] = 'Jenis pegawai wajib diisi!';
+            } elseif (!in_array($jenis_pegawai, ['dosen', 'staff', 'tendik'])) {
+                $errors[] = 'Jenis pegawai tidak valid!';
+            }
+            
+            // ===== VALIDASI OPSIONAL (JIKA DIISI) =====
+            
+            // Validasi NIK jika diisi
+            if (!empty($nik)) {
+                if (!preg_match('/^\d+$/', $nik)) {
+                    $errors[] = 'NIK harus berisi angka saja!';
+                } elseif (strlen($nik) !== 16) {
+                    $errors[] = 'NIK harus 16 digit!';
+                } else {
+                    // Cek duplikat NIK (kecuali NIK sendiri)
+                    $check_nik = $conn->prepare("SELECT COUNT(*) FROM pegawai WHERE nik = ? AND pegawai_id != ?");
+                    $check_nik->execute([$nik, $pegawai_id]);
+                    if ($check_nik->fetchColumn() > 0) {
+                        $errors[] = 'NIK sudah terdaftar!';
+                    }
+                }
+            }
+            
+            // Validasi NIP jika diisi
+            if (!empty($nip)) {
+                if (!preg_match('/^\d+$/', $nip)) {
+                    $errors[] = 'NIP harus berisi angka saja!';
+                } elseif (strlen($nip) !== 18) {
+                    $errors[] = 'NIP harus 18 digit!';
+                }
+            }
+            
+            // Validasi NIDN jika diisi (TAMBAHAN)
+            if (!empty($nidn)) {
+                if (!preg_match('/^\d+$/', $nidn)) {
+                    $errors[] = 'NIDN harus berisi angka saja!';
+                } else {
+                    // Cek duplikat NIDN (kecuali NIDN sendiri)
+                    $check_nidn = $conn->prepare("SELECT COUNT(*) FROM pegawai WHERE nidn = ? AND pegawai_id != ?");
+                    $check_nidn->execute([$nidn, $pegawai_id]);
+                    if ($check_nidn->fetchColumn() > 0) {
+                        $errors[] = 'NIDN sudah terdaftar!';
+                    }
+                }
+            }
+            
+            // Validasi jenis kelamin jika diisi
+            if (!empty($jenis_kelamin) && !in_array($jenis_kelamin, ['L', 'P'])) {
+                $errors[] = 'Jenis kelamin tidak valid!';
+            }
+            
+            // Cek duplikat email (kecuali email sendiri)
+            if (!empty($email) && $email !== $pegawai['email']) {
+                $check_email = $conn->prepare("SELECT COUNT(*) FROM pegawai WHERE email = ? AND pegawai_id != ?");
+                $check_email->execute([$email, $pegawai_id]);
+                if ($check_email->fetchColumn() > 0) {
+                    $errors[] = 'Email sudah terdaftar!';
+                }
+            }
+            
+            // ===== JIKA ADA ERROR, TAMPILKAN =====
+            if (!empty($errors)) {
+                $message = implode('<br>', $errors);
+                $message_type = 'danger';
+            } 
+            // ===== JIKA TIDAK ADA ERROR, LAKUKAN UPDATE =====
+            else {
+                $sql = "UPDATE pegawai SET 
+                        nik = ?,
+                        nip = ?,
+                        nidn = ?,
+                        prodi = ?,
+                        nama_lengkap = ?,
+                        jenis_pegawai = ?,
+                        tempat_lahir = ?,
+                        tanggal_lahir = ?,
+                        jenis_kelamin = ?,
+                        email = ?,
+                        no_telepon = ?,
+                        alamat_domisili = ?,
+                        alamat_ktp = ?
+                        WHERE pegawai_id = ?";
+                
+                $stmt = $conn->prepare($sql);
+                $stmt->bindValue(1, $nik, $nik === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(2, $nip, $nip === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(3, $nidn, $nidn === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(4, $prodi, $prodi === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(5, $nama_lengkap, PDO::PARAM_STR);
+                $stmt->bindValue(6, $jenis_pegawai, PDO::PARAM_STR);
+                $stmt->bindValue(7, $tempat_lahir, $tempat_lahir === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(8, $tanggal_lahir, $tanggal_lahir === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(9, $jenis_kelamin, $jenis_kelamin === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(10, $email, PDO::PARAM_STR);
+                $stmt->bindValue(11, $no_telepon, $no_telepon === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(12, $alamat_domisili, $alamat_domisili === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(13, $alamat_ktp, $alamat_ktp === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                $stmt->bindValue(14, $pegawai_id, PDO::PARAM_INT);
+                
+                $stmt->execute();
+                
+                // Update email di tabel users juga jika berubah
+                if ($email !== $pegawai['email']) {
+                    $update_user = $conn->prepare("UPDATE users SET email = ? WHERE user_id = (SELECT user_id FROM pegawai WHERE pegawai_id = ?)");
+                    $update_user->execute([$email, $pegawai_id]);
+                }
+                
+                header("Location: " . $_SERVER['PHP_SELF'] . "?pegawai_id=" . $pegawai_id . "&success=1");
+                exit;
+            }
         } catch (Exception $e) {
-            $message = 'Terjadi kesalahan saat menyimpan data.';
+            $message = 'Terjadi kesalahan saat menyimpan data: ' . $e->getMessage();
             $message_type = 'danger';
         }
     }
@@ -271,6 +402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
                 
                 $destination = $upload_dir . $filename;
+                $path_file = 'uploads/dokumen/' . $filename;
                 
                 if (move_uploaded_file($file['tmp_name'], $destination)) {
                     // Delete old document if exists
@@ -603,6 +735,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             color: white;
         }
 
+        .btn-outline-warning {
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+
+        .btn-outline-warning:hover {
+            background-color: #f59e0b;
+            color: white;
+        }
+
         /* Progress Bar */
         .progress {
             height: 8px;
@@ -721,7 +863,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             </div>
         <?php endif; ?>
 
-
         <?php if ($message): ?>
         <div class="alert alert-<?= $message_type ?> alert-dismissible fade show" role="alert">
             <i class="bi bi-<?= $message_type === 'success' ? 'check-circle-fill' : 'exclamation-triangle-fill' ?> me-2"></i>
@@ -804,7 +945,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             </div>
         </div>
 
-
         <!-- Data Identitas Pegawai -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -825,32 +965,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <div class="row">
                         <div class="col-12 mb-3">
                             <label class="form-label">NIK Pegawai</label>
-                            <input type="text" class="form-control" value="<?= htmlspecialchars($pegawai['nik'] ?? '-') ?>" disabled>
+                            <input type="text" name="nik" class="form-control editable" 
+                                   value="<?= !empty($pegawai['nik']) ? htmlspecialchars($pegawai['nik']) : '' ?>" 
+                                   placeholder="-"
+                                   maxlength="16" 
+                                   pattern="[0-9]{16}" 
+                                   title="NIK harus 16 digit angka"
+                                   disabled>
+                            <small class="text-muted">Format: 16 digit angka</small>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">NIP (Nomor Induk Pegawai)</label>
+                            <input type="text" name="nip" class="form-control editable" 
+                                   value="<?= !empty($pegawai['nip']) ? htmlspecialchars($pegawai['nip']) : '' ?>" 
+                                   placeholder="-"
+                                   maxlength="18" 
+                                   pattern="[0-9]{18}" 
+                                   title="NIP harus 18 digit angka"
+                                   disabled>
+                            <small class="text-muted">Format: 18 digit angka</small>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Nama Lengkap</label>
                             <input type="text" name="nama_lengkap" class="form-control editable" 
-                                   value="<?= htmlspecialchars($pegawai['nama_lengkap'] ?? 'Contoh : Soekarno') ?>" disabled required>
+                                   value="<?= !empty($pegawai['nama_lengkap']) ? htmlspecialchars($pegawai['nama_lengkap']) : '' ?>" 
+                                   placeholder="-"
+                                   disabled required>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Jenis Pegawai</label>
+                            <select name="jenis_pegawai" class="form-select editable" id="jenis_pegawai_select" disabled onchange="toggleDosenFields()">
+                                <option value="">-</option>
+                                <option value="dosen" <?= ($pegawai['jenis_pegawai'] ?? '') === 'dosen' ? 'selected' : '' ?>>Dosen</option>
+                                <option value="staff" <?= ($pegawai['jenis_pegawai'] ?? '') === 'staff' ? 'selected' : '' ?>>Staff</option>
+                                <option value="tendik" <?= ($pegawai['jenis_pegawai'] ?? '') === 'tendik' ? 'selected' : '' ?>>Tendik</option>
+                            </select>
+                        </div>
+
+                        <!-- Field khusus DOSEN (NIDN & Prodi) -->
+                        <div id="dosenFields" style="display: <?= ($pegawai['jenis_pegawai'] ?? '') === 'dosen' ? 'block' : 'none' ?>;">
+                            <div class="col-12 mb-3">
+                                <label class="form-label">NIDN (Nomor Induk Dosen Nasional)</label>
+                                <input type="text" name="nidn" class="form-control editable" 
+                                    value="<?= !empty($pegawai['nidn']) ? htmlspecialchars($pegawai['nidn']) : '' ?>" 
+                                    placeholder="-"
+                                    disabled>
+                                <small class="text-muted">Khusus untuk dosen</small>
+                            </div>
+                            
+                            <div class="col-12 mb-3">
+                                <label class="form-label">Program Studi</label>
+                                <input type="text" name="prodi" class="form-control editable" 
+                                    value="<?= !empty($pegawai['prodi']) ? htmlspecialchars($pegawai['prodi']) : '' ?>" 
+                                    placeholder="-"
+                                    disabled>
+                                <small class="text-muted">Contoh: Teknik Informatika, Teknik Sipil, dll</small>
+                            </div>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Tempat Lahir</label>
                             <input type="text" name="tempat_lahir" class="form-control editable" 
-                                   value="<?= htmlspecialchars($pegawai['tempat_lahir'] ?? 'Contoh : Yogyakarta') ?>" disabled>
+                                   value="<?= !empty($pegawai['tempat_lahir']) ? htmlspecialchars($pegawai['tempat_lahir']) : '' ?>" 
+                                   placeholder="-"
+                                   disabled>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Tanggal Lahir</label>
                             <input type="date" name="tanggal_lahir" class="form-control editable" 
-                                   value="<?= htmlspecialchars($pegawai['tanggal_lahir'] ?? '2005-01-06') ?>" disabled>
+                                   value="<?= !empty($pegawai['tanggal_lahir']) ? htmlspecialchars($pegawai['tanggal_lahir']) : '' ?>" 
+                                   disabled>
                         </div>
                         
-                                                <div class="col-12 mb-3">
+                        <div class="col-12 mb-3">
                             <label class="form-label">Jenis Kelamin</label>
                             <select name="jenis_kelamin" class="form-select editable" disabled>
-                                <option value="">Pilih Jenis Kelamin</option>
-                                <option value="L" <?= ($pegawai['jenis_kelamin'] ?? 'L') === 'L' ? 'selected' : '' ?>>Laki-laki</option>
+                                <option value="">-</option>
+                                <option value="L" <?= ($pegawai['jenis_kelamin'] ?? '') === 'L' ? 'selected' : '' ?>>Laki-laki</option>
                                 <option value="P" <?= ($pegawai['jenis_kelamin'] ?? '') === 'P' ? 'selected' : '' ?>>Perempuan</option>
                             </select>
                         </div>
@@ -858,23 +1053,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         <div class="col-12 mb-3">
                             <label class="form-label">Email</label>
                             <input type="email" name="email" class="form-control editable" 
-                                   value="<?= htmlspecialchars($pegawai['email'] ?? 'soekarno@example.com') ?>" disabled required>
+                                   value="<?= !empty($pegawai['email']) ? htmlspecialchars($pegawai['email']) : '' ?>" 
+                                   placeholder="-"
+                                   disabled required>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Nomor Telepon</label>
                             <input type="text" name="no_telepon" class="form-control editable" 
-                                   value="<?= htmlspecialchars($pegawai['no_telepon'] ?? '08123456789') ?>" disabled>
+                                   value="<?= !empty($pegawai['no_telepon']) ? htmlspecialchars($pegawai['no_telepon']) : '' ?>" 
+                                   placeholder="-"
+                                   disabled>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Alamat KTP</label>
-                            <textarea name="alamat_ktp" class="form-control editable" rows="2" disabled><?= htmlspecialchars($pegawai['alamat_ktp'] ?? 'Jl. Contoh No. 123, Jakarta') ?></textarea>
+                            <textarea name="alamat_ktp" class="form-control editable" rows="2" placeholder="-" disabled><?= !empty($pegawai['alamat_ktp']) ? htmlspecialchars($pegawai['alamat_ktp']) : '' ?></textarea>
                         </div>
                         
                         <div class="col-12 mb-3">
                             <label class="form-label">Alamat Domisili</label>
-                            <textarea name="alamat_domisili" class="form-control editable" rows="2" disabled><?= htmlspecialchars($pegawai['alamat_domisili'] ?? 'Jl. Contoh No. 123, Jakarta') ?></textarea>
+                            <textarea name="alamat_domisili" class="form-control editable" rows="2" placeholder="-" disabled><?= !empty($pegawai['alamat_domisili']) ? htmlspecialchars($pegawai['alamat_domisili']) : '' ?></textarea>
                         </div>
                     </div>
                 </form>
@@ -954,7 +1153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 </button>
                             <?php endif; ?>
                         </div>
-
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -1074,6 +1272,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 btnSave.style.display = 'inline-block';
             }
         }
+
+        // Validasi NIK - hanya angka dan maksimal 16 digit
+        document.querySelector('input[name="nik"]').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 16);
+        });
+
+        // Validasi NIP - hanya angka dan maksimal 18 digit
+        document.querySelector('input[name="nip"]').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '').slice(0, 18);
+        });
 
         // Open Upload Modal
         function openUploadModal(jenis, label) {

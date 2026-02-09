@@ -1,6 +1,5 @@
 <?php
 // Koneksi database
-// Path yang benar dari admin/index.php ke config
 require_once '../config/database.php';
 
 // Check if user is logged in
@@ -9,44 +8,132 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     exit();
 }
 
-// Ganti $pdo jadi $conn (sesuai database.php)
 try {
-    // Query untuk mendapatkan data dashboard menggunakan view yang sudah ada
-    $query_dashboard = "SELECT * FROM v_dashboard_admin"; 
-    $stmt_dashboard = $conn->query($query_dashboard);
-    $data_dashboard = $stmt_dashboard->fetch(PDO::FETCH_ASSOC);
+    // ===== 1. TOTAL PEGAWAI AKTIF (HANYA YANG STATUS AKTIF!) =====
+    $query_total = "
+        SELECT COUNT(DISTINCT p.pegawai_id) as total
+        FROM pegawai p
+        LEFT JOIN (
+            SELECT sk1.*
+            FROM status_kepegawaian sk1
+            INNER JOIN (
+                SELECT pegawai_id, MAX(created_at) as max_created
+                FROM status_kepegawaian
+                GROUP BY pegawai_id
+            ) sk2 ON sk1.pegawai_id = sk2.pegawai_id 
+                 AND sk1.created_at = sk2.max_created
+        ) latest_sk ON p.pegawai_id = latest_sk.pegawai_id
+        WHERE COALESCE(latest_sk.status_aktif, 'aktif') = 'aktif'
+    ";
+    $stmt_total = $conn->query($query_total);
+    $total_pegawai = $stmt_total->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    
+    // ===== 2. PEGAWAI KONTRAK (HANYA YANG STATUS AKTIF!) =====
+    $query_kontrak = "
+        SELECT COUNT(DISTINCT p.pegawai_id) as total
+        FROM pegawai p
+        LEFT JOIN (
+            SELECT sk1.*
+            FROM status_kepegawaian sk1
+            INNER JOIN (
+                SELECT pegawai_id, MAX(created_at) as max_created
+                FROM status_kepegawaian
+                GROUP BY pegawai_id
+            ) sk2 ON sk1.pegawai_id = sk2.pegawai_id 
+                 AND sk1.created_at = sk2.max_created
+        ) latest_sk ON p.pegawai_id = latest_sk.pegawai_id
+        WHERE COALESCE(latest_sk.status_aktif, 'aktif') = 'aktif'
+        AND LOWER(COALESCE(latest_sk.jenis_kepegawaian, 'tetap')) = 'kontrak'
+    ";
+    $stmt_kontrak = $conn->query($query_kontrak);
+    $pegawai_kontrak = $stmt_kontrak->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    
+    // ===== 3. KONTRAK AKAN HABIS (30 HARI, HANYA YANG STATUS AKTIF!) =====
+    $query_habis = "
+        SELECT COUNT(DISTINCT p.pegawai_id) as total
+        FROM pegawai p
+        LEFT JOIN (
+            SELECT sk1.*
+            FROM status_kepegawaian sk1
+            INNER JOIN (
+                SELECT pegawai_id, MAX(created_at) as max_created
+                FROM status_kepegawaian
+                GROUP BY pegawai_id
+            ) sk2 ON sk1.pegawai_id = sk2.pegawai_id 
+                 AND sk1.created_at = sk2.max_created
+        ) latest_sk ON p.pegawai_id = latest_sk.pegawai_id
+        WHERE COALESCE(latest_sk.status_aktif, 'aktif') = 'aktif'
+        AND LOWER(COALESCE(latest_sk.jenis_kepegawaian, 'tetap')) = 'kontrak'
+        AND latest_sk.masa_kontrak_selesai IS NOT NULL
+        AND DATEDIFF(latest_sk.masa_kontrak_selesai, CURDATE()) BETWEEN 0 AND 30
+    ";
+    $stmt_habis = $conn->query($query_habis);
+    $kontrak_habis = $stmt_habis->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+    
+    // ===== 4. LAMARAN BARU =====
+    $query_lamaran = "
+        SELECT COUNT(*) as total 
+        FROM lamaran 
+        WHERE status_lamaran = 'menunggu'
+    ";
+    $stmt_lamaran = $conn->query($query_lamaran);
+    $lamaran_baru = $stmt_lamaran->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
 
-    // Data untuk card statistik
-    $total_pegawai = $data_dashboard['total_pegawai_aktif'] ?? 0;
-    $pegawai_kontrak = $data_dashboard['pegawai_kontrak'] ?? 0;
-    $kontrak_habis = $data_dashboard['kontrak_akan_habis'] ?? 0;
-    $lamaran_baru = $data_dashboard['lamaran_baru'] ?? 0;
-
-    // Query untuk Monitoring Kuota Formasi
-    $query_formasi = "SELECT nama_posisi, kuota_total, kuota_terisi, jumlah_pendaftar FROM kuota_formasi ORDER BY created_at DESC";
+    // ===== 5. KUOTA FORMASI =====
+    $query_formasi = "
+        SELECT nama_posisi, kuota_total, kuota_terisi, jumlah_pendaftar 
+        FROM kuota_formasi 
+        ORDER BY created_at DESC
+    ";
     $stmt_formasi = $conn->query($query_formasi);
     $data_formasi = $stmt_formasi->fetchAll(PDO::FETCH_ASSOC);
 
-    // Query untuk Status Pegawai (untuk pie chart)
+    // ===== 6. PIE CHART STATUS PEGAWAI (HANYA YANG AKTIF!) =====
     $query_status = "
         SELECT 
-            jenis_kepegawaian,
-            COUNT(*) as jumlah,
-            ROUND((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM status_kepegawaian WHERE status_aktif = 'aktif')), 0) as persentase
-        FROM status_kepegawaian 
-        WHERE status_aktif = 'aktif'
-        GROUP BY jenis_kepegawaian
+            LOWER(COALESCE(latest_sk.jenis_kepegawaian, 'tetap')) as jenis_kepegawaian,
+            COUNT(DISTINCT p.pegawai_id) as jumlah
+        FROM pegawai p
+        LEFT JOIN (
+            SELECT sk1.*
+            FROM status_kepegawaian sk1
+            INNER JOIN (
+                SELECT pegawai_id, MAX(created_at) as max_created
+                FROM status_kepegawaian
+                GROUP BY pegawai_id
+            ) sk2 ON sk1.pegawai_id = sk2.pegawai_id 
+                 AND sk1.created_at = sk2.max_created
+        ) latest_sk ON p.pegawai_id = latest_sk.pegawai_id
+        WHERE COALESCE(latest_sk.status_aktif, 'aktif') = 'aktif'
+        GROUP BY LOWER(COALESCE(latest_sk.jenis_kepegawaian, 'tetap'))
     ";
     $stmt_status = $conn->query($query_status);
-    $data_status = $stmt_status->fetchAll(PDO::FETCH_ASSOC);
+    $data_status_raw = $stmt_status->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Hitung persentase
+    $total_for_chart = array_sum(array_column($data_status_raw, 'jumlah'));
+    $data_status = [];
+    foreach ($data_status_raw as $row) {
+        $persentase = $total_for_chart > 0 
+            ? round(($row['jumlah'] / $total_for_chart) * 100) 
+            : 0;
+        $data_status[] = [
+            'jenis_kepegawaian' => $row['jenis_kepegawaian'],
+            'jumlah' => $row['jumlah'],
+            'persentase' => $persentase
+        ];
+    }
 
-    // Query untuk Alert & Notifikasi
-    $query_notif = "SELECT * FROM notifikasi_admin WHERE is_read = 0 ORDER BY created_at DESC LIMIT 4";
+    // ===== 7. NOTIFIKASI =====
+    $query_notif = "
+        SELECT * FROM notifikasi_admin 
+        WHERE is_read = 0 
+        ORDER BY created_at DESC 
+        LIMIT 4
+    ";
     $stmt_notif = $conn->query($query_notif);
     $data_notif = $stmt_notif->fetchAll(PDO::FETCH_ASSOC);
 
-    // Hitung persentase untuk pie chart
-    $total_pegawai_chart = array_sum(array_column($data_status, 'jumlah'));
 } catch(PDOException $e) {
     die("Error: " . $e->getMessage());
 }

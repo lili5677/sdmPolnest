@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
         $_SESSION['error'] = "Request tidak ditemukan atau sudah diproses.";
     } else {
         
-        // Generate token 6 karakter (huruf & angka uppercase)
+        //  token 6 karakter (huruf & angka uppercase)
         $token = strtoupper(substr(bin2hex(random_bytes(3)), 0, 6));
         //$expires = date('Y-m-d H:i:s', time() + 60); // 1 mnt
         $expires = date('Y-m-d H:i:s', time() + 86400); // 24 jam
