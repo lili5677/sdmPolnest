@@ -1,6 +1,7 @@
 <?php
 // Koneksi Database
 require_once '../../config/database.php';
+require_once '../../includes/sync_user_type.php'; 
 
 // Get ID
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -114,6 +115,21 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $masa_kontrak_selesai === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             
             $statusStmt->execute();
+            
+             // Ambil jenis_pegawai dari database
+            $getJenis = $conn->prepare("SELECT jenis_pegawai FROM pegawai WHERE pegawai_id = ?");
+            $getJenis->execute([$id]);
+            $jenis_pegawai = $getJenis->fetchColumn();
+            
+            // Ambil user_id
+            $getUserId = $conn->prepare("SELECT user_id FROM pegawai WHERE pegawai_id = ?");
+            $getUserId->execute([$id]);
+            $user_id = $getUserId->fetchColumn();
+            
+            // Sinkronisasi
+            if ($user_id && $jenis_pegawai) {
+                sinkronisasiUserType($conn, $user_id, $jenis_pegawai);
+            }
             
             $conn->commit();
 

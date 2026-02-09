@@ -8,6 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 $is_logged_in = isset($_SESSION['user_id']) && isset($_SESSION['logged_in']);
 $user_type = $is_logged_in ? ($_SESSION['user_type'] ?? '') : '';
 $is_pegawai_dosen = ($user_type == 'pegawai' || $user_type == 'dosen');
+$is_dosen = ($user_type === 'dosen'); // Khusus dosen
 $user_email = $is_logged_in ? $_SESSION['email'] : '';
 $username = $is_logged_in ? explode('@', $user_email)[0] : '';
 ?>
@@ -538,20 +539,28 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
                             Layanan <i class="bi bi-chevron-down"></i>
                         </a>
 
-
                         <div class="dropdown-layanan-menu">
+                            <!-- Administrasi Kepegawaian - untuk semua (pegawai & dosen) -->
                             <a href="<?php echo BASE_URL; ?>users/pegawai/administrasi.php" class="dropdown-layanan-item">
                                 <i class="bi bi-file-earmark-text-fill"></i>
                                 <span>Administrasi Kepegawaian</span>
                             </a>
+                            
+                            <!-- Pengembangan SDM - untuk semua (pegawai & dosen) -->
                             <a href="<?php echo BASE_URL; ?>users/pegawai/pengembangan_sdm.php" class="dropdown-layanan-item">
                                 <i class="bi bi-graph-up-arrow"></i>
                                 <span>Pengembangan SDM</span>
                             </a>
+                            
+                            <!-- Sertifikasi Dosen - KHUSUS DOSEN SAJA -->
+                            <?php if ($is_dosen): ?>
                             <a href="<?php echo BASE_URL; ?>users/pegawai/sertifikasi_dosen.php" class="dropdown-layanan-item">
                                 <i class="bi bi-award-fill"></i>
                                 <span>Sertifikasi Dosen</span>
                             </a>
+                            <?php endif; ?>
+                            
+                            <!-- Penilaian dan Kinerja Pegawai - untuk semua (pegawai & dosen) -->
                             <a href="<?php echo BASE_URL; ?>users/pegawai/penilaian_kinerja.php" class="dropdown-layanan-item">
                                 <i class="bi bi-clipboard-check-fill"></i>
                                 <span>Penilaian dan Kinerja Pegawai</span>
@@ -631,16 +640,6 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
     function toggleUserDropdown() {
         const dropdown = document.getElementById('userDropdown');
         dropdown.classList.toggle('show');
-    }
-
-    // Toggle Layanan Dropdown on Mobile
-    function toggleLayananMobile(event) {
-        // Only work on mobile
-        if (window.innerWidth <= 968) {
-            event.preventDefault();
-            const dropdownLayanan = document.getElementById('dropdownLayanan');
-            dropdownLayanan.classList.toggle('active');
-        }
     }
 
     // Confirm Logout with SweetAlert
