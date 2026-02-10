@@ -169,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_penilaian'])) {
             $conn->commit();
             
             $_SESSION['success_message'] = $message;
-            header("Location: " . $_SERVER['PHP_SELF']);
+            header("Location: form.php?template_id=" . $template_id);
             exit;
             
         } catch (Exception $e) {
