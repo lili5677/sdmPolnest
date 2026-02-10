@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = "Password harus mengandung minimal 1 huruf kecil (a-z).";
     } elseif (!preg_match('/[0-9]/', $new_password)) {
         $error_message = "Password harus mengandung minimal 1 angka (0-9).";
-    } elseif (!preg_match('/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\/\\]/', $new_password)) {
+    } elseif (!preg_match('/[!@#$%^&*(),.?":{}|<>_+=\[\]\/\\\-]/', $new_password)) {
         $error_message = "Password harus mengandung minimal 1 simbol (!@#$%^&* dll).";
     } else {
 
@@ -383,7 +383,7 @@ Swal.fire({
     showConfirmButton: false,
     allowOutsideClick: false,
     willClose: () => {
-        window.location.href = 'index.php';
+        window.location.href = '../index.php';
     }
 });
 <?php elseif ($success_message && $success_message !== 'first_login_success'): ?>
@@ -486,9 +486,9 @@ document.getElementById('new_password').addEventListener('input', function() {
         numberReq.querySelector('i').classList.add('fa-times-circle');
     }
     
-    // Check symbol
+    // Check symbol - DIPERBAIKI
     const symbolReq = document.getElementById('req-symbol');
-    if (/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\/\\]/.test(password)) {
+    if (/[!@#$%^&*(),.?":{}|<>_+=\[\]\/\\\-]/.test(password)) {
         symbolReq.classList.add('valid');
         symbolReq.classList.remove('invalid');
         symbolReq.querySelector('i').classList.remove('fa-circle', 'fa-times-circle');
@@ -527,7 +527,7 @@ document.getElementById('passwordForm').addEventListener('submit', function(e) {
         /[A-Z]/.test(newPassword),
         /[a-z]/.test(newPassword),
         /[0-9]/.test(newPassword),
-        /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\/\\]/.test(newPassword)
+        /[!@#$%^&*(),.?":{}|<>_+=\[\]\/\\\-]/.test(newPassword)
     ];
     
     if (!requirements.every(req => req)) {

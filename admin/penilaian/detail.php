@@ -37,15 +37,15 @@ if (!$penilaian) {
     exit();
 }
 
-// Get detail jawaban
+// Get detail jawaban 
 $stmt = $conn->prepare("SELECT 
-                            pj.*,
+                            pkd.*,
                             pi.nama_indikator,
                             pi.keterangan,
                             pi.urutan
-                        FROM penilaian_jawaban pj
-                        INNER JOIN penilaian_indikator pi ON pj.indikator_id = pi.indikator_id
-                        WHERE pj.penilaian_id = ?
+                        FROM penilaian_kinerja_detail pkd
+                        INNER JOIN penilaian_indikator pi ON pkd.indikator_id = pi.indikator_id
+                        WHERE pkd.penilaian_id = ?
                         ORDER BY pi.urutan ASC");
 $stmt->execute([$penilaian_id]);
 $jawaban_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -337,15 +337,6 @@ $nilai_map = [
                                                 <?= $nilai_data['label'] ?>
                                             </span>
                                         </div>
-
-                                        <?php if ($jawaban['catatan']): ?>
-                                            <div class="mt-3 p-3 bg-light rounded">
-                                                <small class="text-muted d-block mb-1">
-                                                    <i class="bi bi-chat-left-text"></i> <strong>Catatan:</strong>
-                                                </small>
-                                                <p class="mb-0"><?= nl2br(htmlspecialchars($jawaban['catatan'])) ?></p>
-                                            </div>
-                                        <?php endif; ?>
                                     </div>
                                 <?php endforeach; ?>
 
@@ -398,6 +389,9 @@ $nilai_map = [
                                 <div class="text-center py-5">
                                     <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
                                     <p class="text-muted mt-3">Tidak ada data penilaian</p>
+                                    <small class="text-muted">
+                                        Pastikan user sudah mengisi penilaian untuk pegawai ini.
+                                    </small>
                                 </div>
                             <?php endif; ?>
                         </div>

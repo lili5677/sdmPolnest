@@ -1,15 +1,5 @@
 <?php
-/**
- * Notifications API - Hybrid Version (Table + Real-time)
- * File: admin/api/notifications.php
- * 
- * Versi Hybrid:
- * - Prioritas 1: Baca dari tabel notifikasi_admin (lebih cepat)
- * - Prioritas 2: Query real-time sebagai fallback
- * - Auto-merge untuk menghindari duplikasi
- */
 
-// Jika dipanggil untuk get CSS
 if (isset($_GET['get']) && $_GET['get'] === 'css') {
     header('Content-Type: text/css');
     ?>
@@ -596,16 +586,7 @@ try {
         $total_notifikasi = 0;
         $notifikasi_baru = 0;
         $notifications = [];
-        
-        // =====================================================
-        // STRATEGI HYBRID: Table + Real-time
-        // =====================================================
-        // 1. Coba ambil dari tabel notifikasi_admin (lebih cepat)
-        // 2. Jika ada, gunakan data dari tabel
-        // 3. Jika tidak ada, query real-time sebagai fallback
-        // 4. Gabungkan hasil dan hindari duplikasi
-        // =====================================================
-        
+   
         $notif_types_from_table = [];
         
         // STEP 1: Ambil notifikasi dari tabel (yang sudah di-generate)
@@ -644,7 +625,7 @@ try {
             'kontrak_habis' => [
                 'type' => 'kontrak_habis',
                 'priority' => 'danger',
-                'url' => '/sdmPolnest/admin/administrasiKepegawaian/administrasiKepegawaian.php'
+                'url' => '/sdmPolnest/admin/administrasi/administrasiKepegawaian.php'
             ]
         ];
         
@@ -704,7 +685,7 @@ try {
             }
         }
         
-        // 2. KONTRAK AKAN HABIS (jika belum ada di tabel)
+        // 2. KONTRAK AKAN HABIS
         if (!in_array('kontrak_habis', $notif_types_from_table)) {
             $query_kontrak = "
                 SELECT 
@@ -714,7 +695,7 @@ try {
                     'Kontrak Akan Berakhir' as title,
                     CONCAT(COUNT(DISTINCT kontrak_info.pegawai_id), ' kontrak akan habis dalam 30 hari') as message,
                     MAX(kontrak_info.updated_at) as created_at,
-                    '/sdmPolnest/admin/administrasiKepegawaian/administrasiKepegawaian.php' as url
+                    '/sdmPolnest/admin/administrasi/administrasiKepegawaian.php' as url
                 FROM (
                     SELECT 
                         sk.pegawai_id,
@@ -739,7 +720,7 @@ try {
             }
         }
         
-        // 3. PENGAJUAN STUDI LANJUT (jika belum ada di tabel)
+        // 3. PENGAJUAN STUDI LANJUT 
         if (!in_array('pengajuan_studi', $notif_types_from_table)) {
             $query_studi = "
                 SELECT 
@@ -766,7 +747,7 @@ try {
             }
         }
         
-        // 4. SERTIFIKASI PENDING VALIDASI (jika belum ada di tabel)
+        // 4. SERTIFIKASI PENDING VALIDASI 
         if (!in_array('sertifikasi_dosen', $notif_types_from_table)) {
             $query_sertif = "
                 SELECT 
@@ -793,7 +774,7 @@ try {
             }
         }
         
-        // 5. SERTIFIKASI AKAN HABIS (selalu real-time, tidak ada di tabel)
+        // 5. SERTIFIKASI AKAN HABIS 
         $query_sertif_habis = "
             SELECT 
                 'sertifikasi_habis' as type,
@@ -829,7 +810,7 @@ try {
             $total_notifikasi += $notif['count'];
         }
         
-        // 6. RESET PASSWORD REQUEST (selalu real-time)
+        // 6. RESET PASSWORD REQUEST 
         $query_reset = "
             SELECT 
                 'password' as type,
@@ -866,11 +847,6 @@ try {
             }
             return $a_priority - $b_priority;
         });
-        
-        // Hapus marker 'source' sebelum dikirim ke client (opsional, untuk debugging bisa dibiarkan)
-        // foreach ($notifications as &$notif) {
-        //     unset($notif['source']);
-        // }
         
         echo json_encode([
             'success' => true,
