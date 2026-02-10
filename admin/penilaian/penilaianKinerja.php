@@ -2,179 +2,452 @@
 session_start();
 require_once '../../config/database.php';
 
-// Cek admin
+// Cek login admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../../auth/login.php");
-    exit();
+    exit;
 }
 
 // Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$per_page = 10;
-$offset = ($page - 1) * $per_page;
+$limit = 10;
+$page  = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $limit;
 
 // Filter
-$search = isset($_GET['search']) ? trim($_GET['search']) : '';
-$filter_jenis = isset($_GET['jenis']) ? $_GET['jenis'] : '';
-$filter_status = isset($_GET['status']) ? $_GET['status'] : ''; // belum_dilihat, sudah_dilihat
+$filter_template = isset($_GET['template_id']) ? (int)$_GET['template_id'] : '';
+$filter_status   = isset($_GET['status'])      ? $_GET['status']           : '';
+$search          = isset($_GET['search'])      ? trim($_GET['search'])     : '';
 
-// Build WHERE clause
-$where = ["pk.penilaian_id IS NOT NULL"]; 
+// Dropdown templates
+$stmt_templates = $conn->prepare("
+    SELECT template_id, nama_template, periode 
+    FROM penilaian_template 
+    ORDER BY periode DESC
+");
+$stmt_templates->execute();
+$templates = $stmt_templates->fetchAll(PDO::FETCH_ASSOC);
+
+// Build WHERE
+$where_clauses = ["1=1"];
 $params = [];
 
-if ($search !== '') {
-    $where[] = "(p.nama_lengkap LIKE :search OR p.email LIKE :search)";
-    $params[':search'] = "%$search%";
+if (!empty($filter_template)) {
+    $where_clauses[] = "pk.template_id = ?";
+    $params[] = $filter_template;
+}
+if (!empty($filter_status)) {
+    $where_clauses[] = "pk.status_verifikasi = ?";
+    $params[] = $filter_status;
+}
+if (!empty($search)) {
+    $where_clauses[] = "(p.nama_lengkap LIKE ? OR sk.jabatan LIKE ? OR sk.unit_kerja LIKE ?)";
+    $sp = "%{$search}%";
+    $params[] = $sp; $params[] = $sp; $params[] = $sp;
 }
 
-if ($filter_jenis !== '') {
-    $where[] = "p.jenis_pegawai = :jenis";
-    $params[':jenis'] = $filter_jenis;
-}
+$where_sql = implode(' AND ', $where_clauses);
 
-if ($filter_status !== '') {
-    if ($filter_status === 'belum_dilihat') {
-        $where[] = "IFNULL(pk.status_verifikasi, 'belum_dilihat') = 'belum_dilihat'";
+// Count
+$stmt_count = $conn->prepare("
+    SELECT COUNT(*) as total
+    FROM penilaian_kinerja pk
+    JOIN pegawai p ON pk.pegawai_id = p.pegawai_id
+    LEFT JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
+    LEFT JOIN penilaian_template pt ON pk.template_id = pt.template_id
+    WHERE {$where_sql}
+");
+$stmt_count->execute($params);
+$total_records = $stmt_count->fetch(PDO::FETCH_ASSOC)['total'];
+$total_pages   = ceil($total_records / $limit);
+
+// Data
+$stmt_penilaian = $conn->prepare("
+    SELECT 
+        pk.penilaian_id,
+        pk.template_id,
+        p.nama_lengkap,
+        p.jenis_pegawai,
+        sk.jabatan,
+        sk.unit_kerja,
+        pk.created_at as tanggal_isi,
+        pk.status_verifikasi,
+        pt.nama_template,
+        pt.periode
+    FROM penilaian_kinerja pk
+    JOIN pegawai p ON pk.pegawai_id = p.pegawai_id
+    LEFT JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
+    LEFT JOIN penilaian_template pt ON pk.template_id = pt.template_id
+    WHERE {$where_sql}
+    ORDER BY pk.created_at DESC
+    LIMIT {$limit} OFFSET {$offset}
+");
+$stmt_penilaian->execute($params);
+$penilaian_list = $stmt_penilaian->fetchAll(PDO::FETCH_ASSOC);
+
+// Statistik ringkasan (belum dilihat vs sudah dilihat)
+$stmt_stat = $conn->query("
+    SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status_verifikasi = 'belum_dilihat' THEN 1 ELSE 0 END) as belum,
+        SUM(CASE WHEN status_verifikasi = 'sudah_dilihat' THEN 1 ELSE 0 END) as sudah
+    FROM penilaian_kinerja
+");
+$stat_global = $stmt_stat->fetch(PDO::FETCH_ASSOC);
+
+// Handle mark as viewed
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_viewed'])) {
+    $pid = (int)$_POST['penilaian_id'];
+    $stmt_update = $conn->prepare("
+        UPDATE penilaian_kinerja 
+        SET status_verifikasi = 'sudah_dilihat',
+            verified_by = ?,
+            verified_at = NOW()
+        WHERE penilaian_id = ?
+    ");
+    if ($stmt_update->execute([$_SESSION['user_id'], $pid])) {
+        $_SESSION['success_message'] = "Status penilaian berhasil diubah menjadi 'Sudah Dilihat'.";
     } else {
-        $where[] = "pk.status_verifikasi = :status";
-        $params[':status'] = $filter_status;
+        $_SESSION['error_message'] = "Gagal mengubah status penilaian.";
     }
+    header("Location: " . $_SERVER['PHP_SELF'] . "?" . http_build_query($_GET));
+    exit;
 }
 
-$where_sql = implode(" AND ", $where);
-
-// Count total
-$count_sql = "SELECT COUNT(DISTINCT pk.penilaian_id) as total 
-              FROM penilaian_kinerja pk
-              INNER JOIN pegawai p ON pk.pegawai_id = p.pegawai_id
-              INNER JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
-              WHERE sk.status_aktif = 'aktif' AND $where_sql";
-              
-$count_stmt = $conn->prepare($count_sql);
-$count_stmt->execute($params);
-$total_records = $count_stmt->fetch(PDO::FETCH_ASSOC)['total'];
-$total_pages = ceil($total_records / $per_page);
-
-// Get data penilaian (setiap row = 1 penilaian)
-$sql = "SELECT 
-            pk.penilaian_id,
-            pk.periode,
-            pk.created_at,
-            IFNULL(pk.status_verifikasi, 'belum_dilihat') as status_verifikasi,
-            pk.verified_at,
-            p.pegawai_id,
-            p.nama_lengkap,
-            p.email,
-            p.jenis_pegawai,
-            sk.jabatan,
-            sk.unit_kerja,
-            pt.nama_template
-        FROM penilaian_kinerja pk
-        INNER JOIN pegawai p ON pk.pegawai_id = p.pegawai_id
-        INNER JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
-        INNER JOIN penilaian_template pt ON pk.template_id = pt.template_id
-        WHERE sk.status_aktif = 'aktif' AND $where_sql
-        ORDER BY 
-            CASE WHEN IFNULL(pk.status_verifikasi, 'belum_dilihat') = 'belum_dilihat' THEN 0 ELSE 1 END,
-            pk.created_at DESC
-        LIMIT :limit OFFSET :offset";
-
-$stmt = $conn->prepare($sql);
-foreach ($params as $key => $value) {
-    $stmt->bindValue($key, $value);
-}
-$stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-$stmt->execute();
-$penilaian_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Get summary stats
-$stats_sql = "SELECT 
-                COUNT(*) as total_penilaian,
-                SUM(CASE WHEN IFNULL(status_verifikasi, 'belum_dilihat') = 'belum_dilihat' THEN 1 ELSE 0 END) as belum_dilihat,
-                SUM(CASE WHEN status_verifikasi = 'sudah_dilihat' THEN 1 ELSE 0 END) as sudah_dilihat
-              FROM penilaian_kinerja pk
-              INNER JOIN pegawai p ON pk.pegawai_id = p.pegawai_id
-              INNER JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
-              WHERE sk.status_aktif = 'aktif'";
-$stats = $conn->query($stats_sql)->fetch(PDO::FETCH_ASSOC);
+$success_message = $_SESSION['success_message'] ?? null;
+$error_message   = $_SESSION['error_message']   ?? null;
+unset($_SESSION['success_message'], $_SESSION['error_message']);
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Penilaian Kinerja - Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <title>Manajemen Penilaian Kinerja - Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
     <style>
-        .main-content { 
-            margin-left: 250px; 
-            padding: 20px; 
-            background: #f8f9fa; 
-            min-height: 100vh; 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f4f8;
         }
-        .main-content h2 {
-            font-weight: bold;
+
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+            min-height: 100vh;
+        }
+
+        /* Page Header */
+        .page-header {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            padding: 28px 32px;
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(21, 101, 192, 0.3);
+        }
+
+        .page-header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+        .page-header p  { font-size: 14px; opacity: 0.88; }
+
+        /* Header biasa */
+         /* .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
             font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 8px;
         }
-        .card { 
-            border: none; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-            margin-bottom: 20px; 
+
+        .page-header p {
+            color: #6b7280;
+            font-size: 15px;
+            margin: 0;
+        } */
+        /* Alert */
+        .alert {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            animation: slideDown 0.3s ease;
         }
-        .stats-card {
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .alert-success { background: #d4edda; border-left: 4px solid #28a745; color: #155724; }
+        .alert-danger  { background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; }
+
+        /* Summary Cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 25px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 16px;
             border-left: 4px solid;
-            transition: transform 0.2s;
         }
-        .stats-card:hover {
-            transform: translateY(-5px);
+
+        .summary-card .sc-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
         }
-        .stats-card.total { border-left-color: #007bff; }
-        .stats-card.pending { border-left-color: #ffc107; }
-        .stats-card.verified { border-left-color: #28a745; }
-        
-        .table-hover tbody tr {
+
+        .summary-card .sc-value { font-size: 26px; font-weight: 700; }
+        .summary-card .sc-label { font-size: 13px; color: #666; }
+
+        .sc-total  { border-color: #1976d2; }
+        .sc-total .sc-icon  { background: #e3f2fd; color: #1976d2; }
+        .sc-total .sc-value { color: #1976d2; }
+
+        .sc-belum  { border-color: #ffc107; }
+        .sc-belum .sc-icon  { background: #fff8e1; color: #f59f00; }
+        .sc-belum .sc-value { color: #f59f00; }
+
+        .sc-sudah  { border-color: #28a745; }
+        .sc-sudah .sc-icon  { background: #e8f5e9; color: #28a745; }
+        .sc-sudah .sc-value { color: #28a745; }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
             transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Poppins', sans-serif;
         }
-        .table-hover tbody tr:hover { 
-            background-color: #f1f3f5;
-            transform: scale(1.01);
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            color: white;
         }
-        .table-hover tbody tr.verified-row {
-            background-color: #f0f9f4;
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(21, 101, 192, 0.35);
         }
-        .table-hover tbody tr.pending-row {
-            background-color: #fffbf0;
+
+        .btn-info    { background: #17a2b8; color: white; }
+        .btn-info:hover { background: #138496; }
+
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+
+        .btn-sm { padding: 6px 14px; font-size: 13px; }
+
+        /* Action Bar */
+        .action-bar {
+            background: white;
+            padding: 18px 22px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
         }
-        
-        .badge-jenis {
-            padding: 6px 12px;
+
+        /* Filter */
+        .filter-section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .filter-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .filter-group { display: flex; flex-direction: column; }
+
+        .filter-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .filter-input, .filter-select {
+            padding: 9px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .filter-input:focus, .filter-select:focus {
+            outline: none;
+            border-color: #1976d2;
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+        }
+
+        .btn-filter { background: #1976d2; color: white; }
+        .btn-reset  { background: #6c757d; color: white; }
+
+        /* Table */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .table-responsive { overflow-x: auto; }
+
+        table { width: 100%; border-collapse: collapse; }
+
+        thead {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+        }
+
+        thead th {
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: white;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.15s;
+        }
+
+        tbody tr:hover { background: #f5f9ff; }
+
+        tbody td {
+            padding: 14px 16px;
+            font-size: 13px;
+            color: #333;
+        }
+
+        /* Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .badge-belum { background: #fff3cd; color: #856404; }
+        .badge-sudah { background: #d4edda; color: #155724; }
+
+        .jenis-badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 10px;
             font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
         }
-        .status-badge {
-            padding: 6px 14px;
-            font-size: 12px;
-            font-weight: 600;
-            border-radius: 20px;
+
+        .jenis-dosen  { background: #e3f2fd; color: #1565c0; }
+        .jenis-staff  { background: #f3e5f5; color: #6a1b9a; }
+        .jenis-tendik { background: #fff3e0; color: #e65100; }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 7px;
+            padding: 20px;
+            flex-wrap: wrap;
         }
+
+        .page-link {
+            padding: 7px 13px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .page-link:hover       { background: #1976d2; color: white; border-color: #1976d2; }
+        .page-link.active      { background: #1976d2; color: white; border-color: #1976d2; }
+        .page-link.disabled    { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+        /* Empty state */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
         }
-        .empty-state i {
-            font-size: 4rem;
-            color: #dee2e6;
-            margin-bottom: 20px;
+
+        .empty-state i { font-size: 3.5rem; color: #ccc; display: block; margin-bottom: 16px; }
+        .empty-state h3 { font-size: 18px; color: #666; margin-bottom: 8px; }
+        .empty-state p  { color: #999; font-size: 14px; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .summary-cards { grid-template-columns: 1fr 1fr; }
         }
-        .btn-verify {
-            transition: all 0.3s;
-        }
-        .btn-verify:hover {
-            transform: scale(1.1);
+
+        @media (max-width: 768px) {
+            .main-content { margin-left: 0; padding: 15px; }
+            .summary-cards { grid-template-columns: 1fr; }
+            .action-bar { flex-direction: column; align-items: stretch; }
+            .filter-grid { grid-template-columns: 1fr; }
+            table { min-width: 750px; }
         }
     </style>
 </head>
@@ -182,286 +455,260 @@ $stats = $conn->query($stats_sql)->fetch(PDO::FETCH_ASSOC);
     <?php include '../sidebar/sidebar.php'; ?>
 
     <div class="main-content">
-        <div class="container-fluid">
-            <!-- Header -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1><i class=""></i> Manajemen Penilaian Kinerja</h1>
+            <p>Kelola dan pantau hasil penilaian kinerja seluruh pegawai</p>
+        </div>
+
+        <?php if ($success_message): ?>
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill" style="font-size:18px;"></i>
+                <span><?php echo htmlspecialchars($success_message); ?></span>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error_message): ?>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size:18px;"></i>
+                <span><?php echo htmlspecialchars($error_message); ?></span>
+            </div>
+        <?php endif; ?>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card sc-total">
+                <div class="sc-icon"><i class="bi bi-clipboard-data"></i></div>
                 <div>
-                    <h2 class="mb-0">Penilaian Kinerja Pegawai</h2>
-                    <p class="text-muted">Kelola dan verifikasi penilaian kinerja pegawai</p>
+                    <div class="sc-value"><?php echo $stat_global['total'] ?? 0; ?></div>
+                    <div class="sc-label">Total Penilaian</div>
                 </div>
+            </div>
+            <div class="summary-card sc-belum">
+                <div class="sc-icon"><i class="bi bi-clock"></i></div>
                 <div>
-                    <a href="template.php" class="btn btn-outline-primary">
-                        <i class="bi bi-file-earmark-text"></i> Kelola Template
-                    </a>
+                    <div class="sc-value"><?php echo $stat_global['belum'] ?? 0; ?></div>
+                    <div class="sc-label">Belum Dilihat</div>
                 </div>
             </div>
-
-            <!-- Stats Cards -->
-            <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="card stats-card total">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="text-muted mb-2">Total Penilaian</h6>
-                                    <h2 class="mb-0"><?= $stats['total_penilaian'] ?></h2>
-                                </div>
-                                <div class="text-primary">
-                                    <i class="bi bi-clipboard-data" style="font-size: 3rem;"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card stats-card pending">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="text-muted mb-2">Belum Dilihat</h6>
-                                    <h2 class="mb-0 text-warning"><?= $stats['belum_dilihat'] ?></h2>
-                                </div>
-                                <div class="text-warning">
-                                    <i class="bi bi-clock-history" style="font-size: 3rem;"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card stats-card verified">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="text-muted mb-2">Sudah Dilihat</h6>
-                                    <h2 class="mb-0 text-success"><?= $stats['sudah_dilihat'] ?></h2>
-                                </div>
-                                <div class="text-success">
-                                    <i class="bi bi-check-circle" style="font-size: 3rem;"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Filter -->
-            <div class="card">
-                <div class="card-body">
-                    <form method="GET" class="row g-3">
-                        <div class="col-md-3">
-                            <input type="text" class="form-control" name="search" 
-                                   placeholder="Cari nama atau email..." 
-                                   value="<?= htmlspecialchars($search) ?>">
-                        </div>
-                        <div class="col-md-2">
-                            <select name="jenis" class="form-select">
-                                <option value="">Semua Jenis</option>
-                                <option value="dosen" <?= $filter_jenis === 'dosen' ? 'selected' : '' ?>>Dosen</option>
-                                <option value="staff" <?= $filter_jenis === 'staff' ? 'selected' : '' ?>>Staff</option>
-                                <option value="tendik" <?= $filter_jenis === 'tendik' ? 'selected' : '' ?>>Tendik</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <select name="status" class="form-select">
-                                <option value="">Semua Status</option>
-                                <option value="belum_dilihat" <?= $filter_status === 'belum_dilihat' ? 'selected' : '' ?>>Belum Dilihat</option>
-                                <option value="sudah_dilihat" <?= $filter_status === 'sudah_dilihat' ? 'selected' : '' ?>>Sudah Dilihat</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-filter"></i> Filter
-                            </button>
-                            <a href="penilaianKinerja.php" class="btn btn-secondary">
-                                <i class="bi bi-arrow-clockwise"></i> Reset
-                            </a>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Messages -->
-            <?php if (isset($_SESSION['success'])): ?>
-                <div class="alert alert-success alert-dismissible fade show">
-                    <i class="bi bi-check-circle me-2"></i>
-                    <?= $_SESSION['success'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                <?php unset($_SESSION['success']); ?>
-            <?php endif; ?>
-
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    <?= $_SESSION['error'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                <?php unset($_SESSION['error']); ?>
-            <?php endif; ?>
-
-            <!-- Table -->
-            <div class="card">
-                <div class="card-body">
-                    <?php if (count($penilaian_list) > 0): ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 40px;">No</th>
-                                        <th>Nama Lengkap</th>
-                                        <th>Jabatan/Posisi</th>
-                                        <th>Unit Kerja</th>
-                                        <th style="width: 90px;">Jenis</th>
-                                        <th style="width: 140px;">Tanggal Isi</th>
-                                        <th style="width: 140px;">Status</th>
-                                        <th style="width: 150px;" class="text-center">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php 
-                                    $no = $offset + 1;
-                                    foreach ($penilaian_list as $row): 
-                                        $row_class = $row['status_verifikasi'] === 'sudah_dilihat' ? 'verified-row' : 'pending-row';
-                                    ?>
-                                    <tr class="<?= $row_class ?>">
-                                        <td><?= $no++ ?></td>
-                                        <td>
-                                            <strong><?= htmlspecialchars($row['nama_lengkap']) ?></strong><br>
-                                            <small class="text-muted">
-                                                <i class="bi bi-envelope"></i>
-                                                <?= htmlspecialchars($row['email']) ?>
-                                            </small>
-                                        </td>
-                                        <td><?= htmlspecialchars($row['jabatan'] ?? '-') ?></td>
-                                        <td><?= htmlspecialchars($row['unit_kerja'] ?? '-') ?></td>
-                                        <td>
-                                            <span class="badge bg-info badge-jenis">
-                                                <?= strtoupper($row['jenis_pegawai']) ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <small>
-                                                <i class="bi bi-calendar-event"></i>
-                                                <?= date('d M Y', strtotime($row['created_at'])) ?>
-                                            </small>
-                                            <br>
-                                            <small class="text-muted">
-                                                <?= date('H:i', strtotime($row['created_at'])) ?> WIB
-                                            </small>
-                                        </td>
-                                        <td>
-                                            <?php if ($row['status_verifikasi'] === 'sudah_dilihat'): ?>
-                                                <span class="badge bg-success status-badge">
-                                                    <i class="bi bi-check-circle-fill"></i> Sudah Dilihat
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="badge bg-warning text-dark status-badge">
-                                                    <i class="bi bi-clock-fill"></i> Belum Dilihat
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="btn-group" role="group">
-                                                <a href="detail.php?id=<?= $row['penilaian_id'] ?>" 
-                                                   class="btn btn-sm btn-info text-white"
-                                                   title="Lihat Detail">
-                                                    <i class="bi bi-eye"></i> Detail
-                                                </a>
-                                                
-                                                <?php if ($row['status_verifikasi'] === 'belum_dilihat'): ?>
-                                                    <button type="button" 
-                                                            class="btn btn-sm btn-success btn-verify" 
-                                                            onclick="verifyPenilaian(<?= $row['penilaian_id'] ?>, 'sudah_dilihat')"
-                                                            title="Tandai Sudah Dilihat">
-                                                        <i class="bi bi-check-lg"></i>
-                                                    </button>
-                                                <?php else: ?>
-                                                    <button type="button" 
-                                                            class="btn btn-sm btn-outline-secondary btn-verify" 
-                                                            onclick="verifyPenilaian(<?= $row['penilaian_id'] ?>, 'belum_dilihat')"
-                                                            title="Tandai Belum Dilihat">
-                                                        <i class="bi bi-x-lg"></i>
-                                                    </button>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Pagination -->
-                        <?php if ($total_pages > 1): ?>
-                            <nav class="mt-3">
-                                <ul class="pagination justify-content-center">
-                                    <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-                                        <a class="page-link" href="?page=<?= $page - 1 ?><?= $search ? '&search='.urlencode($search) : '' ?><?= $filter_jenis ? '&jenis='.$filter_jenis : '' ?><?= $filter_status ? '&status='.$filter_status : '' ?>">
-                                            <i class="bi bi-chevron-left"></i>
-                                        </a>
-                                    </li>
-
-                                    <?php 
-                                    $start_page = max(1, $page - 2);
-                                    $end_page = min($total_pages, $page + 2);
-                                    
-                                    for ($i = $start_page; $i <= $end_page; $i++): 
-                                    ?>
-                                        <li class="page-item <?= $page === $i ? 'active' : '' ?>">
-                                            <a class="page-link" href="?page=<?= $i ?><?= $search ? '&search='.urlencode($search) : '' ?><?= $filter_jenis ? '&jenis='.$filter_jenis : '' ?><?= $filter_status ? '&status='.$filter_status : '' ?>">
-                                                <?= $i ?>
-                                            </a>
-                                        </li>
-                                    <?php endfor; ?>
-
-                                    <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
-                                        <a class="page-link" href="?page=<?= $page + 1 ?><?= $search ? '&search='.urlencode($search) : '' ?><?= $filter_jenis ? '&jenis='.$filter_jenis : '' ?><?= $filter_status ? '&status='.$filter_status : '' ?>">
-                                            <i class="bi bi-chevron-right"></i>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </nav>
-                        <?php endif; ?>
-
-                        <div class="text-center text-muted mt-3">
-                            <small>
-                                Menampilkan <?= $offset + 1 ?> - <?= min($offset + $per_page, $total_records) ?> 
-                                dari <?= $total_records ?> penilaian
-                            </small>
-                        </div>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="bi bi-clipboard-data"></i>
-                            <h5>Belum Ada Penilaian Kinerja</h5>
-                            <p>Belum ada pegawai yang mengisi penilaian. Pastikan template sudah dibuat dan pegawai sudah mengisi penilaian mereka.</p>
-                        </div>
-                    <?php endif; ?>
+            <div class="summary-card sc-sudah">
+                <div class="sc-icon"><i class="bi bi-check-circle"></i></div>
+                <div>
+                    <div class="sc-value"><?php echo $stat_global['sudah'] ?? 0; ?></div>
+                    <div class="sc-label">Sudah Dilihat</div>
                 </div>
             </div>
         </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <a href="template.php" class="btn btn-primary">
+                <i class="bi bi-file-earmark-text"></i> Kelola Template Penilaian
+            </a>
+            <div style="color: #666; font-size: 13px;">
+                <i class="bi bi-list-ul"></i>
+                Menampilkan <strong><?php echo count($penilaian_list); ?></strong> dari
+                <strong><?php echo $total_records; ?></strong> data
+            </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="filter-section">
+            <div class="filter-title">
+                <i class="bi bi-funnel"></i> Filter Data
+            </div>
+            <form method="GET">
+                <div class="filter-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Template Penilaian</label>
+                        <select name="template_id" class="filter-select">
+                            <option value="">Semua Template</option>
+                            <?php foreach ($templates as $tpl): ?>
+                                <option value="<?php echo $tpl['template_id']; ?>"
+                                    <?php echo ($filter_template == $tpl['template_id']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($tpl['nama_template']); ?>
+                                    (<?php echo date('M Y', strtotime($tpl['periode'])); ?>)
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Status Verifikasi</label>
+                        <select name="status" class="filter-select">
+                            <option value="">Semua Status</option>
+                            <option value="belum_dilihat" <?php echo ($filter_status === 'belum_dilihat') ? 'selected' : ''; ?>>
+                                Belum Dilihat
+                            </option>
+                            <option value="sudah_dilihat" <?php echo ($filter_status === 'sudah_dilihat') ? 'selected' : ''; ?>>
+                                Sudah Dilihat
+                            </option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Cari Pegawai</label>
+                        <input type="text" name="search" class="filter-input"
+                               placeholder="Nama, Jabatan, Unit Kerja..."
+                               value="<?php echo htmlspecialchars($search); ?>">
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">&nbsp;</label>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="submit" class="btn btn-filter btn-sm">
+                                <i class="bi bi-funnel"></i> Filter
+                            </button>
+                            <a href="penilaianKinerja.php" class="btn btn-reset btn-sm">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <?php if (count($penilaian_list) > 0): ?>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Nama Pegawai</th>
+                                <th>Jabatan</th>
+                                <th>Unit Kerja</th>
+                                <th>Jenis</th>
+                                <th>Template</th>
+                                <th>Tanggal Isi</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $no = $offset + 1;
+                            foreach ($penilaian_list as $item):
+                                $jenis_class = 'jenis-' . strtolower($item['jenis_pegawai']);
+                            ?>
+                                <tr>
+                                    <td style="color: #999; font-weight: 600;"><?php echo $no++; ?></td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($item['nama_lengkap']); ?></strong>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($item['jabatan'] ?? '-'); ?></td>
+                                    <td><?php echo htmlspecialchars($item['unit_kerja'] ?? '-'); ?></td>
+                                    <td>
+                                        <span class="jenis-badge <?php echo $jenis_class; ?>">
+                                            <?php echo ucfirst($item['jenis_pegawai']); ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 13px; font-weight: 600; color: #333;">
+                                            <?php echo htmlspecialchars($item['nama_template']); ?>
+                                        </div>
+                                        <div style="font-size: 11px; color: #999;">
+                                            <?php echo date('F Y', strtotime($item['periode'])); ?>
+                                        </div>
+                                    </td>
+                                    <td style="white-space: nowrap;">
+                                        <?php echo date('d/m/Y H:i', strtotime($item['tanggal_isi'])); ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($item['status_verifikasi'] === 'sudah_dilihat'): ?>
+                                            <span class="status-badge badge-sudah">
+                                                <i class="bi bi-check-circle-fill"></i> Sudah Dilihat
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="status-badge badge-belum">
+                                                <i class="bi bi-clock"></i> Belum Dilihat
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; gap: 7px; flex-wrap: wrap;">
+                                            <a href="detail.php?id=<?php echo $item['penilaian_id']; ?>"
+                                               class="btn btn-info btn-sm" title="Lihat Detail">
+                                                <i class="bi bi-eye"></i> Detail
+                                            </a>
+                                            <?php if ($item['status_verifikasi'] === 'belum_dilihat'): ?>
+                                                <form method="POST" style="display:inline;"
+                                                      onsubmit="return confirm('Tandai sebagai sudah dilihat?');">
+                                                    <input type="hidden" name="penilaian_id"
+                                                           value="<?php echo $item['penilaian_id']; ?>">
+                                                    <button type="submit" name="mark_viewed"
+                                                            class="btn btn-success btn-sm"
+                                                            title="Tandai Sudah Dilihat">
+                                                        <i class="bi bi-check-circle"></i>
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <?php if ($total_pages > 1): ?>
+                    <div class="pagination">
+                        <?php
+                        $qs = $_GET;
+
+                        if ($page > 1):
+                            $qs['page'] = $page - 1;
+                        ?>
+                            <a href="?<?php echo http_build_query($qs); ?>" class="page-link">
+                                <i class="bi bi-chevron-left"></i> Prev
+                            </a>
+                        <?php else: ?>
+                            <span class="page-link disabled"><i class="bi bi-chevron-left"></i> Prev</span>
+                        <?php endif; ?>
+
+                        <?php
+                        $start_p = max(1, $page - 2);
+                        $end_p   = min($total_pages, $page + 2);
+                        for ($i = $start_p; $i <= $end_p; $i++):
+                            $qs['page'] = $i;
+                            $active = ($i === $page) ? 'active' : '';
+                        ?>
+                            <a href="?<?php echo http_build_query($qs); ?>"
+                               class="page-link <?php echo $active; ?>"><?php echo $i; ?></a>
+                        <?php endfor; ?>
+
+                        <?php
+                        if ($page < $total_pages):
+                            $qs['page'] = $page + 1;
+                        ?>
+                            <a href="?<?php echo http_build_query($qs); ?>" class="page-link">
+                                Next <i class="bi bi-chevron-right"></i>
+                            </a>
+                        <?php else: ?>
+                            <span class="page-link disabled">Next <i class="bi bi-chevron-right"></i></span>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
+            <?php else: ?>
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <h3>Belum Ada Data Penilaian</h3>
+                    <p>Belum ada pegawai yang mengisi penilaian kinerja<?php echo !empty($search) ? " dengan kata kunci \"$search\"" : ''; ?>.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
     </div>
 
-    <!-- Form for verification (hidden) -->
-    <form id="verifyForm" method="POST" action="verifikasi.php" style="display: none;">
-        <input type="hidden" name="action" value="verify">
-        <input type="hidden" name="penilaian_id" id="verify_penilaian_id">
-        <input type="hidden" name="status" id="verify_status">
-    </form>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function verifyPenilaian(penilaianId, status) {
-            const confirmMsg = status === 'sudah_dilihat' 
-                ? 'Tandai penilaian ini sudah dilihat?' 
-                : 'Tandai penilaian ini belum dilihat?';
-            
-            if (confirm(confirmMsg)) {
-                document.getElementById('verify_penilaian_id').value = penilaianId;
-                document.getElementById('verify_status').value = status;
-                document.getElementById('verifyForm').submit();
-            }
-        }
+        setTimeout(function() {
+            document.querySelectorAll('.alert').forEach(a => {
+                a.style.transition = 'opacity 0.5s';
+                a.style.opacity = '0';
+                setTimeout(() => a.remove(), 500);
+            });
+        }, 5000);
     </script>
 </body>
 </html>
