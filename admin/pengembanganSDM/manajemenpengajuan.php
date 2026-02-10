@@ -401,23 +401,21 @@ $stmt_pengajuan->execute();
                 </span>
             </div>
 
-            <div class="pengajuan-details">
-                <div class="detail-item">
-                    <div class="detail-label">Jabatan</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($row['jabatan'] ?? '-'); ?></div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Jenjang</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($row['jenjang_pendidikan']); ?></div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Institusi</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($row['nama_institusi']); ?></div>
-                </div>
-                <div class="detail-item">
-                    <div class="detail-label">Program Studi</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($row['program_studi']); ?></div>
-                </div>
+            <div class="detail-item">
+                <div class="detail-label">Jabatan</div>
+                <div class="detail-value"><?php echo htmlspecialchars($row['jabatan'] ?: '-'); ?></div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Jenjang</div>
+                <div class="detail-value"><?php echo htmlspecialchars($row['jenjang_pendidikan'] ?: '-'); ?></div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Institusi</div>
+                <div class="detail-value"><?php echo htmlspecialchars($row['nama_institusi'] ?: '-'); ?></div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Program Studi</div>
+                <div class="detail-value"><?php echo htmlspecialchars($row['program_studi'] ?: '-'); ?></div>
             </div>
 
             <div class="pengajuan-tags">

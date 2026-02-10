@@ -44,6 +44,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = "Konfirmasi password tidak cocok.";
     } elseif (strlen($new_password) < 8) {
         $error_message = "Password minimal 8 karakter.";
+    } elseif (!preg_match('/[A-Z]/', $new_password)) {
+        $error_message = "Password harus mengandung minimal 1 huruf besar (A-Z).";
+    } elseif (!preg_match('/[a-z]/', $new_password)) {
+        $error_message = "Password harus mengandung minimal 1 huruf kecil (a-z).";
+    } elseif (!preg_match('/[0-9]/', $new_password)) {
+        $error_message = "Password harus mengandung minimal 1 angka (0-9).";
+    } elseif (!preg_match('/[!@#$%^&*(),.?":{}|<>_+=\[\]\/\\\-]/', $new_password)) {
+        $error_message = "Password harus mengandung minimal 1 simbol (!@#$%^&* dll).";
     } else {
 
         try {
@@ -76,12 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE user_id = ?
                 ");
                 $update->execute([$hash, $user_id]);
-                $success_message = "Password berhasil dibuat. Mengalihkan ke dashboard...";
-                echo "<script>
-                        setTimeout(() => {
-                            window.location.href = '../../index.php';
-                        }, 3000);
-                    </script>";
+                $success_message = "first_login_success"; // Special flag untuk redirect
             }
         } catch (PDOException $e) {
             $error_message = "Terjadi kesalahan sistem.";
@@ -100,6 +103,9 @@ include '../../users/partials/navbar.php';
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- SweetAlert2 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <style>
 * { font-family: 'Poppins', sans-serif; }
@@ -158,8 +164,13 @@ body { background:#f5f5f5; }
     font-size: 14px;
 }
 
+.password-input-wrapper {
+    position: relative;
+}
+
 .form-control {
     padding: 12px 14px;
+    padding-right: 45px;
     border-radius: 8px;
     border: 2px solid #e0e0e0;
 }
@@ -167,6 +178,24 @@ body { background:#f5f5f5; }
 .form-control:focus {
     border-color: #0d47a1;
     box-shadow: none;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #607d8b;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 16px;
+    transition: color 0.3s;
+}
+
+.toggle-password:hover {
+    color: #0d47a1;
 }
 
 .btn-update {
@@ -182,22 +211,61 @@ body { background:#f5f5f5; }
     background: #0b3d91;
 }
 
-.alert-success {
-    background: #e8f5e9;
-    border-left: 4px solid #2e7d32;
-}
-
-.alert-danger {
-    background: #ffebee;
-    border-left: 4px solid #c62828;
-}
-
 .warning-box {
     background: #fff3cd;
     border-left: 4px solid #f59e0b;
     padding: 20px;
     border-radius: 10px;
     margin-bottom: 25px;
+}
+
+.password-requirements {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 20px;
+}
+
+.password-requirements h6 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e3a5f;
+    margin-bottom: 10px;
+}
+
+.requirement-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #607d8b;
+    margin-bottom: 5px;
+}
+
+.requirement-item i {
+    width: 16px;
+    font-size: 12px;
+}
+
+.requirement-item.valid {
+    color: #2e7d32;
+}
+
+.requirement-item.valid i {
+    color: #2e7d32;
+}
+
+.requirement-item.invalid {
+    color: #c62828;
+}
+
+.requirement-item.invalid i {
+    color: #c62828;
+}
+
+/* Custom SweetAlert2 Styling */
+.swal2-popup {
+    font-family: 'Poppins', sans-serif !important;
 }
 </style>
 </head>
@@ -215,21 +283,13 @@ body { background:#f5f5f5; }
 
     <?php if ($is_first_login): ?>
     <div class="warning-box">
-        <strong>Penting!</strong>
+        <strong><i class="fas fa-exclamation-triangle"></i> Penting!</strong>
         <ul class="mb-0 mt-2">
             <li>Ini adalah login pertama Anda</li>
-            <li>Anda wajib membuat password baru</li>
+            <li>Anda wajib membuat password baru yang kuat</li>
             <li>Token login tidak berlaku setelah ini</li>
         </ul>
     </div>
-    <?php endif; ?>
-
-    <?php if ($success_message): ?>
-        <div class="alert alert-success mb-3"><?= $success_message ?></div>
-    <?php endif; ?>
-
-    <?php if ($error_message): ?>
-        <div class="alert alert-danger mb-3"><?= $error_message ?></div>
     <?php endif; ?>
 
     <!-- FORM -->
@@ -239,26 +299,67 @@ body { background:#f5f5f5; }
             <?= $is_first_login ? 'Buat Password' : 'Ubah Password' ?>
         </h2>
 
-        <form method="POST" class="password-form">
+        <form method="POST" class="password-form" id="passwordForm">
 
             <?php if (!$is_first_login): ?>
             <div class="form-group">
                 <label class="form-label">Password Lama</label>
-                <input type="password" name="current_password" class="form-control" required>
+                <div class="password-input-wrapper">
+                    <input type="password" name="current_password" id="current_password" class="form-control" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword('current_password')">
+                        <i class="far fa-eye" id="current_password_icon"></i>
+                    </button>
+                </div>
             </div>
             <?php endif; ?>
 
             <div class="form-group">
                 <label class="form-label">Password Baru</label>
-                <input type="password" name="new_password" class="form-control" required>
+                <div class="password-input-wrapper">
+                    <input type="password" name="new_password" id="new_password" class="form-control" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword('new_password')">
+                        <i class="far fa-eye" id="new_password_icon"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="form-group">
                 <label class="form-label">Konfirmasi Password</label>
-                <input type="password" name="confirm_password" class="form-control" required>
+                <div class="password-input-wrapper">
+                    <input type="password" name="confirm_password" id="confirm_password" class="form-control" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')">
+                        <i class="far fa-eye" id="confirm_password_icon"></i>
+                    </button>
+                </div>
             </div>
 
-            <button type="submit" class="btn-update">
+            <!-- Password Requirements -->
+            <div class="password-requirements">
+                <h6><i class="fas fa-shield-alt me-2"></i>Syarat Password Kuat:</h6>
+                <div class="requirement-item" id="req-length">
+                    <i class="fas fa-circle"></i>
+                    <span>Minimal 8 karakter</span>
+                </div>
+                <div class="requirement-item" id="req-uppercase">
+                    <i class="fas fa-circle"></i>
+                    <span>Minimal 1 huruf besar (A-Z)</span>
+                </div>
+                <div class="requirement-item" id="req-lowercase">
+                    <i class="fas fa-circle"></i>
+                    <span>Minimal 1 huruf kecil (a-z)</span>
+                </div>
+                <div class="requirement-item" id="req-number">
+                    <i class="fas fa-circle"></i>
+                    <span>Minimal 1 angka (0-9)</span>
+                </div>
+                <div class="requirement-item" id="req-symbol">
+                    <i class="fas fa-circle"></i>
+                    <span>Minimal 1 simbol (!@#$%^&*)</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-update mt-3">
+                <i class="fas fa-save me-2"></i>
                 <?= $is_first_login ? 'Buat Password' : 'Simpan Perubahan' ?>
             </button>
 
@@ -267,6 +368,189 @@ body { background:#f5f5f5; }
 
 </div>
 </div>
+
+<script>
+// ========================================
+// SHOW SUCCESS/ERROR MESSAGE ON LOAD
+// ========================================
+<?php if ($success_message === 'first_login_success'): ?>
+Swal.fire({
+    icon: 'success',
+    title: 'Password Berhasil Dibuat!',
+    html: 'Password Anda telah berhasil dibuat.<br>Mengalihkan ke dashboard...',
+    timer: 3000,
+    timerProgressBar: true,
+    showConfirmButton: false,
+    allowOutsideClick: false,
+    willClose: () => {
+        window.location.href = '../index.php';
+    }
+});
+<?php elseif ($success_message && $success_message !== 'first_login_success'): ?>
+Swal.fire({
+    icon: 'success',
+    title: 'Berhasil!',
+    text: '<?= addslashes($success_message) ?>',
+    confirmButtonColor: '#0d47a1',
+    confirmButtonText: 'OK'
+});
+<?php endif; ?>
+
+<?php if ($error_message): ?>
+Swal.fire({
+    icon: 'error',
+    title: 'Oops...',
+    text: '<?= addslashes($error_message) ?>',
+    confirmButtonColor: '#0d47a1',
+    confirmButtonText: 'OK'
+});
+<?php endif; ?>
+
+// ========================================
+// TOGGLE PASSWORD VISIBILITY
+// ========================================
+function togglePassword(fieldId) {
+    const input = document.getElementById(fieldId);
+    const icon = document.getElementById(fieldId + '_icon');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+// ========================================
+// REAL-TIME PASSWORD VALIDATION
+// ========================================
+document.getElementById('new_password').addEventListener('input', function() {
+    const password = this.value;
+    
+    // Check length
+    const lengthReq = document.getElementById('req-length');
+    if (password.length >= 8) {
+        lengthReq.classList.add('valid');
+        lengthReq.classList.remove('invalid');
+        lengthReq.querySelector('i').classList.remove('fa-circle', 'fa-times-circle');
+        lengthReq.querySelector('i').classList.add('fa-check-circle');
+    } else {
+        lengthReq.classList.remove('valid');
+        lengthReq.classList.add('invalid');
+        lengthReq.querySelector('i').classList.remove('fa-circle', 'fa-check-circle');
+        lengthReq.querySelector('i').classList.add('fa-times-circle');
+    }
+    
+    // Check uppercase
+    const uppercaseReq = document.getElementById('req-uppercase');
+    if (/[A-Z]/.test(password)) {
+        uppercaseReq.classList.add('valid');
+        uppercaseReq.classList.remove('invalid');
+        uppercaseReq.querySelector('i').classList.remove('fa-circle', 'fa-times-circle');
+        uppercaseReq.querySelector('i').classList.add('fa-check-circle');
+    } else {
+        uppercaseReq.classList.remove('valid');
+        uppercaseReq.classList.add('invalid');
+        uppercaseReq.querySelector('i').classList.remove('fa-circle', 'fa-check-circle');
+        uppercaseReq.querySelector('i').classList.add('fa-times-circle');
+    }
+    
+    // Check lowercase
+    const lowercaseReq = document.getElementById('req-lowercase');
+    if (/[a-z]/.test(password)) {
+        lowercaseReq.classList.add('valid');
+        lowercaseReq.classList.remove('invalid');
+        lowercaseReq.querySelector('i').classList.remove('fa-circle', 'fa-times-circle');
+        lowercaseReq.querySelector('i').classList.add('fa-check-circle');
+    } else {
+        lowercaseReq.classList.remove('valid');
+        lowercaseReq.classList.add('invalid');
+        lowercaseReq.querySelector('i').classList.remove('fa-circle', 'fa-check-circle');
+        lowercaseReq.querySelector('i').classList.add('fa-times-circle');
+    }
+    
+    // Check number
+    const numberReq = document.getElementById('req-number');
+    if (/[0-9]/.test(password)) {
+        numberReq.classList.add('valid');
+        numberReq.classList.remove('invalid');
+        numberReq.querySelector('i').classList.remove('fa-circle', 'fa-times-circle');
+        numberReq.querySelector('i').classList.add('fa-check-circle');
+    } else {
+        numberReq.classList.remove('valid');
+        numberReq.classList.add('invalid');
+        numberReq.querySelector('i').classList.remove('fa-circle', 'fa-check-circle');
+        numberReq.querySelector('i').classList.add('fa-times-circle');
+    }
+    
+    // Check symbol - DIPERBAIKI
+    const symbolReq = document.getElementById('req-symbol');
+    if (/[!@#$%^&*(),.?":{}|<>_+=\[\]\/\\\-]/.test(password)) {
+        symbolReq.classList.add('valid');
+        symbolReq.classList.remove('invalid');
+        symbolReq.querySelector('i').classList.remove('fa-circle', 'fa-times-circle');
+        symbolReq.querySelector('i').classList.add('fa-check-circle');
+    } else {
+        symbolReq.classList.remove('valid');
+        symbolReq.classList.add('invalid');
+        symbolReq.querySelector('i').classList.remove('fa-circle', 'fa-check-circle');
+        symbolReq.querySelector('i').classList.add('fa-times-circle');
+    }
+});
+
+// ========================================
+// FORM VALIDATION BEFORE SUBMIT
+// ========================================
+document.getElementById('passwordForm').addEventListener('submit', function(e) {
+    const newPassword = document.getElementById('new_password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'error',
+            title: 'Password Tidak Cocok',
+            text: 'Konfirmasi password tidak cocok dengan password baru!',
+            confirmButtonColor: '#0d47a1',
+            confirmButtonText: 'OK'
+        });
+        return false;
+    }
+    
+    // Check all requirements
+    const requirements = [
+        newPassword.length >= 8,
+        /[A-Z]/.test(newPassword),
+        /[a-z]/.test(newPassword),
+        /[0-9]/.test(newPassword),
+        /[!@#$%^&*(),.?":{}|<>_+=\[\]\/\\\-]/.test(newPassword)
+    ];
+    
+    if (!requirements.every(req => req)) {
+        e.preventDefault();
+        Swal.fire({
+            icon: 'warning',
+            title: 'Password Tidak Memenuhi Syarat',
+            html: 'Password belum memenuhi semua syarat keamanan!<br><br>' +
+                  '<small>Pastikan password Anda memiliki:</small>' +
+                  '<ul style="text-align: left; font-size: 13px; margin-top: 10px;">' +
+                  '<li>Minimal 8 karakter</li>' +
+                  '<li>Minimal 1 huruf besar (A-Z)</li>' +
+                  '<li>Minimal 1 huruf kecil (a-z)</li>' +
+                  '<li>Minimal 1 angka (0-9)</li>' +
+                  '<li>Minimal 1 simbol (!@#$%^&*)</li>' +
+                  '</ul>',
+            confirmButtonColor: '#0d47a1',
+            confirmButtonText: 'OK'
+        });
+        return false;
+    }
+});
+</script>
 
 </body>
 </html>

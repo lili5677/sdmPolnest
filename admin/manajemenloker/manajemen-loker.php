@@ -1,4 +1,5 @@
 <?php
+
 // Koneksi Database
 require_once '../../config/database.php';
 
@@ -8,8 +9,69 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     exit();
 }
 
-// Query untuk mendapatkan data lowongan pekerjaan
-$query = "SELECT * FROM lowongan_pekerjaan ORDER BY created_at DESC";
+// HANDLE TOGGLE ACTION (dari button toggle)
+if (isset($_GET['toggle_id']) && isset($_GET['action'])) {
+    $toggle_id = intval($_GET['toggle_id']);
+    $action = $_GET['action']; // 'activate' or 'deactivate'
+    
+    if ($action === 'activate') {
+        $conn->prepare("UPDATE lowongan_pekerjaan SET is_active = 1 WHERE lowongan_id = ?")->execute([$toggle_id]);
+        $_SESSION['flash_message'] = 'Lowongan berhasil diaktifkan';
+    } else {
+        $conn->prepare("UPDATE lowongan_pekerjaan SET is_active = 0 WHERE lowongan_id = ?")->execute([$toggle_id]);
+        $_SESSION['flash_message'] = 'Lowongan berhasil dinonaktifkan';
+    }
+    $_SESSION['flash_type'] = 'success';
+    header('Location: manajemen-loker.php');
+    exit();
+}
+
+// Auto-update jumlah_diterima & status
+try {
+    // Update jumlah_diterima berdasarkan yang sudah diterima
+    $conn->exec("
+        UPDATE lowongan_pekerjaan lp
+        LEFT JOIN (
+            SELECT lowongan_id, COUNT(*) as total
+            FROM lamaran
+            WHERE status_lamaran = 'diterima'
+            GROUP BY lowongan_id
+        ) l ON lp.lowongan_id = l.lowongan_id
+        SET lp.jumlah_diterima = COALESCE(l.total, 0)
+    ");
+    
+    // Auto-close yang expired/penuh
+    $conn->exec("
+        UPDATE lowongan_pekerjaan
+        SET status = 'ditutup'
+        WHERE status = 'aktif'
+        AND (
+            deadline_lamaran < CURDATE()
+            OR jumlah_diterima >= formasi
+            OR is_active = 0
+        )
+    ");
+    
+    // Re-activate jika kondisi terpenuhi
+    $conn->exec("
+        UPDATE lowongan_pekerjaan
+        SET status = 'aktif'
+        WHERE status = 'ditutup'
+        AND is_active = 1
+        AND deadline_lamaran >= CURDATE()
+        AND jumlah_diterima < formasi
+    ");
+} catch (Exception $e) {
+    // Silent fail
+}
+
+// Query untuk mendapatkan data lowongan pekerjaan dengan info tambahan
+$query = "SELECT *, 
+          (jumlah_diterima >= formasi) as is_full,
+          (deadline_lamaran < CURDATE()) as is_expired,
+          DATEDIFF(deadline_lamaran, CURDATE()) as days_remaining
+          FROM lowongan_pekerjaan 
+          ORDER BY created_at DESC";
 $stmt = $conn->query($query);
 $data_lowongan = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -20,6 +82,11 @@ $data_pendaftar = [];
 while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
     $data_pendaftar[$row['lowongan_id']] = $row['jumlah'];
 }
+
+// Get flash message
+$flash_message = isset($_SESSION['flash_message']) ? $_SESSION['flash_message'] : '';
+$flash_type = isset($_SESSION['flash_type']) ? $_SESSION['flash_type'] : 'info';
+unset($_SESSION['flash_message'], $_SESSION['flash_type']);
 ?>
 
 <!DOCTYPE html>
@@ -30,6 +97,8 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
     <title>Manajemen Lowongan Kerja - Sistem SDM Polnest</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', sans-serif; background-color: #f5f7fa; color: #333; }
@@ -69,8 +138,15 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
         }
         .badge-primary { background-color: #dbeafe; color: #1e40af; }
         .badge-gray { background-color: #f1f5f9; color: #475569; }
+        .badge-warning { background-color: #fef3c7; color: #92400e; }
+        .badge-danger { background-color: #fee2e2; color: #991b1b; }
+        
+        /* Badge jenis posisi */
+        .badge-dosen { background-color: #dbeafe; color: #1e40af; }
+        .badge-staff { background-color: #d1fae5; color: #065f46; }
+        .badge-tendik { background-color: #fef3c7; color: #92400e; }
 
-        .action-buttons { display: flex; gap: 8px; align-items: center; }
+        .action-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .btn-icon {
             width: 32px; height: 32px; border-radius: 6px; border: none;
             display: flex; align-items: center; justify-content: center;
@@ -82,6 +158,10 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
         .btn-edit:hover { background-color: #a7f3d0; }
         .btn-delete { background-color: #fee2e2; color: #991b1b; }
         .btn-delete:hover { background-color: #fecaca; }
+        .btn-toggle { background-color: #fef3c7; color: #92400e; }
+        .btn-toggle:hover { background-color: #fde68a; }
+        .btn-toggle.active { background-color: #d1fae5; color: #065f46; }
+        .btn-toggle.active:hover { background-color: #a7f3d0; }
 
         .empty-state { text-align: center; padding: 60px 20px; }
         .empty-state i { font-size: 64px; color: #cbd5e1; margin-bottom: 20px; }
@@ -92,6 +172,9 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
         .status-ditutup { background-color: #fee2e2; color: #991b1b; }
         .status-draft { background-color: #f1f5f9; color: #475569; }
 
+        .status-wrapper { display: flex; flex-direction: column; gap: 4px; }
+        .status-reason { font-size: 11px; color: #94a3b8; font-style: italic; }
+
         .text-muted { color: #94a3b8; font-style: italic; }
 
         @media (max-width: 1024px) {
@@ -100,7 +183,7 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
         }
         @media (max-width: 768px) {
             .table-card { overflow-x: auto; }
-            table { min-width: 800px; }
+            table { min-width: 1200px; }
         }
     </style>
 </head>
@@ -109,6 +192,22 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
         <?php include '../sidebar/sidebar.php'; ?>
 
         <main class="main-content">
+            <!-- Flash Message -->
+            <?php if ($flash_message): ?>
+                <script>
+                    Swal.fire({
+                        icon: '<?= $flash_type === 'success' ? 'success' : ($flash_type === 'error' ? 'error' : 'info') ?>',
+                        title: '<?= $flash_type === 'success' ? 'Berhasil!' : ($flash_type === 'error' ? 'Gagal!' : 'Informasi') ?>',
+                        text: '<?= addslashes($flash_message) ?>',
+                        showConfirmButton: true,
+                        timer: 3000,
+                        timerProgressBar: true,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                </script>
+            <?php endif; ?>
+
             <div class="page-header">
                 <div class="header-left">
                     <h1>Manajemen Lowongan Kerja</h1>
@@ -135,6 +234,7 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
                             <tr>
                                 <th>No</th>
                                 <th>Posisi</th>
+                                <th>Jenis</th>
                                 <th>Kualifikasi</th>
                                 <th>Formasi</th>
                                 <th>Pendaftar</th>
@@ -148,18 +248,73 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
                                 <?php
                                     $jumlah_pendaftar = $data_pendaftar[$lowongan['lowongan_id']] ?? 0;
                                     $status_class = 'status-' . strtolower($lowongan['status']);
+                                    
+                                    // Jenis posisi badge
+                                    $jenis_posisi = $lowongan['jenis_posisi'] ?? 'staff';
+                                    $jenis_badge_class = '';
+                                    $jenis_icon = '';
+                                    
+                                    switch ($jenis_posisi) {
+                                        case 'dosen':
+                                            $jenis_badge_class = 'badge-dosen';
+                                            $jenis_icon = 'fa-chalkboard-teacher';
+                                            break;
+                                        case 'tendik':
+                                            $jenis_badge_class = 'badge-tendik';
+                                            $jenis_icon = 'fa-tools';
+                                            break;
+                                        default:
+                                            $jenis_badge_class = 'badge-staff';
+                                            $jenis_icon = 'fa-user-tie';
+                                            break;
+                                    }
+                                    
+                                    // Determine status reason
+                                    $status_reason = '';
+                                    if ($lowongan['status'] === 'ditutup') {
+                                        if ($lowongan['is_active'] == 0) {
+                                            $status_reason = 'Dinonaktifkan manual';
+                                        } elseif ($lowongan['is_full']) {
+                                            $status_reason = 'Formasi penuh (' . $lowongan['jumlah_diterima'] . '/' . $lowongan['formasi'] . ')';
+                                        } elseif ($lowongan['is_expired']) {
+                                            $status_reason = 'Deadline lewat';
+                                        }
+                                    }
 
-                                    // FIX: guard NULL deadline_lamaran — tanpa ini akan print "01/01/1970"
+                                    // FIX: guard NULL deadline_lamaran
                                     $deadline = !empty($lowongan['deadline_lamaran'])
                                         ? date('d/m/Y', strtotime($lowongan['deadline_lamaran']))
                                         : null;
+                                    
+                                    // Days remaining
+                                    $days_text = '';
+                                    if ($lowongan['days_remaining'] !== null) {
+                                        if ($lowongan['days_remaining'] < 0) {
+                                            $days_text = '<span style="color: #991b1b; font-weight: 600;">Lewat ' . abs($lowongan['days_remaining']) . ' hari</span>';
+                                        } elseif ($lowongan['days_remaining'] <= 3) {
+                                            $days_text = '<span style="color: #f59e0b; font-weight: 600;">' . $lowongan['days_remaining'] . ' hari lagi</span>';
+                                        }
+                                    }
                                 ?>
                                 <tr>
                                     <td><?= $index + 1 ?></td>
                                     <td><strong><?= htmlspecialchars($lowongan['posisi']) ?></strong></td>
+                                    <td>
+                                        <span class="badge <?= $jenis_badge_class ?>">
+                                            <i class="fas <?= $jenis_icon ?>"></i>
+                                            <?= ucfirst($jenis_posisi) ?>
+                                        </span>
+                                    </td>
                                     <td><?= htmlspecialchars(substr($lowongan['kualifikasi'] ?? '', 0, 50)) ?>...</td>
                                     <td>
-                                        <span class="badge badge-primary"><?= $lowongan['formasi'] ?></span>
+                                        <span class="badge <?= $lowongan['is_full'] ? 'badge-danger' : 'badge-primary' ?>">
+                                            <?= $lowongan['jumlah_diterima'] ?>/<?= $lowongan['formasi'] ?>
+                                        </span>
+                                        <?php if ($lowongan['is_full']): ?>
+                                            <div style="font-size: 11px; color: #991b1b; margin-top: 4px;">
+                                                <i class="fas fa-check-circle"></i> Penuh
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <span class="badge badge-gray">
@@ -168,11 +323,21 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
                                     </td>
                                     <td>
                                         <?= $deadline ?? '<span class="text-muted">Belum ditentukan</span>' ?>
+                                        <?php if ($days_text): ?>
+                                            <div style="font-size: 11px; margin-top: 4px;">
+                                                <?= $days_text ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="badge <?= $status_class ?>">
-                                            <?= ucfirst($lowongan['status']) ?>
-                                        </span>
+                                        <div class="status-wrapper">
+                                            <span class="badge <?= $status_class ?>">
+                                                <?= ucfirst($lowongan['status']) ?>
+                                            </span>
+                                            <?php if ($status_reason): ?>
+                                                <span class="status-reason"><?= $status_reason ?></span>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td>
                                         <div class="action-buttons">
@@ -182,7 +347,18 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
                                             <button class="btn-icon btn-edit" onclick="editLowongan(<?= $lowongan['lowongan_id'] ?>)" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn-icon btn-delete" onclick="deleteLowongan(<?= $lowongan['lowongan_id'] ?>)" title="Tutup">
+                                            
+                                            <?php if ($lowongan['is_active'] == 1): ?>
+                                                <button class="btn-icon btn-toggle" onclick="toggleStatus(<?= $lowongan['lowongan_id'] ?>, 'deactivate')" title="Nonaktifkan">
+                                                    <i class="fas fa-toggle-on"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <button class="btn-icon btn-toggle active" onclick="toggleStatus(<?= $lowongan['lowongan_id'] ?>, 'activate')" title="Aktifkan">
+                                                    <i class="fas fa-toggle-off"></i>
+                                                </button>
+                                            <?php endif; ?>
+                                            
+                                            <button class="btn-icon btn-delete" onclick="deleteLowongan(<?= $lowongan['lowongan_id'] ?>)" title="Hapus Permanen">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -200,13 +376,64 @@ while ($row = $stmt_pendaftar->fetch(PDO::FETCH_ASSOC)) {
         function viewDetail(id) {
             window.location.href = 'detailloker.php?id=' + id;
         }
+        
         function editLowongan(id) {
             window.location.href = 'editloker.php?id=' + id;
         }
+        
+        function toggleStatus(id, action) {
+            const actionText = action === 'activate' ? 'mengaktifkan' : 'menonaktifkan';
+            const actionColor = action === 'activate' ? '#10b981' : '#f59e0b';
+            
+            Swal.fire({
+                title: 'Konfirmasi',
+                text: `Apakah Anda yakin ingin ${actionText} lowongan ini?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: actionColor,
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: `Ya, ${actionText}!`,
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = `manajemen-loker.php?toggle_id=${id}&action=${action}`;
+                }
+            });
+        }
+        
         function deleteLowongan(id) {
-            if (confirm('Apakah Anda yakin ingin menutup lowongan ini?\nStatus akan diubah menjadi "Ditutup".')) {
-                window.location.href = 'deleteloker.php?id=' + id;
-            }
+            Swal.fire({
+                title: 'Hapus Permanen?',
+                html: 'Apakah Anda yakin ingin menghapus lowongan ini secara <strong>PERMANEN</strong>?<br><br><small class="text-muted">Tindakan ini tidak dapat dibatalkan!</small>',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal',
+                reverseButtons: true,
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    return Swal.fire({
+                        title: 'Konfirmasi Akhir',
+                        text: 'Ini adalah konfirmasi terakhir. Hapus lowongan?',
+                        icon: 'error',
+                        showCancelButton: true,
+                        confirmButtonColor: '#dc2626',
+                        cancelButtonColor: '#6b7280',
+                        confirmButtonText: 'HAPUS SEKARANG',
+                        cancelButtonText: 'Batalkan',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = 'deleteloker.php?id=' + id;
+                        }
+                        return false;
+                    });
+                },
+                allowOutsideClick: () => !Swal.isLoading()
+            });
         }
     </script>
 </body>

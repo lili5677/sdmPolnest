@@ -561,7 +561,7 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
                             <?php endif; ?>
                             
                             <!-- Penilaian dan Kinerja Pegawai - untuk semua (pegawai & dosen) -->
-                            <a href="<?php echo BASE_URL; ?>users/pegawai/penilaian_kinerja.php" class="dropdown-layanan-item">
+                            <a href="<?php echo BASE_URL; ?>users/pegawai/penilaian/penilaian_kinerja.php" class="dropdown-layanan-item">
                                 <i class="bi bi-clipboard-check-fill"></i>
                                 <span>Penilaian dan Kinerja Pegawai</span>
                             </a>

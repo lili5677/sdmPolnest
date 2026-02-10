@@ -1,13 +1,15 @@
 <?php
 /**
- * LOGIN PEGAWAI - AUTO FILL TOKEN
+ * AKTIVASI AKUN PEGAWAI BARU - FINAL FIXED VERSION
  * File: auth/login_pegawai.php
  * 
- * FITUR:
- * - Pegawai input email saja
- * - System auto-ambil token dari database
- * - Token otomatis terisi di form (readonly)
- * - Setelah ganti password, token hilang
+ * FIXED: Role otomatis sesuai jenis_posisi lowongan yang dilamar
+ * 
+ * UPDATE LOG:
+ * - Ambil jenis_posisi dari lowongan yang dilamar
+ * - Auto-set jenis_pegawai sesuai jenis_posisi lowongan
+ * - Fallback ke NIDN/Prodi jika jenis_posisi NULL
+ * - Auto-insert ke tabel pegawai saat aktivasi
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -16,7 +18,9 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once '../config/database.php';
 
-// Redirect if already logged in
+// ========================================
+// REDIRECT IF ALREADY LOGGED IN
+// ========================================
 if (isset($_SESSION['user_id']) && isset($_SESSION['user_type'])) {
     if (in_array($_SESSION['user_type'], ['pegawai', 'dosen'])) {
         header('Location: ../users/pegawai/administrasi.php');
@@ -28,151 +32,293 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['user_type'])) {
 }
 
 $error = '';
-$token_pegawai_baru = '';
-$is_pegawai_baru = false;
-$email_check = '';
+$auto_email = '';
+$auto_token = '';
+$nama_pegawai = '';
+$role_pegawai = '';
+$data_loaded = false;
 
-// CEK APAKAH USER INPUT EMAIL (AJAX REQUEST)
-if (isset($_POST['check_email'])) {
-    header('Content-Type: application/json');
-    
-    $email = trim($_POST['email'] ?? '');
-    
-    if (empty($email)) {
-        echo json_encode(['success' => false]);
-        exit;
-    }
-    
+// ========================================
+// AUTO-LOAD EMAIL & TOKEN FROM URL
+// ========================================
+$url_email = isset($_GET['email']) ? trim($_GET['email']) : '';
+
+if ($url_email) {
     try {
         $stmt = $conn->prepare("
-            SELECT u.token, u.password_changed, u.user_type
-            FROM users u
-            WHERE u.email = :email
-              AND u.is_active = 1
-              AND u.user_type IN ('pegawai', 'dosen')
+            SELECT 
+                at.token,
+                at.role,
+                at.expired_at,
+                p.pelamar_id,
+                p.nama_lengkap,
+                p.email_aktif,
+                u.user_id
+            FROM activation_tokens at
+            INNER JOIN pelamar p ON at.pelamar_id = p.pelamar_id
+            INNER JOIN users u ON p.user_id = u.user_id
+            WHERE p.email_aktif = :email
+              AND at.is_used = 0
+              AND at.expired_at > NOW()
+            ORDER BY at.created_at DESC
             LIMIT 1
         ");
-        $stmt->execute(['email' => $email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt->execute(['email' => $url_email]);
+        $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($user && $user['password_changed'] == 0 && !empty($user['token'])) {
-            // Pegawai baru - ada token
-            echo json_encode([
-                'success' => true,
-                'is_pegawai_baru' => true,
-                'token' => $user['token']
-            ]);
+        if ($tokenData) {
+            $data_loaded = true;
+            $auto_email = $tokenData['email_aktif'];
+            $auto_token = $tokenData['token'];
+            $nama_pegawai = $tokenData['nama_lengkap'];
+            $role_pegawai = $tokenData['role'];
         } else {
-            // Pegawai aktif - pakai password
-            echo json_encode([
-                'success' => true,
-                'is_pegawai_baru' => false
-            ]);
+            $error = "Token tidak ditemukan, sudah digunakan, atau sudah kadaluarsa.";
         }
     } catch (Exception $e) {
-        echo json_encode(['success' => false]);
+        $error = "Terjadi kesalahan: " . $e->getMessage();
     }
-    exit;
 }
 
-// PROSES LOGIN
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['check_email'])) {
+// ========================================
+// PROSES AKTIVASI - WITH AUTO INSERT TO PEGAWAI TABLE
+// ========================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
     $input_email = trim($_POST['email'] ?? '');
-    $input = trim($_POST['password'] ?? ''); // bisa password / token
+    $input_token = trim($_POST['token'] ?? '');
 
-    if ($input_email === '') {
-        $error = "Email harus diisi!";
-    } else {
-        $stmt = $conn->prepare("
-            SELECT u.*, p.pegawai_id, p.nama_lengkap
-            FROM users u
-            LEFT JOIN pegawai p ON u.user_id = p.user_id
-            WHERE u.email = ?
-              AND u.is_active = 1
+    try {
+        // ========================================
+        // GET DATA TOKEN & PELAMAR
+        // ========================================
+        $stmtToken = $conn->prepare("
+            SELECT 
+                at.*,
+                p.pelamar_id,
+                p.nama_lengkap,
+                p.tempat_lahir,
+                p.tanggal_lahir,
+                p.email_aktif,
+                p.no_wa,
+                p.alamat_domisili,
+                p.alamat_ktp,
+                u.user_id,
+                u.email as email_login
+            FROM activation_tokens at
+            INNER JOIN pelamar p ON at.pelamar_id = p.pelamar_id
+            INNER JOIN users u ON p.user_id = u.user_id
+            WHERE p.email_aktif = :email
+              AND at.token = :token
+              AND at.is_used = 0
+              AND at.expired_at > NOW()
             LIMIT 1
         ");
-        $stmt->execute([$input_email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$user) {
-            $error = "Email tidak ditemukan atau akun tidak aktif!";
-        }
-        // ================= ADMIN =================
-        elseif ($user['user_type'] === 'admin') {
-            if (!password_verify($input, $user['password'])) {
-                $error = "Password salah!";
-            } else {
-                $_SESSION['user_id']   = $user['user_id'];
-                $_SESSION['email']     = $user['email'];
-                $_SESSION['user_type'] = 'admin';
-
-                header('Location: ../users/admin/dashboard.php');
-                exit;
-            }
-        }
-        // ================= PEGAWAI / DOSEN =================
-        elseif (in_array($user['user_type'], ['pegawai', 'dosen'])) {
+        $stmtToken->execute([
+            'email' => $input_email,
+            'token' => $input_token
+        ]);
+        $tokenData = $stmtToken->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$tokenData) {
+            $error = "Token tidak valid, sudah digunakan, atau sudah kadaluarsa!";
+        } else {
+            $conn->beginTransaction();
             
-            // ===== PEGAWAI BARU (belum ganti password, ada token) =====
-            if ($user['password_changed'] == 0 && !empty($user['token'])) {
+            try {
+                // ========================================
+                // 1. UPDATE TOKEN → HANGUS
+                // ========================================
+                $stmtUpdateToken = $conn->prepare("
+                    UPDATE activation_tokens 
+                    SET is_used = 1, 
+                        created_at = NOW()
+                    WHERE token = :token
+                ");
+                $stmtUpdateToken->execute(['token' => $input_token]);
                 
-                if ($input === '') {
-                    $error = "Token login wajib diisi!";
+                // ========================================
+                // 2. AMBIL JENIS_POSISI DARI LOWONGAN YANG DILAMAR
+                // ========================================
+                $stmtLowongan = $conn->prepare("
+                    SELECT 
+                        lp.jenis_posisi, 
+                        lp.posisi,
+                        lp.lowongan_id
+                    FROM lamaran l
+                    INNER JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
+                    WHERE l.pelamar_id = :pelamar_id
+                      AND l.status_lamaran = 'diterima'
+                    ORDER BY l.tanggal_update DESC
+                    LIMIT 1
+                ");
+                $stmtLowongan->execute(['pelamar_id' => $tokenData['pelamar_id']]);
+                $lowonganData = $stmtLowongan->fetch(PDO::FETCH_ASSOC);
+                
+                // ========================================
+                // 3. TENTUKAN JENIS_PEGAWAI DAN USER_TYPE
+                // PRIORITAS:
+                // 1. jenis_posisi dari lowongan (PRIORITAS UTAMA)
+                // 2. NIDN + Prodi (fallback)
+                // 3. Deteksi dari nama posisi (fallback terakhir)
+                // ========================================
+                $jenis_pegawai = 'staff'; // Default
+                $user_type = 'pegawai';   // Default
+                $is_dosen_nest = 0;
+                
+                if ($lowonganData && !empty($lowonganData['jenis_posisi'])) {
+                    // GUNAKAN JENIS_POSISI DARI LOWONGAN
+                    $jenis_pegawai = strtolower($lowonganData['jenis_posisi']);
+                    $user_type = ($jenis_pegawai === 'dosen') ? 'dosen' : 'pegawai';
+                    
+                } elseif ($tokenData['nidn'] && $tokenData['prodi']) {
+                    // FALLBACK: Jika ada NIDN & Prodi
+                    $jenis_pegawai = 'dosen';
+                    $user_type = 'dosen';
+                    
+                } elseif ($lowonganData && stripos($lowonganData['posisi'], 'dosen') !== false) {
+                    // FALLBACK: Deteksi dari nama posisi
+                    $jenis_pegawai = 'dosen';
+                    $user_type = 'dosen';
                 }
-                elseif ($input !== $user['token']) {
-                    $error = "Token login salah! Token otomatis terisi dari database.";
+                
+                // Cek apakah email institusi (untuk is_dosen_nest)
+                $email_check = $tokenData['email_aktif'];
+                if (
+                    $jenis_pegawai === 'dosen' && 
+                    (strpos($email_check, '@polnest.ac.id') !== false || 
+                     strpos($email_check, '@nest.ac.id') !== false)
+                ) {
+                    $is_dosen_nest = 1;
                 }
-                else {
-                    // Token valid - redirect to change password page
-                    $_SESSION['user_id']   = $user['user_id'];
-                    $_SESSION['pegawai_id'] = $user['pegawai_id'];
-                    $_SESSION['email']     = $user['email'];
-                    $_SESSION['user_type'] = $user['user_type'];
-                    $_SESSION['nama_lengkap'] = $user['nama_lengkap'];
-                    $_SESSION['first_login'] = true;
+                
+                // ========================================
+                // 4. UPDATE USER → SET USER_TYPE
+                // ========================================
+                $stmtUpdateUser = $conn->prepare("
+                    UPDATE users 
+                    SET user_type = :user_type,
+                        token = NULL,
+                        password_changed = 0,
+                        updated_at = NOW()
+                    WHERE user_id = :user_id
+                ");
+                $stmtUpdateUser->execute([
+                    'user_type' => $user_type,
+                    'user_id' => $tokenData['user_id']
+                ]);
+                
+                // ========================================
+                // 5. UPDATE PELAMAR → IS_PEGAWAI = 1
+                // ========================================
+                $stmtUpdatePelamar = $conn->prepare("
+                    UPDATE pelamar 
+                    SET is_pegawai = 1
+                    WHERE pelamar_id = :pelamar_id
+                ");
+                $stmtUpdatePelamar->execute(['pelamar_id' => $tokenData['pelamar_id']]);
+                
+                // ========================================
+                // 6. INSERT KE TABEL PEGAWAI
+                // ========================================
+                // Cek dulu apakah sudah ada di tabel pegawai
+                $stmtCheckPegawai = $conn->prepare("
+                    SELECT pegawai_id FROM pegawai WHERE user_id = :user_id
+                ");
+                $stmtCheckPegawai->execute(['user_id' => $tokenData['user_id']]);
+                
+                // Jika belum ada, INSERT data baru
+                if ($stmtCheckPegawai->rowCount() === 0) {
+                    $stmtInsertPegawai = $conn->prepare("
+                        INSERT INTO pegawai (
+                            user_id,
+                            nama_lengkap,
+                            tempat_lahir,
+                            tanggal_lahir,
+                            email,
+                            no_telepon,
+                            alamat_domisili,
+                            alamat_ktp,
+                            nidn,
+                            prodi,
+                            nip,
+                            jenis_pegawai,
+                            is_dosen_nest
+                        ) VALUES (
+                            :user_id,
+                            :nama_lengkap,
+                            :tempat_lahir,
+                            :tanggal_lahir,
+                            :email,
+                            :no_telepon,
+                            :alamat_domisili,
+                            :alamat_ktp,
+                            :nidn,
+                            :prodi,
+                            :nip,
+                            :jenis_pegawai,
+                            :is_dosen_nest
+                        )
+                    ");
+                    
+                    $stmtInsertPegawai->execute([
+                        'user_id' => $tokenData['user_id'],
+                        'nama_lengkap' => $tokenData['nama_lengkap'],
+                        'tempat_lahir' => $tokenData['tempat_lahir'],
+                        'tanggal_lahir' => $tokenData['tanggal_lahir'],
+                        'email' => $tokenData['email_aktif'],
+                        'no_telepon' => $tokenData['no_wa'],
+                        'alamat_domisili' => $tokenData['alamat_domisili'],
+                        'alamat_ktp' => $tokenData['alamat_ktp'],
+                        'nidn' => $tokenData['nidn'],
+                        'prodi' => $tokenData['prodi'],
+                        'nip' => $tokenData['nip'],
+                        'jenis_pegawai' => $jenis_pegawai,
+                        'is_dosen_nest' => $is_dosen_nest
+                    ]);
+                    
+                    // Ambil pegawai_id yang baru dibuat
+                    $pegawai_id = $conn->lastInsertId();
+                } else {
+                    // Jika sudah ada, ambil pegawai_id yang existing
+                    $existingPegawai = $stmtCheckPegawai->fetch(PDO::FETCH_ASSOC);
+                    $pegawai_id = $existingPegawai['pegawai_id'];
+                }
+                
+                // ========================================
+                // 7. COMMIT TRANSACTION
+                // ========================================
+                $conn->commit();
+                
+                // ========================================
+                // 8. SET SESSION
+                // ========================================
+                $_SESSION['user_id']      = $tokenData['user_id'];
+                $_SESSION['pegawai_id']   = $pegawai_id;
+                $_SESSION['email']        = $tokenData['email_login'];
+                $_SESSION['user_type']    = $user_type;
+                $_SESSION['nama_lengkap'] = $tokenData['nama_lengkap'];
+                $_SESSION['first_login']  = true;
 
-                    header('Location: ../users/pegawai/keamanan.php?first_login=1');
-                    exit;
-                }
-            }
-            
-            // ===== PEGAWAI AKTIF (sudah pernah login & ganti password) =====
-            else {
-                if ($input === '') {
-                    $error = "Password harus diisi!";
-                }
-                elseif (!password_verify($input, $user['password'])) {
-                    $error = "Password salah!";
-                }
-                else {
-                    $_SESSION['user_id']    = $user['user_id'];
-                    $_SESSION['pegawai_id'] = $user['pegawai_id'];
-                    $_SESSION['email']      = $user['email'];
-                    $_SESSION['user_type']  = $user['user_type'];
-                    $_SESSION['nama_lengkap'] = $user['nama_lengkap'];
-
-                    // Set remember me cookie if checked
-                    if (isset($_POST['remember'])) {
-                        setcookie('remember_email', $input_email, time() + (86400 * 30), '/');
-                    } else {
-                        setcookie('remember_email', '', time() - 3600, '/');
-                    }
-
-                    header('Location: ../users/pegawai/administrasi.php');
-                    exit;
-                }
+                // ========================================
+                // 9. REDIRECT KE KEAMANAN AKUN
+                // ========================================
+                header('Location: ../users/pegawai/keamanan_akun.php?first_login=1');
+                exit;
+                
+            } catch (Exception $e) {
+                $conn->rollBack();
+                $error = "Gagal aktivasi akun: " . $e->getMessage();
             }
         }
-        else {
-            $error = "Anda tidak memiliki akses ke portal pegawai.";
-        }
+    } catch (Exception $e) {
+        $error = "Terjadi kesalahan: " . $e->getMessage();
     }
 }
 
-$page_title = 'Login Pegawai - Politeknik NEST';
+$page_title = 'Aktivasi Akun Pegawai';
 include '../users/partials/navbar.php';
 ?>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 <style>
     * {
@@ -184,118 +330,113 @@ include '../users/partials/navbar.php';
 
     body {
         font-family: 'Poppins', sans-serif;
+        overflow-x: hidden;
     }
 
-    .login-container {
+    .login-wrapper {
         display: grid;
         grid-template-columns: 1fr 1fr;
         min-height: calc(100vh - 80px);
-        background: #f5f5f5;
     }
 
-    .login-image {
-        background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    /* LEFT SIDE - IMAGE */
+    .left-side {
+        background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)),
             url('<?php echo BASE_URL; ?>users/assets/nest.jpg') center/cover;
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        padding: 60px;
     }
 
-    .login-form-container {
-        background: white;
+    .left-side::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 300px;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+    }
+
+    /* RIGHT SIDE - FORM */
+    .right-side {
+        background: #f8f9fa;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 60px 20px;
+        padding: 60px 40px;
     }
 
-    .login-form-wrapper {
+    .form-container {
         width: 100%;
-        max-width: 450px;
+        max-width: 480px;
     }
 
-    .form-logo {
+    .form-header {
         text-align: center;
         margin-bottom: 40px;
     }
 
-    .form-logo img {
-        width: 80px;
-        height: 80px;
-        margin-bottom: 20px;
-    }
-
-    .form-title {
-        font-size: 32px;
-        color: #1e3a5f;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
-
-    .form-subtitle {
-        color: #546e7a;
-        font-size: 14px;
-        margin-bottom: 40px;
-        line-height: 1.6;
-    }
-
-    .info-box {
-        background: #e3f2fd;
-        border-left: 4px solid #2196f3;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 25px;
-    }
-
-    .info-box h4 {
-        color: #1565c0;
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 8px;
+    .logo-circle {
+        width: 100px;
+        height: 100px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
+        margin: 0 auto 30px;
     }
 
-    .info-box p {
-        color: #1565c0;
-        font-size: 13px;
+    .logo-circle img {
+        width: 60px;
+        height: 60px;
+    }
+
+    .form-header h1 {
+        font-size: 36px;
+        font-weight: 800;
+        color: #1e3a5f;
+        margin-bottom: 15px;
+    }
+
+    .form-header p {
+        font-size: 15px;
+        color: #546e7a;
         line-height: 1.6;
-        margin: 0;
     }
 
-    .info-box.success {
-        background: #e8f5e9;
-        border-left-color: #10b981;
-    }
-
-    .info-box.success h4,
-    .info-box.success p {
-        color: #2e7d32;
-    }
-
+    /* FORM GROUPS */
     .form-group {
-        margin-bottom: 20px;
+        margin-bottom: 24px;
     }
 
     .form-label {
         display: block;
-        color: #1e3a5f;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 600;
-        margin-bottom: 8px;
+        color: #1e3a5f;
+        margin-bottom: 10px;
+    }
+
+    .input-wrapper {
+        position: relative;
     }
 
     .form-control {
         width: 100%;
-        padding: 12px 15px;
+        padding: 16px 18px;
         border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        font-size: 14px;
+        border-radius: 12px;
+        font-size: 15px;
         font-family: 'Poppins', sans-serif;
-        transition: border-color 0.3s;
+        transition: all 0.3s;
+        background: white;
     }
 
     .form-control:focus {
         outline: none;
-        border-color: #0d47a1;
+        border-color: #1e3a5f;
+        box-shadow: 0 0 0 4px rgba(30, 58, 95, 0.1);
     }
 
     .form-control:read-only {
@@ -305,397 +446,307 @@ include '../users/partials/navbar.php';
         cursor: default;
     }
 
-    .token-input {
+    .form-control::placeholder {
+        color: #bdbdbd;
+    }
+
+    .token-field {
         font-family: 'Courier New', monospace;
-        font-size: 18px;
-        font-weight: 600;
-        letter-spacing: 2px;
-        text-align: center;
-        text-transform: uppercase;
-    }
-
-    .error-message {
-        background: #ffebee;
-        color: #c62828;
-        padding: 12px 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        font-size: 14px;
-        border-left: 4px solid #c62828;
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .error-message i {
-        margin-top: 2px;
-    }
-
-    .success-message {
-        background: #e8f5e9;
-        color: #2e7d32;
-        padding: 12px 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-        font-size: 14px;
-        border-left: 4px solid #2e7d32;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .form-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .remember-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .remember-group input {
-        width: 18px;
-        height: 18px;
-        cursor: pointer;
-    }
-
-    .remember-group label {
-        color: #0d47a1;
-        font-size: 14px;
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .forgot-password-link {
-        color: #0d47a1;
-        font-size: 14px;
-        font-weight: 600;
-        text-decoration: none;
-        transition: color 0.3s;
-    }
-
-    .forgot-password-link:hover {
-        color: #1976d2;
-        text-decoration: underline;
-    }
-
-    .btn-submit {
-        width: 100%;
-        padding: 14px;
-        background: #0d47a1;
-        color: white;
-        border: none;
-        border-radius: 8px;
         font-size: 16px;
         font-weight: 600;
+        letter-spacing: 1px;
+        text-align: center;
+    }
+
+    .input-icon {
+        position: absolute;
+        right: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #9e9e9e;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    /* BUTTON */
+    .btn-submit {
+        width: 100%;
+        padding: 18px;
+        background: #0056d2;
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 17px;
+        font-weight: 700;
         cursor: pointer;
         font-family: 'Poppins', sans-serif;
         transition: all 0.3s;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
+        margin-top: 10px;
+        box-shadow: 0 4px 15px rgba(0, 86, 210, 0.3);
     }
 
     .btn-submit:hover {
-        background: #0b3d91;
+        background: #003da6;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(13, 71, 161, 0.3);
+        box-shadow: 0 6px 20px rgba(0, 86, 210, 0.4);
     }
 
-    .btn-submit.activation {
-        background: linear-gradient(135deg, #10b981, #34d399);
+    .btn-submit:active {
+        transform: translateY(0);
     }
 
-    .btn-submit.activation:hover {
-        background: linear-gradient(135deg, #059669, #10b981);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    /* ERROR MESSAGE */
+    .error-alert {
+        background: #ffebee;
+        border-left: 4px solid #f44336;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
     }
 
-    .login-links {
-        text-align: center;
-        margin-top: 20px;
-    }
-
-    .login-links a {
-        color: #0d47a1;
-        font-weight: 600;
-        text-decoration: none;
+    .error-alert p {
+        color: #c62828;
         font-size: 14px;
-        transition: color 0.3s;
-        display: inline-flex;
+        margin: 0;
+    }
+
+    /* SUCCESS INFO */
+    .success-info {
+        background: #e8f5e9;
+        border-left: 4px solid #4caf50;
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 24px;
+    }
+
+    .success-info p {
+        color: #2e7d32;
+        font-size: 14px;
+        margin: 0;
+        display: flex;
         align-items: center;
-        gap: 6px;
-        margin: 5px 0;
+        gap: 8px;
     }
 
-    .login-links a:hover {
-        color: #1976d2;
-        text-decoration: underline;
+    /* FOOTER */
+    .footer-section {
+        background: #0891b2;
+        padding: 50px 40px 30px;
+        color: white;
     }
 
-    .divider {
+    .footer-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 40px;
+        margin-bottom: 40px;
+    }
+
+    .footer-logo {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .footer-logo img {
+        width: 50px;
+        height: 50px;
+        background: white;
+        padding: 8px;
+        border-radius: 50%;
+    }
+
+    .footer-logo h3 {
+        font-size: 20px;
+        font-weight: 700;
+    }
+
+    .footer-column h4 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .footer-column p {
+        font-size: 14px;
+        line-height: 1.8;
+        margin: 8px 0;
+    }
+
+    .social-icons {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .social-icon {
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+
+    .social-icon:hover {
+        background: white;
+        color: #0891b2;
+    }
+
+    .footer-bottom {
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        padding-top: 20px;
         text-align: center;
-        margin: 20px 0;
-        color: #9e9e9e;
         font-size: 13px;
-        position: relative;
-    }
-
-    .divider::before,
-    .divider::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        width: 45%;
-        height: 1px;
-        background: #e0e0e0;
-    }
-
-    .divider::before {
-        left: 0;
-    }
-
-    .divider::after {
-        right: 0;
-    }
-
-    /* HIDDEN STATE */
-    .hidden {
-        display: none !important;
     }
 
     @media (max-width: 968px) {
-        .login-container {
+        .login-wrapper {
             grid-template-columns: 1fr;
         }
 
-        .login-image {
+        .left-side {
             display: none;
         }
-        
-        .form-footer {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 12px;
+
+        .footer-content {
+            grid-template-columns: 1fr;
+            gap: 30px;
         }
     }
 </style>
 </head>
 
 <body>
-    <div class="login-container">
-        <div class="login-image"></div>
-        <div class="login-form-container">
-            <div class="login-form-wrapper">
-                <div class="form-logo">
-                    <img src="<?php echo BASE_URL; ?>users/assets/logo.png" alt="Logo">
-                    <h1 class="form-title">Portal Pegawai</h1>
-                    <p class="form-subtitle">Sistem Manajemen Sumber Daya Manusia<br>Politeknik NEST</p>
-                </div>
+    <div class="login-wrapper">
+        <!-- LEFT SIDE - IMAGE -->
+        <div class="left-side">
+        </div>
 
-                <!-- INFO BOX - DYNAMIC -->
-                <div class="info-box" id="infoNormal">
-                    <h4>
-                        <i class="bi bi-info-circle-fill"></i>
-                        Informasi Login
-                    </h4>
-                    <p>
-                        Masukkan email Anda untuk melanjutkan. System akan otomatis mendeteksi apakah Anda pegawai baru atau pegawai aktif.
-                    </p>
-                </div>
-
-                <div class="info-box success hidden" id="infoPegawaiBaru">
-                    <h4>
-                        <i class="bi bi-shield-check"></i>
-                        Pegawai Baru Terdeteksi
-                    </h4>
-                    <p>
-                        Selamat! Anda adalah pegawai baru. Token aktivasi telah otomatis terisi. Klik tombol <strong>"Aktivasi Akun"</strong> untuk melanjutkan ke pengaturan password.
-                    </p>
+        <!-- RIGHT SIDE - FORM -->
+        <div class="right-side">
+            <div class="form-container">
+                <div class="form-header">
+                    <div class="logo-circle">
+                        <img src="<?php echo BASE_URL; ?>users/assets/logo.png" alt="Logo">
+                    </div>
+                    <h1>Selamat Datang</h1>
+                    <p>Silakan Aktivasi Akun Anda untuk Bergabung<br>Bersama Politeknik NEST</p>
                 </div>
 
                 <?php if ($error): ?>
-                    <div class="error-message">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span><?= htmlspecialchars($error) ?></span>
+                    <div class="error-alert">
+                        <p><i class="bi bi-exclamation-triangle-fill"></i> <?= htmlspecialchars($error) ?></p>
                     </div>
                 <?php endif; ?>
 
-                <?php if (isset($_GET['logout'])): ?>
-                    <div class="success-message">
-                        <i class="bi bi-check-circle-fill"></i>
-                        <span>Anda telah berhasil logout</span>
+                <?php if ($data_loaded): ?>
+                    <div class="success-info">
+                        <p>
+                            <i class="bi bi-check-circle-fill"></i>
+                            <strong>Token valid!</strong> Klik "Aktivasi Akun" untuk melanjutkan.
+                        </p>
                     </div>
-                <?php endif; ?>
-
-                <?php if (isset($_GET['activated'])): ?>
-                    <div class="success-message">
-                        <i class="bi bi-check-circle-fill"></i>
-                        <span>Akun berhasil diaktivasi! Silakan login dengan password baru Anda.</span>
-                    </div>
-                <?php endif; ?>
-
-                <form method="POST" action="" id="loginForm">
-                    <div class="form-group">
-                        <label class="form-label">
-                            <i class="bi bi-envelope-fill"></i> Email
-                        </label>
-                        <input type="email" 
-                               class="form-control" 
-                               name="email" 
-                               id="emailInput"
-                               placeholder="Masukkan email Anda"
-                               value="<?= isset($_COOKIE['remember_email']) ? htmlspecialchars($_COOKIE['remember_email']) : '' ?>"
-                               required>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">
-                            <i class="bi bi-shield-lock-fill"></i> 
-                            <span id="passwordLabel">Password</span>
-                        </label>
-                        <input type="password" 
-                               class="form-control" 
-                               name="password" 
-                               id="passwordInput"
-                               placeholder="Masukkan password Anda" 
-                               required>
-                        <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;" id="passwordHint">
-                            <i class="bi bi-info-circle"></i> Masukkan password Anda
-                        </small>
-                    </div>
-
-                    <!-- REMEMBER & FORGOT PASSWORD - HIDE FOR PEGAWAI BARU -->
-                    <div class="form-footer" id="formFooter">
-                        <div class="remember-group">
-                            <input type="checkbox" id="remember" name="remember">
-                            <label for="remember">Ingat Saya</label>
+                    
+                    <form method="POST" action="">
+                        <div class="form-group">
+                            <label class="form-label">Alamat Email</label>
+                            <div class="input-wrapper">
+                                <input type="email" 
+                                       class="form-control" 
+                                       name="email" 
+                                       value="<?= htmlspecialchars($auto_email) ?>"
+                                       placeholder="Email terisi otomatis"
+                                       readonly
+                                       required>
+                            </div>
                         </div>
-                        <a href="lupa-password.php" class="forgot-password-link">
-                            <i class="bi bi-key-fill"></i> Lupa Password?
-                        </a>
+
+                        <div class="form-group">
+                            <label class="form-label">Token Aktivasi</label>
+                            <div class="input-wrapper">
+                                <input type="text" 
+                                       class="form-control token-field" 
+                                       name="token" 
+                                       value="<?= htmlspecialchars($auto_token) ?>"
+                                       readonly
+                                       required>
+                                <i class="bi bi-eye input-icon" id="toggleToken"></i>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <i class="bi bi-check-circle-fill"></i> Aktivasi Akun
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <div class="error-alert">
+                        <p><i class="bi bi-exclamation-triangle-fill"></i> Link aktivasi tidak valid. Silakan gunakan link yang diberikan oleh admin.</p>
                     </div>
-
-                    <button type="submit" class="btn-submit" id="btnSubmit">
-                        <i class="bi bi-box-arrow-in-right"></i> 
-                        <span id="btnText">Masuk</span>
-                    </button>
-                </form>
-
-                <div class="divider">atau</div>
-
-                <div class="login-links">
-                    <a href="login_pelamar.php">
-                        <i class="bi bi-person-fill"></i> Login sebagai Pelamar
-                    </a>
-                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
+    <!-- FOOTER -->
+    <div class="footer-section">
+        <div class="footer-content">
+            <div class="footer-column">
+                <div class="footer-logo">
+                    <img src="<?php echo BASE_URL; ?>users/assets/logo.png" alt="Logo">
+                    <h3>POLITEKNIK<br>NEST</h3>
+                </div>
+            </div>
+            <div class="footer-column">
+                <h4>Hubungi Kami</h4>
+                <p><i class="bi bi-telephone-fill"></i> +628112951003</p>
+                <p><i class="bi bi-whatsapp"></i> +628112951003</p>
+                <p><i class="bi bi-envelope-fill"></i> info@politekniknest.ac.id</p>
+            </div>
+            <div class="footer-column">
+                <h4>Alamat Kantor</h4>
+                <p>Jl. Telukan - Cuplik, RT 03 RW 10,<br>Parangtoro, Kec.Grogol,Kab.Sukoharjo,<br>Jawa Tengah</p>
+            </div>
+        </div>
+
+        <div class="social-icons">
+            <a href="#" class="social-icon"><i class="bi bi-instagram"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-facebook"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-twitter-x"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-tiktok"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-linkedin"></i></a>
+            <a href="#" class="social-icon"><i class="bi bi-youtube"></i></a>
+        </div>
+
+        <div class="footer-bottom">
+            <p>Copyright © 2026 Politeknik Nest</p>
+        </div>
+    </div>
+
     <script>
-        const emailInput = document.getElementById('emailInput');
-        const passwordInput = document.getElementById('passwordInput');
-        const passwordLabel = document.getElementById('passwordLabel');
-        const passwordHint = document.getElementById('passwordHint');
-        const formFooter = document.getElementById('formFooter');
-        const btnSubmit = document.getElementById('btnSubmit');
-        const btnText = document.getElementById('btnText');
-        const infoNormal = document.getElementById('infoNormal');
-        const infoPegawaiBaru = document.getElementById('infoPegawaiBaru');
+        // Toggle token visibility
+        const toggleToken = document.getElementById('toggleToken');
+        const tokenInput = document.querySelector('.token-field');
         
-        let isPegawaiBaru = false;
-        let currentToken = '';
-
-        // AUTO CHECK EMAIL SAAT BLUR
-        emailInput.addEventListener('blur', function() {
-            const email = this.value.trim();
-            
-            if (email && email.includes('@')) {
-                checkEmail(email);
-            }
-        });
-
-        function checkEmail(email) {
-            // AJAX request ke server
-            fetch('', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'check_email=1&email=' + encodeURIComponent(email)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    if (data.is_pegawai_baru) {
-                        // PEGAWAI BARU - SHOW TOKEN
-                        showPegawaiBaru(data.token);
-                    } else {
-                        // PEGAWAI AKTIF - NORMAL
-                        showPegawaiAktif();
-                    }
+        if (toggleToken && tokenInput) {
+            toggleToken.addEventListener('click', function() {
+                if (tokenInput.type === 'text') {
+                    tokenInput.type = 'password';
+                    this.classList.remove('bi-eye');
+                    this.classList.add('bi-eye-slash');
                 } else {
-                    showPegawaiAktif();
+                    tokenInput.type = 'text';
+                    this.classList.remove('bi-eye-slash');
+                    this.classList.add('bi-eye');
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showPegawaiAktif();
             });
-        }
-
-        function showPegawaiBaru(token) {
-            isPegawaiBaru = true;
-            currentToken = token;
-            
-            // Update UI
-            infoNormal.classList.add('hidden');
-            infoPegawaiBaru.classList.remove('hidden');
-            
-            passwordLabel.textContent = 'Token Aktivasi';
-            passwordInput.type = 'text';
-            passwordInput.value = token;
-            passwordInput.readOnly = true;
-            passwordInput.classList.add('token-input');
-            
-            passwordHint.innerHTML = '<i class="bi bi-check-circle-fill" style="color: #10b981;"></i> Token otomatis terisi dari database';
-            passwordHint.style.color = '#10b981';
-            
-            formFooter.classList.add('hidden');
-            
-            btnSubmit.classList.add('activation');
-            btnSubmit.querySelector('i').className = 'bi bi-unlock-fill';
-            btnText.textContent = 'Aktivasi Akun';
-        }
-
-        function showPegawaiAktif() {
-            isPegawaiBaru = false;
-            currentToken = '';
-            
-            // Reset UI
-            infoNormal.classList.remove('hidden');
-            infoPegawaiBaru.classList.add('hidden');
-            
-            passwordLabel.textContent = 'Password';
-            passwordInput.type = 'password';
-            passwordInput.value = '';
-            passwordInput.readOnly = false;
-            passwordInput.classList.remove('token-input');
-            
-            passwordHint.innerHTML = '<i class="bi bi-info-circle"></i> Masukkan password Anda';
-            passwordHint.style.color = '#666';
-            
-            formFooter.classList.remove('hidden');
-            
-            btnSubmit.classList.remove('activation');
-            btnSubmit.querySelector('i').className = 'bi bi-box-arrow-in-right';
-            btnText.textContent = 'Masuk';
         }
     </script>
 </body>

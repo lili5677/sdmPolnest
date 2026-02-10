@@ -1,182 +1,247 @@
 <?php
 /**
- * GENERATE TOKEN PEGAWAI (TANPA EMAIL)
- * File: manajemenrec/generate_token_pegawai.php
+ * GENERATE TOKEN PEGAWAI - FINAL FIXED VERSION
+ * File: admin/generate_token_pegawai.php
  * 
- * KEGUNAAN:
- * - Generate token login untuk pegawai baru
- * - Create user account untuk pegawai
- * - TIDAK kirim email (simpel)
- * - Token ditampilkan langsung di modal untuk diberikan ke pegawai
+ * FIXED: Auto-detect role dari jenis_posisi lowongan yang dilamar
  * 
- * FLOW:
- * 1. Pelamar diterima (status = diterima)
- * 2. HRD klik "Generate Token Pegawai"
- * 3. System generate token 8 digit
- * 4. Buat akun users & pegawai
- * 5. Token & link login ditampilkan di modal
- * 6. HRD kasih tau pegawai (WA/email manual/print)
- * 7. Pegawai buka link → email & token sudah terisi → login → ganti password
+ * UPDATE LOG:
+ * - Ambil jenis_posisi dari tabel lowongan_pekerjaan
+ * - Role otomatis sesuai jenis_posisi (dosen/staff/tendik)
+ * - Fallback ke deteksi nama posisi jika jenis_posisi NULL
  */
+
+header('Content-Type: application/json');
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-require_once '../config/database.php';
+require_once '../../config/database.php';
 
-// Cek auth
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+// ========================================
+// CEK LOGIN ADMIN
+// ========================================
+if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized - Hanya admin yang bisa generate token'
+    ]);
     exit;
 }
 
-header('Content-Type: application/json');
+// ========================================
+// VALIDASI REQUEST METHOD
+// ========================================
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Method not allowed - Gunakan POST'
+    ]);
+    exit;
+}
+
+// ========================================
+// VALIDASI LAMARAN ID
+// ========================================
+$lamaran_id = isset($_POST['lamaran_id']) ? intval($_POST['lamaran_id']) : 0;
+
+if ($lamaran_id <= 0) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'ID lamaran tidak valid'
+    ]);
+    exit;
+}
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        throw new Exception('Invalid request method');
-    }
+    // ========================================
+    // GET DATA LAMARAN + JENIS_POSISI LOWONGAN
+    // ========================================
+    $stmt = $conn->prepare("
+        SELECT 
+            l.lamaran_id,
+            l.pelamar_id,
+            l.lowongan_id,
+            l.status_lamaran,
+            p.nama_lengkap,
+            p.email_aktif,
+            p.user_id,
+            lp.posisi,
+            lp.jenis_posisi,
+            lp.lowongan_id
+        FROM lamaran l
+        INNER JOIN pelamar p ON l.pelamar_id = p.pelamar_id
+        INNER JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
+        WHERE l.lamaran_id = :lamaran_id
+          AND l.status_lamaran = 'diterima'
+        LIMIT 1
+    ");
     
-    $lamaran_id = $_POST['lamaran_id'] ?? null;
-    $user_type = $_POST['user_type'] ?? 'pegawai'; // 'pegawai' atau 'dosen'
-    
-    if (empty($lamaran_id)) {
-        throw new Exception('Lamaran ID tidak valid');
-    }
-    
-    // GET DATA PELAMAR
-    $query = "SELECT 
-                l.lamaran_id,
-                l.pelamar_id,
-                l.status_lamaran,
-                p.nama_lengkap,
-                p.email_aktif,
-                p.tempat_lahir,
-                p.tanggal_lahir,
-                p.jenis_kelamin,
-                p.nomor_ktp,
-                p.alamat,
-                p.nomor_telepon,
-                lp.posisi,
-                lp.lowongan_id
-              FROM lamaran l
-              INNER JOIN pelamar p ON l.pelamar_id = p.pelamar_id
-              INNER JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
-              WHERE l.lamaran_id = :lamaran_id 
-              AND l.status_lamaran = 'diterima'
-              LIMIT 1";
-    
-    $stmt = $conn->prepare($query);
     $stmt->execute(['lamaran_id' => $lamaran_id]);
-    $lamaran = $stmt->fetch(PDO::FETCH_ASSOC);
+    $data = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$lamaran) {
-        throw new Exception('Data lamaran tidak ditemukan atau status belum diterima');
+    if (!$data) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Data lamaran tidak ditemukan atau status belum "diterima"',
+            'hint' => 'Pastikan pelamar sudah di-set statusnya ke "diterima" terlebih dahulu'
+        ]);
+        exit;
     }
     
-    // CEK APAKAH SUDAH ADA USER ACCOUNT
-    $checkUser = "SELECT user_id FROM users WHERE email = :email";
-    $stmt = $conn->prepare($checkUser);
-    $stmt->execute(['email' => $lamaran['email_aktif']]);
-    $existingUser = $stmt->fetch(PDO::FETCH_ASSOC);
+    // ========================================
+    // CEK APAKAH SUDAH PUNYA TOKEN
+    // ========================================
+    $stmtCheckToken = $conn->prepare("
+        SELECT token, expired_at, is_used, role
+        FROM activation_tokens
+        WHERE pelamar_id = :pelamar_id
+        ORDER BY created_at DESC
+        LIMIT 1
+    ");
+    $stmtCheckToken->execute(['pelamar_id' => $data['pelamar_id']]);
+    $existingToken = $stmtCheckToken->fetch(PDO::FETCH_ASSOC);
     
-    if ($existingUser) {
-        throw new Exception('User account sudah ada untuk email ini');
+    // Jika sudah ada token yang belum dipakai dan masih valid
+    if ($existingToken && $existingToken['is_used'] == 0) {
+        $expiredDate = new DateTime($existingToken['expired_at']);
+        $now = new DateTime();
+        
+        if ($expiredDate > $now) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Token sudah ada dan masih berlaku',
+                'data' => [
+                    'token' => $existingToken['token'],
+                    'role' => $existingToken['role'],
+                    'expired_at' => $existingToken['expired_at'],
+                    'is_new' => false,
+                    'note' => 'Token yang sudah dibuat sebelumnya masih aktif'
+                ]
+            ]);
+            exit;
+        }
     }
     
-    $conn->beginTransaction();
+    // ========================================
+    // TENTUKAN ROLE BERDASARKAN JENIS_POSISI LOWONGAN
+    // PRIORITAS:
+    // 1. Jenis_posisi dari lowongan (PRIORITAS UTAMA)
+    // 2. Fallback: deteksi dari nama posisi
+    // ========================================
+    $role = 'pegawai'; // Default
+    $jenis_posisi = $data['jenis_posisi'] ?? null;
     
-    // GENERATE TOKEN 8 DIGIT (UPPERCASE)
-    $token = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
+    if (!empty($jenis_posisi)) {
+        // GUNAKAN JENIS_POSISI DARI LOWONGAN
+        $jenis_posisi_lower = strtolower($jenis_posisi);
+        
+        if ($jenis_posisi_lower === 'dosen') {
+            $role = 'dosen';
+        } else {
+            // staff dan tendik → role pegawai
+            $role = 'pegawai';
+        }
+        
+        $detection_method = 'jenis_posisi_lowongan';
+    } else {
+        // FALLBACK: Deteksi dari nama posisi (jika jenis_posisi NULL)
+        $posisi = strtolower($data['posisi']);
+        
+        if (
+            stripos($posisi, 'dosen') !== false ||
+            stripos($posisi, 'lecturer') !== false ||
+            stripos($posisi, 'pengajar') !== false
+        ) {
+            $role = 'dosen';
+        } else {
+            $role = 'pegawai';
+        }
+        
+        $detection_method = 'nama_posisi_fallback';
+        $jenis_posisi = ($role === 'dosen') ? 'dosen' : 'staff';
+    }
     
-    // CREATE USER ACCOUNT
-    $insertUser = "INSERT INTO users 
-                   (email, password, user_type, is_active, email_verified, token, password_changed, created_at)
-                   VALUES 
-                   (:email, :password, :user_type, 1, 1, :token, 0, NOW())";
+    // ========================================
+    // GENERATE TOKEN UNIK
+    // ========================================
+    $token = 'PGW-' . strtoupper(bin2hex(random_bytes(8))); // Format: PGW-XXXXXXXXXXXXXXXX
     
-    // Password temporary (hash dari token, untuk berjaga-jaga)
-    $hashedPassword = password_hash($token, PASSWORD_DEFAULT);
+    // Set expired date (7 hari dari sekarang)
+    $expiredAt = (new DateTime())->modify('+7 days')->format('Y-m-d H:i:s');
     
-    $stmt = $conn->prepare($insertUser);
-    $stmt->execute([
-        'email' => $lamaran['email_aktif'],
-        'password' => $hashedPassword,
-        'user_type' => $user_type,
-        'token' => $token
+    // ========================================
+    // INSERT TOKEN KE DATABASE
+    // ========================================
+    $stmtInsert = $conn->prepare("
+        INSERT INTO activation_tokens 
+        (token, pelamar_id, role, is_used, expired_at, created_at)
+        VALUES 
+        (:token, :pelamar_id, :role, 0, :expired_at, NOW())
+    ");
+    
+    $stmtInsert->execute([
+        'token' => $token,
+        'pelamar_id' => $data['pelamar_id'],
+        'role' => $role,
+        'expired_at' => $expiredAt
     ]);
     
-    $user_id = $conn->lastInsertId();
+    // ========================================
+    // UPDATE USER: SET TOKEN DI TABEL USERS
+    // ========================================
+    $stmtUpdateUser = $conn->prepare("
+        UPDATE users
+        SET token = :token,
+            password_changed = 0,
+            updated_at = NOW()
+        WHERE user_id = :user_id
+    ");
     
-    // CREATE PEGAWAI RECORD
-    $insertPegawai = "INSERT INTO pegawai 
-                     (user_id, nama_lengkap, email, tempat_lahir, tanggal_lahir, 
-                      jenis_kelamin, nomor_ktp, alamat, nomor_telepon, jabatan, 
-                      status_pegawai, tanggal_masuk, is_pegawai_lama, created_at)
-                     VALUES 
-                     (:user_id, :nama, :email, :tempat_lahir, :tanggal_lahir,
-                      :jenis_kelamin, :nomor_ktp, :alamat, :nomor_telepon, :jabatan,
-                      'aktif', NOW(), 0, NOW())";
-    
-    $stmt = $conn->prepare($insertPegawai);
-    $stmt->execute([
-        'user_id' => $user_id,
-        'nama' => $lamaran['nama_lengkap'],
-        'email' => $lamaran['email_aktif'],
-        'tempat_lahir' => $lamaran['tempat_lahir'] ?? '',
-        'tanggal_lahir' => $lamaran['tanggal_lahir'] ?? null,
-        'jenis_kelamin' => $lamaran['jenis_kelamin'] ?? '',
-        'nomor_ktp' => $lamaran['nomor_ktp'] ?? '',
-        'alamat' => $lamaran['alamat'] ?? '',
-        'nomor_telepon' => $lamaran['nomor_telepon'] ?? '',
-        'jabatan' => $lamaran['posisi']
+    $stmtUpdateUser->execute([
+        'token' => $token,
+        'user_id' => $data['user_id']
     ]);
     
-    $pegawai_id = $conn->lastInsertId();
-    
-    // UPDATE LAMARAN - tambah catatan
-    $updateLamaran = "UPDATE lamaran 
-                     SET catatan = CONCAT(COALESCE(catatan, ''), 
-                                         '\n[', NOW(), '] Token generated. User ID: ', :user_id, 
-                                         ', Pegawai ID: ', :pegawai_id)
-                     WHERE lamaran_id = :lamaran_id";
-    $stmt = $conn->prepare($updateLamaran);
-    $stmt->execute([
-        'user_id' => $user_id,
-        'pegawai_id' => $pegawai_id,
-        'lamaran_id' => $lamaran_id
-    ]);
-    
-    $conn->commit();
-    
-    // RETURN SUCCESS DENGAN TOKEN & LINK
-    // Base URL (sesuaikan dengan URL server Anda)
-    $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") 
-                . "://" . $_SERVER['HTTP_HOST'] 
-                . dirname(dirname($_SERVER['PHP_SELF'])) . "/";
-    
-    $login_link = $base_url . "auth/login_pegawai_new.php?email=" . urlencode($lamaran['email_aktif']) . "&token=" . $token;
-    
+    // ========================================
+    // RESPONSE SUCCESS
+    // ========================================
     echo json_encode([
         'success' => true,
-        'message' => 'Token berhasil di-generate',
+        'message' => 'Token berhasil dibuat',
         'data' => [
-            'nama' => $lamaran['nama_lengkap'],
-            'email' => $lamaran['email_aktif'],
             'token' => $token,
-            'user_type' => $user_type,
-            'login_link' => $login_link
+            'role' => $role,
+            'jenis_posisi' => $jenis_posisi,
+            'posisi' => $data['posisi'],
+            'detection_method' => $detection_method,
+            'expired_at' => $expiredAt,
+            'is_new' => true,
+            'pelamar' => [
+                'nama' => $data['nama_lengkap'],
+                'email' => $data['email_aktif']
+            ],
+            'info' => [
+                'role_explanation' => $role === 'dosen' 
+                    ? 'Pegawai akan mendapat akses dashboard Dosen'
+                    : 'Pegawai akan mendapat akses dashboard Pegawai',
+                'jenis_pegawai' => $jenis_posisi,
+                'user_type' => $role
+            ]
         ]
     ]);
     
-} catch (Exception $e) {
-    if (isset($conn) && $conn->inTransaction()) {
-        $conn->rollBack();
-    }
-    
+} catch (PDOException $e) {
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => 'Database error: ' . $e->getMessage(),
+        'error_code' => $e->getCode()
+    ]);
+} catch (Exception $e) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Error: ' . $e->getMessage()
     ]);
 }
+?>

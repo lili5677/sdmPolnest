@@ -159,11 +159,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $files = ['cv' => 'cv', 'ijazah' => 'ijazah', 'kartu_identitas' => 'kartu identitas'];
             $file_too_large = false;
             $missing_files = [];
+            $invalid_format = [];
             
-            // Check if all required files are uploaded
+            // Check if all required files are uploaded and validate format
             foreach ($files as $field => $jenis) {
                 if (!isset($_FILES[$field]) || $_FILES[$field]['error'] != 0) {
                     $missing_files[] = $field;
+                } else {
+                    // Validate file extension - ONLY PDF
+                    $file_ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
+                    if ($file_ext !== 'pdf') {
+                        $invalid_format[] = $jenis . ' (harus PDF, Anda upload: ' . strtoupper($file_ext) . ')';
+                    }
+                    
+                    // Validate MIME type - ONLY PDF
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mime_type = finfo_file($finfo, $_FILES[$field]['tmp_name']);
+                    finfo_close($finfo);
+                    
+                    if ($mime_type !== 'application/pdf') {
+                        $invalid_format[] = $jenis . ' (format file tidak valid)';
+                    }
                 }
             }
             
@@ -172,7 +188,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 throw new Exception('Mohon upload semua dokumen yang diperlukan: ' . implode(', ', $missing_files));
             }
             
-            // All files present, proceed with upload
+            // If there are invalid formats, show error
+            if (!empty($invalid_format)) {
+                throw new Exception('File harus dalam format PDF! File yang tidak valid: ' . implode(', ', $invalid_format));
+            }
+            
+            // All files present and valid, proceed with upload
             $uploaded_files = [];
             foreach ($files as $field => $jenis) {
                 $file = $_FILES[$field];
@@ -265,6 +286,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     } catch (PDOException $e) {
         $error = 'Terjadi kesalahan: ' . $e->getMessage();
+    } catch (Exception $e) {
+        $error = $e->getMessage();
     }
 }
 
@@ -906,7 +929,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                 <div class="col-md-6">
                     <label class="form-label">Pengalaman Mengajar (Tahun)</label>
                     <input type="text" name="pengalaman_mengajar" class="form-control"
-                           placeholder="Diisi hanya untuk pelamar sebagai Dosen"
+                           placeholder="Pelamar Dosen wajib mengisi kolom ini"
                            value="<?php echo htmlspecialchars($pengalaman_info['pengalaman_mengajar'] ?? ''); ?>">
                 </div>
                 
@@ -929,7 +952,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
         
         <?php elseif ($current_step == 4): ?>
         <!-- Step 4: Dokumen -->
-        <form method="POST" enctype="multipart/form-data" class="form-card">
+        <form method="POST" enctype="multipart/form-data" class="form-card" onsubmit="return validatePDFFiles()">
             <input type="hidden" name="step" value="4">
             <?php if ($lowongan_id > 0): ?>
             <input type="hidden" name="lowongan_id" value="<?php echo $lowongan_id; ?>">
@@ -947,11 +970,11 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                 <div class="col-md-6">
                     <label class="form-label">CV atau Resume <span class="text-danger">*</span></label>
                     <div class="file-upload" onclick="document.getElementById('cv').click()">
-                        <input type="file" id="cv" name="cv" accept=".pdf" onchange="updateFileName(this, 'cv-label')" required>
+                        <input type="file" id="cv" name="cv" accept=".pdf,application/pdf" onchange="updateFileName(this, 'cv-label')" required>
                         <div class="file-upload-label" id="cv-label">
                             <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #0D9ED5; margin-bottom: 10px;"></i><br>
                             <strong>Lampirkan CV/Resume terbaru (PDF)</strong>
-                            <small>*maksimal ukuran file 5 MB</small>
+                            <small>*format PDF | maksimal 5 MB</small>
                         </div>
                     </div>
                 </div>
@@ -959,11 +982,11 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                 <div class="col-md-6">
                     <label class="form-label">Ijazah atau SKL <span class="text-danger">*</span></label>
                     <div class="file-upload" onclick="document.getElementById('ijazah').click()">
-                        <input type="file" id="ijazah" name="ijazah" accept=".pdf" onchange="updateFileName(this, 'ijazah-label')" required>
+                        <input type="file" id="ijazah" name="ijazah" accept=".pdf,application/pdf" onchange="updateFileName(this, 'ijazah-label')" required>
                         <div class="file-upload-label" id="ijazah-label">
                             <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #0D9ED5; margin-bottom: 10px;"></i><br>
                             <strong>Lampirkan Ijazah atau SKL terbaru (PDF)</strong>
-                            <small>*maksimal ukuran file 5 MB</small>
+                            <small>*format PDF | maksimal 5 MB</small>
                         </div>
                     </div>
                 </div>
@@ -971,19 +994,14 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                 <div class="col-md-6">
                     <label class="form-label">Kartu Identitas (KTP/SIM) <span class="text-danger">*</span></label>
                     <div class="file-upload" onclick="document.getElementById('kartu_identitas').click()">
-                        <input type="file" id="kartu_identitas" name="kartu_identitas" accept=".pdf" onchange="updateFileName(this, 'kartu-label')" required>
+                        <input type="file" id="kartu_identitas" name="kartu_identitas" accept=".pdf,application/pdf" onchange="updateFileName(this, 'kartu-label')" required>
                         <div class="file-upload-label" id="kartu-label">
                             <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #0D9ED5; margin-bottom: 10px;"></i><br>
                             <strong>Lampirkan KTP atau SIM (PDF)</strong>
-                            <small>*maksimal ukuran file 5 MB</small>
+                            <small>*format PDF | maksimal 5 MB</small>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="alert alert-info mt-4">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Catatan:</strong> Semua dokumen wajib diunggah dalam format PDF dengan ukuran maksimal 5 MB per file.
             </div>
             
             <div class="d-flex justify-content-between mt-4">
@@ -1004,27 +1022,108 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.all.min.js"></script>
     <script>
-        // Validate file size (max 5MB)
-        function validateFileSize(input) {
-            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-            
+        // Strict PDF validation function
+        function validatePDFFile(input) {
             if (input.files && input.files[0]) {
-                const fileSize = input.files[0].size;
+                const file = input.files[0];
+                const fileName = file.name.toLowerCase();
+                const fileSize = file.size;
+                const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                
+                // Check file extension
+                if (!fileName.endsWith('.pdf')) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format File Salah!',
+                        html: `
+                            <p>File harus dalam format <strong>PDF</strong>!</p>
+                            <p style="color: #666; font-size: 14px;">File yang Anda pilih: <strong>${fileName}</strong></p>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    input.value = '';
+                    return false;
+                }
+                
+                // Check file size
+                if (fileSize > maxSize) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File Terlalu Besar!',
+                        html: `
+                            <p>Ukuran file maksimal <strong>5 MB</strong></p>
+                            <p style="color: #666; font-size: 14px;">File yang Anda pilih: <strong>${(fileSize / 1024 / 1024).toFixed(2)} MB</strong></p>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    input.value = '';
+                    return false;
+                }
+                
+                return true;
+            }
+            return false;
+        }
+        
+        // Validate all PDF files before submit
+        function validatePDFFiles() {
+            const cvInput = document.getElementById('cv');
+            const ijazahInput = document.getElementById('ijazah');
+            const ktpInput = document.getElementById('kartu_identitas');
+            
+            // Check if all files are selected
+            if (!cvInput.files[0] || !ijazahInput.files[0] || !ktpInput.files[0]) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'File Belum Lengkap!',
+                    text: 'Mohon upload semua dokumen yang diperlukan',
+                    confirmButtonColor: '#ffc107'
+                });
+                return false;
+            }
+            
+            // Validate each file
+            const files = [
+                { input: cvInput, name: 'CV' },
+                { input: ijazahInput, name: 'Ijazah' },
+                { input: ktpInput, name: 'KTP/SIM' }
+            ];
+            
+            for (let fileInfo of files) {
+                const file = fileInfo.input.files[0];
+                const fileName = file.name.toLowerCase();
+                const fileSize = file.size;
+                const maxSize = 5 * 1024 * 1024;
+                
+                if (!fileName.endsWith('.pdf')) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format File Salah!',
+                        html: `
+                            <p><strong>${fileInfo.name}</strong> harus dalam format PDF!</p>
+                            <p style="color: #666; font-size: 14px;">File: ${file.name}</p>
+                        `,
+                        confirmButtonColor: '#d33'
+                    });
+                    return false;
+                }
                 
                 if (fileSize > maxSize) {
                     Swal.fire({
                         icon: 'error',
                         title: 'File Terlalu Besar!',
-                        text: 'Ukuran file maksimal 5 MB. File yang Anda pilih berukuran ' + (fileSize / 1024 / 1024).toFixed(2) + ' MB.',
-                        confirmButtonText: 'OK',
+                        html: `
+                            <p><strong>${fileInfo.name}</strong> melebihi batas 5 MB</p>
+                            <p style="color: #666; font-size: 14px;">Ukuran: ${(fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                        `,
                         confirmButtonColor: '#d33'
                     });
-                    
-                    // Reset input
-                    input.value = '';
                     return false;
                 }
             }
+            
             return true;
         }
         
@@ -1063,8 +1162,8 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
         }
         
         function updateFileName(input, labelId) {
-            // Validate file size first
-            if (!validateFileSize(input)) {
+            // Validate PDF first
+            if (!validatePDFFile(input)) {
                 return;
             }
             
@@ -1075,7 +1174,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                 label.innerHTML = `
                     <i class="fas fa-check-circle" style="font-size: 32px; color: #4CAF50; margin-bottom: 10px;"></i><br>
                     <strong>${fileName}</strong>
-                    <small>${fileSize} MB</small>
+                    <small>${fileSize} MB | Format: PDF ✓</small>
                 `;
             }
         }
@@ -1085,7 +1184,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
             const fileInputs = document.querySelectorAll('input[type="file"]');
             fileInputs.forEach(function(input) {
                 input.addEventListener('change', function() {
-                    validateFileSize(this);
+                    validatePDFFile(this);
                 });
             });
         });

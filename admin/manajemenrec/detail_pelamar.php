@@ -86,9 +86,13 @@ try {
             rps.gaji_terakhir,
             rps.surat_keterangan_kerja,
             
-            -- Form Lanjutan: Catatan Kepolisian (UPDATED - waktu_mulai_kerja dihapus)
-            ck.pernah_berurusan_polisi,
-            ck.detail_kasus,
+            -- Form Lanjutan: Surat SKCK (UPDATED - dengan file upload)
+            skck.punya_skck,
+            skck.keterangan as keterangan_skck,
+            skck.path_file as skck_file_path,
+            skck.nama_file as skck_file_nama,
+            skck.ukuran_file as skck_file_size,
+            skck.tanggal_upload as skck_tanggal_upload,
             
             -- Form Lanjutan: Kesediaan & Komitmen (UPDATED - tambah waktu_mulai_kerja)
             kom.kesediaan_tunduk_peraturan,
@@ -120,7 +124,7 @@ try {
         LEFT JOIN kontak_darurat kd ON l.lamaran_id = kd.lamaran_id
         LEFT JOIN kondisi_kesehatan kes ON l.lamaran_id = kes.lamaran_id
         LEFT JOIN riwayat_pekerjaan_sebelumnya rps ON l.lamaran_id = rps.lamaran_id
-        LEFT JOIN catatan_kepolisian ck ON l.lamaran_id = ck.lamaran_id
+        LEFT JOIN surat_skck skck ON l.lamaran_id = skck.lamaran_id
         LEFT JOIN kesediaan_komitmen kom ON l.lamaran_id = kom.lamaran_id
         LEFT JOIN surat_pernyataan_pelamar sp ON l.lamaran_id = sp.lamaran_id
         LEFT JOIN jadwal_psikotes jp ON l.lamaran_id = jp.lamaran_id
@@ -791,26 +795,76 @@ $page_title = 'Detail Pelamar - ' . $data['nama_lengkap'];
             <div class="divider"></div>
             <?php endif; ?>
             
-            <?php if (isset($data['pernah_berurusan_polisi'])): ?>
-            <!-- Catatan Kepolisian (UPDATED - tanpa waktu_mulai_kerja) -->
+            <?php if (isset($data['punya_skck'])): ?>
+            <!-- Surat SKCK (UPDATED - dengan upload file PDF) -->
             <h6 class="mb-3 pb-2 border-bottom">
-                <i class="bi bi-shield-check me-2 text-success"></i>Catatan Kepolisian
+                <i class="bi bi-shield-check me-2 text-success"></i>Surat Keterangan Catatan Kepolisian (SKCK)
             </h6>
             <div class="row g-3 mb-4">
                 <div class="col-md-12">
                     <div class="info-group">
-                        <div class="info-label">Pernah berurusan dengan polisi?</div>
+                        <div class="info-label">Apakah memiliki SKCK?</div>
                         <div class="info-value">
-                            <span class="badge <?= $data['pernah_berurusan_polisi'] == 'pernah' ? 'bg-dark' : 'bg-success' ?>">
-                                <?= $data['pernah_berurusan_polisi'] == 'pernah' ? 'Pernah' : 'Tidak Pernah' ?>
+                            <span class="badge <?= $data['punya_skck'] == 'ya' ? 'bg-success' : 'bg-secondary' ?>">
+                                <?= $data['punya_skck'] == 'ya' ? 'Ya, Punya SKCK' : 'Tidak Punya SKCK' ?>
                             </span>
                         </div>
                     </div>
-                    <?php if ($data['pernah_berurusan_polisi'] == 'pernah' && $data['detail_kasus']): ?>
-                    <div class="alert alert-warning mt-2">
-                        <strong>Detail Kasus:</strong><br>
-                        <?= nl2br(htmlspecialchars($data['detail_kasus'])) ?>
+                    
+                    <?php if ($data['punya_skck'] == 'ya' && $data['skck_file_path']): ?>
+                    <!-- SKCK File Uploaded -->
+                    <div class="alert alert-success mt-3 mb-3">
+                        <i class="bi bi-file-earmark-check me-2"></i>
+                        <strong>File SKCK Telah Diupload</strong>
                     </div>
+                    <div style="background: #f0fdf4; border: 2px solid #10b981; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 40px;"></i>
+                            </div>
+                            <div class="col">
+                                <h6 class="mb-1" style="font-size: 14px; font-weight: 600; color: #059669;">
+                                    <?= htmlspecialchars($data['skck_file_nama']) ?>
+                                </h6>
+                                <div class="text-muted" style="font-size: 12px;">
+                                    <i class="bi bi-hdd me-1"></i>Ukuran: <?= number_format($data['skck_file_size'], 2) ?> MB
+                                    <?php if ($data['skck_tanggal_upload']): ?>
+                                    <span class="mx-2">•</span>
+                                    <i class="bi bi-calendar me-1"></i>Diupload: <?= date('d F Y, H:i', strtotime($data['skck_tanggal_upload'])) ?> WIB
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <a href="<?= htmlspecialchars($data['skck_file_path']) ?>" 
+                                   target="_blank" 
+                                   class="btn btn-success btn-sm me-1"
+                                   style="padding: 6px 15px; font-size: 13px;">
+                                    <i class="bi bi-eye me-1"></i>Lihat SKCK
+                                </a>
+                                <a href="<?= htmlspecialchars($data['skck_file_path']) ?>" 
+                                   download 
+                                   class="btn btn-outline-secondary btn-sm"
+                                   style="padding: 6px 15px; font-size: 13px;">
+                                    <i class="bi bi-download me-1"></i>Download
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <?php elseif ($data['punya_skck'] == 'ya'): ?>
+                    <!-- Punya SKCK tapi belum upload file -->
+                    <div class="alert alert-warning mt-2">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Pelamar menyatakan memiliki SKCK, tetapi belum mengupload file PDF.</strong>
+                    </div>
+                    
+                    <?php elseif ($data['punya_skck'] == 'tidak' && $data['keterangan_skck']): ?>
+                    <!-- Tidak punya SKCK dengan keterangan -->
+                    <div class="alert alert-info mt-2">
+                        <strong><i class="bi bi-info-circle me-2"></i>Keterangan:</strong><br>
+                        <?= nl2br(htmlspecialchars($data['keterangan_skck'])) ?>
+                    </div>
+                    
                     <?php endif; ?>
                 </div>
             </div>
