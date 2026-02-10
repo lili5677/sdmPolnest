@@ -116,7 +116,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         so.level_struktur
                     FROM struktur_organisasi so
                     INNER JOIN pegawai p ON so.pegawai_id = p.pegawai_id
-                    WHERE so.level_struktur < 4
+                    WHERE so.level_struktur < 7
                     ORDER BY so.level_struktur ASC, p.nama_lengkap ASC";
             
             $stmt = $conn->prepare($query);
@@ -669,7 +669,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         
                         <div class="mb-3">
                             <label for="pegawai_id" class="form-label">
-                                <i class="fas fa-user me-1"></i> Pilih Pegawai *
+                                <i class=""></i> Pilih Pegawai *
                             </label>
                             <select class="form-select" id="pegawai_id" name="pegawai_id" required>
                                 <option value="">-- Pilih Pegawai --</option>
@@ -679,7 +679,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
 
                         <div class="mb-3">
                             <label for="jabatan_struktur" class="form-label">
-                                <i class="fas fa-briefcase me-1"></i> Jabatan dalam Struktur *
+                                <i class=""></i> Jabatan dalam Struktur *
                             </label>
                             <input type="text" class="form-control" id="jabatan_struktur" name="jabatan_struktur" 
                                    placeholder="Contoh: Direktur, Wakil Direktur, Kepala Prodi" required>
@@ -687,18 +687,21 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
 
                         <div class="mb-3">
                             <label for="level_struktur" class="form-label">
-                                <i class="fas fa-layer-group me-1"></i> Level Struktur *
+                                <i class=""></i> Level Struktur *
                             </label>
                             <select class="form-select" id="level_struktur" name="level_struktur" required>
                                 <option value="">-- Pilih Level --</option>
                                 <option value="1">Level 1 - Direktur</option>
-                                <option value="2">Level 2 - Kepala Unit</option>
-                                <option value="3">Level 3 - Laboran</option>
-                                <option value="4">Level 4 - Tendik</option>
+                                <option value="2">Level 2 - Wakil Direktur</option>
+                                <option value="3">Level 3 - Kaprodi</option>
+                                <option value="4">Level 4 - Kepala Unit</option>
+                                <option value="5">Level 5 - Laboran</option>
+                                <option value="6">Level 6 - Tendik</option>
+                                <option value="7">Level 7 - Staff</option>
                             </select>
                         </div>
 
-                        <div class="mb-3">
+                        <!-- <div class="mb-3">
                             <label for="parent_id" class="form-label">
                                 <i class="fas fa-sitemap me-1"></i> Atasan Langsung (Opsional)
                             </label>
@@ -706,11 +709,11 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                                 <option value="">-- Tidak ada atasan --</option>
                             </select>
                             <small class="text-muted">Pilih atasan langsung jika ada</small>
-                        </div>
+                        </div> -->
 
                         <div class="mb-3">
                             <label for="foto" class="form-label">
-                                <i class="fas fa-image me-1"></i> Foto (Opsional)
+                                <i class=""></i> Foto (Opsional)
                             </label>
                             
                             <!-- Preview Foto yang Sudah Ada -->

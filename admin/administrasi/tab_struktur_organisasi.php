@@ -514,13 +514,22 @@
             <i class=""></i> Level 1 - Direktur
         </button>
         <button class="level-tab" onclick="gantiLevel(2)" data-level="2">
-            <i class=""></i> Level 2 - Kepala Unit
+            <i class=""></i> Level 2 - Wakil Direktur
         </button>
         <button class="level-tab" onclick="gantiLevel(3)" data-level="3">
-            <i class=""></i> Level 3 - Laboran
+            <i class=""></i> Level 3 - Kaprodi
         </button>
         <button class="level-tab" onclick="gantiLevel(4)" data-level="4">
-            <i class=""></i> Level 4 - Tendik
+            <i class=""></i> Level 4 - Kepala Unit
+        </button>
+        <button class="level-tab" onclick="gantiLevel(5)" data-level="5">
+            <i class=""></i> Level 5 - Laboran
+        </button>
+        <button class="level-tab" onclick="gantiLevel(6)" data-level="6">
+            <i class=""></i> Level 6 - Tendik
+        </button>
+        <button class="level-tab" onclick="gantiLevel(7)" data-level="7">
+            <i class=""></i> Level 7 - Staff
         </button>
     </div>
 
@@ -983,7 +992,7 @@
 
     // ===== PREVIEW =====
     function tampilkanPreview() {
-        window.open('preview.php', '_blank');
+        window.location.href = 'preview.php';
     }
 
     // ===== EVENT LISTENERS MODAL =====
