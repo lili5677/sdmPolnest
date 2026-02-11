@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
 
 // Koneksi Database
 require_once '../../config/database.php';
+require_once '../../includes/sync_user_type.php'; 
 
 // Proses Form Submit
 if($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -161,6 +162,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             $pegawaiStmt->execute();
             $pegawai_id = $conn->lastInsertId();
             
+            sinkronisasiUserType($conn, $user_id, $_POST['jenis_pegawai']);
+
             // 3. Insert ke tabel status_kepegawaian
             $admin_id = 1; // TEMPORARY
             

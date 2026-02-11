@@ -17,7 +17,7 @@ $stmt->execute([$lowongan_id]);
 $lowongan = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$lowongan) {
-    header('Location: index.php');
+    header('Location: manajemen-loker.php');
     exit;
 }
 
@@ -38,6 +38,30 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
 }
 
 $status_class = 'status-' . strtolower($lowongan['status']);
+
+// Jenis posisi badge
+$jenis_posisi = $lowongan['jenis_posisi'] ?? 'staff';
+$jenis_badge_class = '';
+$jenis_icon = '';
+$jenis_role_info = '';
+
+switch ($jenis_posisi) {
+    case 'dosen':
+        $jenis_badge_class = 'badge-dosen';
+        $jenis_icon = 'fa-chalkboard-teacher';
+        $jenis_role_info = 'Pegawai yang diterima akan mendapat role "Dosen"';
+        break;
+    case 'tendik':
+        $jenis_badge_class = 'badge-tendik';
+        $jenis_icon = 'fa-tools';
+        $jenis_role_info = 'Pegawai yang diterima akan mendapat role "Pegawai" dengan kategori Tendik';
+        break;
+    default:
+        $jenis_badge_class = 'badge-staff';
+        $jenis_icon = 'fa-user-tie';
+        $jenis_role_info = 'Pegawai yang diterima akan mendapat role "Pegawai" dengan kategori Staff';
+        break;
+}
 ?>
 
 <!DOCTYPE html>
@@ -83,10 +107,32 @@ $status_class = 'status-' . strtolower($lowongan['status']);
         .info-value { font-size: 14px; color: #1e293b; font-weight: 500; line-height: 1.5; }
         .text-muted { color: #94a3b8; font-style: italic; }
 
-        .badge { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+        .badge { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; gap: 5px; }
         .status-aktif { background-color: #d1fae5; color: #065f46; }
         .status-ditutup { background-color: #fee2e2; color: #991b1b; }
         .status-draft { background-color: #f1f5f9; color: #475569; }
+        
+        /* Badge jenis posisi */
+        .badge-dosen { background-color: #dbeafe; color: #1e40af; }
+        .badge-staff { background-color: #d1fae5; color: #065f46; }
+        .badge-tendik { background-color: #fef3c7; color: #92400e; }
+
+        .role-info-box {
+            background: #f0f9ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 12px;
+            font-size: 13px;
+            color: #1e3a8a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .role-info-box i {
+            font-size: 18px;
+            color: #3b82f6;
+        }
 
         .text-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-size: 14px; color: #334155; line-height: 1.7; white-space: pre-wrap; }
         .text-block.empty { color: #94a3b8; font-style: italic; background: #fafafa; }
@@ -118,7 +164,7 @@ $status_class = 'status-' . strtolower($lowongan['status']);
 
         <main class="main-content">
             <div class="content-wrapper">
-                <a href="index.php" class="back-button"><i class="fas fa-arrow-left"></i> Kembali ke Daftar Lowongan</a>
+                <a href="manajemen-loker.php" class="back-button"><i class="fas fa-arrow-left"></i> Kembali ke Daftar Lowongan</a>
 
                 <!-- Header -->
                 <div class="header-card">
@@ -169,6 +215,17 @@ $status_class = 'status-' . strtolower($lowongan['status']);
                                 <div class="info-value"><?= htmlspecialchars($lowongan['posisi']) ?></div>
                             </div>
                             <div class="info-item">
+                                <div class="info-label">
+                                    <i class="fas fa-user-tag"></i> Jenis Posisi
+                                </div>
+                                <div class="info-value">
+                                    <span class="badge <?= $jenis_badge_class ?>">
+                                        <i class="fas <?= $jenis_icon ?>"></i>
+                                        <?= ucfirst($jenis_posisi) ?>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="info-item">
                                 <div class="info-label">Formasi</div>
                                 <div class="info-value"><?= $lowongan['formasi'] ?> orang</div>
                             </div>
@@ -188,6 +245,12 @@ $status_class = 'status-' . strtolower($lowongan['status']);
                                 <div class="info-label">Dibuat</div>
                                 <div class="info-value"><?= $lowongan['created_at'] ? date('d F Y, H:i', strtotime($lowongan['created_at'])) : '-' ?></div>
                             </div>
+                        </div>
+                        
+                        <!-- Role Info Box -->
+                        <div class="role-info-box">
+                            <i class="fas fa-info-circle"></i>
+                            <span><strong>Catatan:</strong> <?= $jenis_role_info ?></span>
                         </div>
                     </div>
                 </div>

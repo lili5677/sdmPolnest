@@ -16,7 +16,7 @@ $stmt->execute([$lowongan_id]);
 $lowongan = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$lowongan) {
-    header('Location: index.php');
+    header('Location: manajemen-loker.php');
     exit;
 }
 
@@ -47,11 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Deadline lamaran tidak boleh tanggal yang sudah lewat";
     }
 
+    // Validasi jenis_posisi
+    $jenis_posisi = $_POST['jenis_posisi'] ?? '';
+    if (!in_array($jenis_posisi, ['dosen', 'staff', 'tendik'])) {
+        $error = "Jenis posisi tidak valid";
+    }
+
     if (!isset($error)) {
         try {
             $stmt = $conn->prepare("
                 UPDATE lowongan_pekerjaan SET
                     posisi = ?,
+                    jenis_posisi = ?,
                     gaji_min = ?,
                     gaji_max = ?,
                     formasi = ?,
@@ -65,17 +72,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt->execute([
                 $_POST['posisi'],
-                $gaji_min,                                          // NULL kalau kosong
-                $gaji_max,                                          // NULL kalau kosong
+                $jenis_posisi,
+                $gaji_min,
+                $gaji_max,
                 $_POST['formasi'],
-                ($deadline !== '') ? $deadline : null,              // NULL kalau kosong
+                ($deadline !== '') ? $deadline : null,
                 $_POST['deskripsi_pekerjaan'],
                 $_POST['tanggung_jawab'],
                 $_POST['kualifikasi'],
                 $lowongan_id
             ]);
 
-            header('Location: index.php');
+            $_SESSION['flash_message'] = 'Lowongan berhasil diupdate';
+            $_SESSION['flash_type'] = 'success';
+            header('Location: manajemen-loker.php');
             exit;
         } catch (PDOException $e) {
             $error = "Gagal mengupdate data: " . $e->getMessage();
@@ -113,14 +123,20 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
 
         .form-group { margin-bottom: 18px; }
         label { font-weight: 500; font-size: 14px; margin-bottom: 6px; display: block; }
-        input, textarea {
+        label .required { color: #ef4444; margin-left: 2px; }
+        input, textarea, select {
             width: 100%; padding: 12px 14px; border-radius: 8px;
             border: 1px solid #d1d5db; font-size: 14px; font-family: 'Poppins', sans-serif;
             transition: border-color 0.2s;
         }
-        input:focus, textarea:focus { outline: none; border-color: #1e40af; box-shadow: 0 0 0 3px rgba(30,64,175,0.1); }
+        input:focus, textarea:focus, select:focus { 
+            outline: none; 
+            border-color: #1e40af; 
+            box-shadow: 0 0 0 3px rgba(30,64,175,0.1); 
+        }
         textarea { resize: vertical; min-height: 90px; }
-        .input-helper { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .input-helper { font-size: 12px; color: #6b7280; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+        .input-helper i { font-size: 13px; }
 
         .modal-footer { padding: 18px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px; }
         .btn { padding: 10px 22px; border-radius: 8px; font-weight: 600; border: none; cursor: pointer; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
@@ -152,30 +168,53 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
 
                     <form method="POST">
                         <div class="form-group">
-                            <label>Posisi</label>
+                            <label>Posisi <span class="required">*</span></label>
                             <input type="text" name="posisi" value="<?= htmlspecialchars($lowongan['posisi']) ?>" required>
                         </div>
 
                         <div class="form-group">
-                            <label>Formasi</label>
+                            <label>
+                                <i class="bi bi-people-fill"></i> Jenis Posisi 
+                                <span class="required">*</span>
+                            </label>
+                            <select name="jenis_posisi" id="jenis_posisi" required>
+                                <option value="">-- Pilih Jenis Posisi --</option>
+                                <option value="dosen" <?= ($lowongan['jenis_posisi'] ?? '') === 'dosen' ? 'selected' : '' ?>>
+                                    Dosen
+                                </option>
+                                <option value="staff" <?= ($lowongan['jenis_posisi'] ?? '') === 'staff' ? 'selected' : '' ?>>
+                                    Staff
+                                </option>
+                                <option value="tendik" <?= ($lowongan['jenis_posisi'] ?? '') === 'tendik' ? 'selected' : '' ?>>
+                                    Tenaga Kependidikan (Tendik)
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Formasi <span class="required">*</span></label>
                             <input type="number" name="formasi" value="<?= $lowongan['formasi'] ?>" min="1" required>
                         </div>
 
                         <div class="form-group">
                             <label>Rentang Gaji</label>
-                            <!-- FIX: value pakai $gaji_display yang sudah di-guard NULL di atas -->
                             <input type="text" name="gaji_range"
                                    value="<?= htmlspecialchars($gaji_display) ?>"
                                    placeholder="Contoh: 8.000.000 - 12.000.000">
-                            <span class="input-helper">Kosongkan jika gaji dirahasiakan</span>
+                            <span class="input-helper">
+                                <i class="bi bi-info-circle"></i>
+                                Kosongkan jika gaji dirahasiakan
+                            </span>
                         </div>
 
                         <div class="form-group">
                             <label>Deadline Lamaran</label>
-                            <!-- FIX: guard NULL — kalau NULL value kosong, bukan string "NULL" -->
                             <input type="date" name="deadline_lamaran"
                                    value="<?= !empty($lowongan['deadline_lamaran']) ? $lowongan['deadline_lamaran'] : '' ?>">
-                            <span class="input-helper">Kosongkan jika belum ditentukan</span>
+                            <span class="input-helper">
+                                <i class="bi bi-info-circle"></i>
+                                Kosongkan jika belum ditentukan
+                            </span>
                         </div>
 
                         <div class="form-group">
@@ -186,21 +225,27 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
                         <div class="form-group">
                             <label>Tanggung Jawab</label>
                             <textarea name="tanggung_jawab"><?= htmlspecialchars($lowongan['tanggung_jawab'] ?? '') ?></textarea>
-                            <span class="input-helper">Pisahkan setiap poin dengan baris baru (Enter)</span>
+                            <span class="input-helper">
+                                <i class="bi bi-info-circle"></i>
+                                Pisahkan setiap poin dengan baris baru (Enter)
+                            </span>
                         </div>
 
                         <div class="form-group">
-                            <label>Kualifikasi</label>
+                            <label>Kualifikasi <span class="required">*</span></label>
                             <textarea name="kualifikasi" required><?= htmlspecialchars($lowongan['kualifikasi'] ?? '') ?></textarea>
-                            <span class="input-helper">Pisahkan setiap poin dengan baris baru (Enter)</span>
+                            <span class="input-helper">
+                                <i class="bi bi-info-circle"></i>
+                                Pisahkan setiap poin dengan baris baru (Enter)
+                            </span>
                         </div>
 
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-cancel" onclick="location.href='index.php'">
+                            <button type="button" class="btn btn-cancel" onclick="location.href='manajemen-loker.php'">
                                 <i class="bi bi-x-circle"></i> Batal
                             </button>
                             <button type="submit" class="btn btn-submit">
-                                <i class="bi bi-save"></i> Simpan
+                                <i class="bi bi-save"></i> Simpan Perubahan
                             </button>
                         </div>
                     </form>

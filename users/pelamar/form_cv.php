@@ -3,11 +3,11 @@ require_once '../../config/database.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
-    header('Location: ' . BASE_URL . 'auth/login-pelamar.php');
+    header('Location: ' . BASE_URL . 'auth/login_pelamar.php');
     exit();
 }
 
-// Get pelamar_id
+// Get pelamar_id (NOT lamaran_id - pelamar table doesn't have lamaran_id)
 $user_id = $_SESSION['user_id'];
 $query = "SELECT pelamar_id, nama_lengkap FROM pelamar WHERE user_id = ?";
 $stmt = $conn->prepare($query);
@@ -19,7 +19,14 @@ if (!$pelamar) {
 }
 
 $pelamar_id = $pelamar['pelamar_id'];
-$current_step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
+
+// Get lowongan_id from URL (if coming from apply button)
+$lowongan_id = isset($_GET['lowongan_id']) ? (int)$_GET['lowongan_id'] : 0;
+
+$current_step = isset($_GET['step']) ? $_GET['step'] : 1;
+if ($current_step !== 'success' && $current_step !== 'complete') {
+    $current_step = (int)$current_step;
+}
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -34,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     gelar = ?,
                     email_aktif = ?,
                     no_wa = ?,
+                    tempat_lahir = ?,
                     tanggal_lahir = ?,
                     alamat_ktp = ?,
                     alamat_domisili = ?,
@@ -45,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_POST['gelar'] ?? null,
                 $_POST['email_aktif'],
                 $_POST['no_wa'],
+                $_POST['tempat_lahir'],
                 $_POST['tanggal_lahir'],
                 $_POST['alamat_ktp'],
                 $_POST['alamat_domisili'],
@@ -55,7 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 throw new Exception("Gagal menyimpan data diri");
             }
             
-            header('Location: ?step=2');
+            $redirect_url = '?step=2';
+            if ($lowongan_id > 0) {
+                $redirect_url .= '&lowongan_id=' . $lowongan_id;
+            }
+            header('Location: ' . $redirect_url);
             exit();
             
         } elseif ($step == 2) {
@@ -81,7 +94,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     ]);
                 }
             }
-            header('Location: ?step=3');
+            
+            $redirect_url = '?step=3';
+            if (isset($_POST['lowongan_id']) && $_POST['lowongan_id'] > 0) {
+                $redirect_url .= '&lowongan_id=' . $_POST['lowongan_id'];
+            } elseif ($lowongan_id > 0) {
+                $redirect_url .= '&lowongan_id=' . $lowongan_id;
+            }
+            header('Location: ' . $redirect_url);
             exit();
             
         } elseif ($step == 3) {
@@ -106,10 +126,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $_POST['pengalaman_mengajar'] ?? null,
                 $_POST['keahlian_utama']
             ]);
-            header('Location: ?step=4');
+            
+            $redirect_url = '?step=4';
+            if (isset($_POST['lowongan_id']) && $_POST['lowongan_id'] > 0) {
+                $redirect_url .= '&lowongan_id=' . $_POST['lowongan_id'];
+            } elseif ($lowongan_id > 0) {
+                $redirect_url .= '&lowongan_id=' . $lowongan_id;
+            }
+            header('Location: ' . $redirect_url);
             exit();
             
         } elseif ($step == 4) {
+            // Get lowongan_id from POST
+            $post_lowongan_id = isset($_POST['lowongan_id']) ? (int)$_POST['lowongan_id'] : $lowongan_id;
+            
             // Handle file uploads
             $upload_dir = '../../uploads/dokumen_pelamar/';
             
@@ -126,14 +156,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             
             // Required files
-            $files = ['cv' => 'cv', 'ijazah' => 'ijazah', 'kartu_identitas' => 'lainnya'];
+            $files = ['cv' => 'cv', 'ijazah' => 'ijazah', 'kartu_identitas' => 'kartu identitas'];
             $file_too_large = false;
             $missing_files = [];
+            $invalid_format = [];
             
-            // Check if all required files are uploaded
+            // Check if all required files are uploaded and validate format
             foreach ($files as $field => $jenis) {
                 if (!isset($_FILES[$field]) || $_FILES[$field]['error'] != 0) {
                     $missing_files[] = $field;
+                } else {
+                    // Validate file extension - ONLY PDF
+                    $file_ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
+                    if ($file_ext !== 'pdf') {
+                        $invalid_format[] = $jenis . ' (harus PDF, Anda upload: ' . strtoupper($file_ext) . ')';
+                    }
+                    
+                    // Validate MIME type - ONLY PDF
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mime_type = finfo_file($finfo, $_FILES[$field]['tmp_name']);
+                    finfo_close($finfo);
+                    
+                    if ($mime_type !== 'application/pdf') {
+                        $invalid_format[] = $jenis . ' (format file tidak valid)';
+                    }
                 }
             }
             
@@ -142,7 +188,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 throw new Exception('Mohon upload semua dokumen yang diperlukan: ' . implode(', ', $missing_files));
             }
             
-            // All files present, proceed with upload
+            // If there are invalid formats, show error
+            if (!empty($invalid_format)) {
+                throw new Exception('File harus dalam format PDF! File yang tidak valid: ' . implode(', ', $invalid_format));
+            }
+            
+            // All files present and valid, proceed with upload
             $uploaded_files = [];
             foreach ($files as $field => $jenis) {
                 $file = $_FILES[$field];
@@ -189,17 +240,54 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt = $conn->prepare("UPDATE pelamar SET is_complete = 1 WHERE pelamar_id = ?");
             $stmt->execute([$pelamar_id]);
             
+            // CREATE LAMARAN RECORD if lowongan_id is provided
+            if ($post_lowongan_id > 0) {
+                // Check if already applied
+                $check = $conn->prepare("SELECT lamaran_id FROM lamaran WHERE pelamar_id = ? AND lowongan_id = ?");
+                $check->execute([$pelamar_id, $post_lowongan_id]);
+                
+                if (!$check->fetch()) {
+                    // Create new lamaran with 'dikirim' status (waiting admin verification)
+                    $stmt = $conn->prepare("
+                        INSERT INTO lamaran (pelamar_id, lowongan_id, status_lamaran, tanggal_daftar)
+                        VALUES (?, ?, 'dikirim', CURRENT_TIMESTAMP)
+                    ");
+                    $stmt->execute([$pelamar_id, $post_lowongan_id]);
+                    
+                    error_log("Lamaran created: pelamar_id=$pelamar_id, lowongan_id=$post_lowongan_id, status=dikirim");
+                }
+            }
+            
             // Set session for success alert
             $_SESSION['cv_completed'] = true;
             $_SESSION['cv_message'] = $file_too_large ? 
                 'CV berhasil dilengkapi! Namun beberapa file melebihi batas 5 MB.' : 
                 'Selamat! Anda telah menyelesaikan pengisian formulir lamaran kerja.';
             
-            header('Location: ?step=success');
+            // Redirect based on whether lowongan_id exists
+            if ($post_lowongan_id > 0) {
+                // Direct apply - show success alert then go to tracking
+                $_SESSION['lamaran_success'] = true;
+                $_SESSION['success_message'] = $file_too_large ? 
+                    'Lamaran berhasil dikirim! Namun beberapa file melebihi batas 5 MB.' : 
+                    'Selamat! Lamaran Anda berhasil dikirim dan sedang menunggu verifikasi admin.';
+                
+                header('Location: ?step=complete&lowongan_id=' . $post_lowongan_id);
+            } else {
+                // CV completion only - show lowongan selection
+                $_SESSION['cv_completed'] = true;
+                $_SESSION['cv_message'] = $file_too_large ? 
+                    'CV berhasil dilengkapi! Namun beberapa file melebihi batas 5 MB.' : 
+                    'Selamat! Anda telah menyelesaikan pengisian formulir CV.';
+                
+                header('Location: ?step=success');
+            }
             exit();
         }
     } catch (PDOException $e) {
         $error = 'Terjadi kesalahan: ' . $e->getMessage();
+    } catch (Exception $e) {
+        $error = $e->getMessage();
     }
 }
 
@@ -218,12 +306,31 @@ $pengalaman_info = $pengalaman_data->fetch();
 
 // Check if this is success page
 $show_success_alert = false;
+$show_complete_alert = false;
 $success_message = '';
-if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
+
+// Debug log
+error_log("DEBUG: GET step = " . ($_GET['step'] ?? 'not set'));
+error_log("DEBUG: cv_completed session = " . (isset($_SESSION['cv_completed']) ? 'YES' : 'NO'));
+error_log("DEBUG: lamaran_success session = " . (isset($_SESSION['lamaran_success']) ? 'YES' : 'NO'));
+
+// Check for CV completion (no lowongan)
+if (isset($_GET['step']) && $_GET['step'] == 'success' && isset($_SESSION['cv_completed'])) {
     $show_success_alert = true;
     $success_message = $_SESSION['cv_message'];
+    error_log("DEBUG: Success alert WILL SHOW");
     unset($_SESSION['cv_completed']);
     unset($_SESSION['cv_message']);
+} 
+// Check for lamaran completion (with lowongan)
+elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['lamaran_success'])) {
+    $show_complete_alert = true;
+    $success_message = $_SESSION['success_message'];
+    error_log("DEBUG: Complete alert WILL SHOW");
+    unset($_SESSION['lamaran_success']);
+    unset($_SESSION['success_message']);
+} else {
+    error_log("DEBUG: No alert will show");
 }
 ?>
 <!DOCTYPE html>
@@ -497,7 +604,7 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
     <?php include '../partials/navbar_req.php'; ?>
     
     <?php if ($show_success_alert): ?>
-    <!-- Success Alert Modal -->
+    <!-- Success Alert Modal (CV Completion - No Lowongan) -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             Swal.fire({
@@ -523,6 +630,72 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
     </script>
     <?php endif; ?>
     
+    <?php if ($show_complete_alert): ?>
+    <!-- Complete Alert Modal (Lamaran Sent Successfully) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Swal.fire({
+                icon: 'success',
+                title: '🎉 Lamaran Berhasil Dikirim!',
+                html: `
+                    <div style="text-align: center; padding: 20px;">
+                        <p style="font-size: 16px; color: #2c3e50; margin-bottom: 20px;">
+                            <strong><?php echo addslashes($success_message); ?></strong>
+                        </p>
+                        <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                            Lamaran Anda telah berhasil dikirim dan sedang dalam proses seleksi administrasi.
+                        </p>
+                        <div style="background: #e3f2fd; padding: 15px; border-radius: 10px; margin: 20px 0;">
+                            <i class="fas fa-info-circle" style="color: #2196f3; font-size: 20px;"></i>
+                            <p style="font-size: 13px; color: #1976d2; margin: 10px 0 0 0;">
+                                Anda dapat memantau status lamaran Anda secara real-time di halaman Tracking Lamaran
+                            </p>
+                        </div>
+                    </div>
+                `,
+                showDenyButton: true,
+                showCancelButton: false,
+                confirmButtonText: '<i class="fas fa-chart-line me-2"></i> Lihat Tracking Lamaran',
+                denyButtonText: '<i class="fas fa-home me-2"></i> Kembali ke Dashboard',
+                confirmButtonColor: '#4CAF50',
+                denyButtonColor: '#6c757d',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                width: '650px',
+                customClass: {
+                    confirmButton: 'btn-lg px-4',
+                    denyButton: 'btn-lg px-4',
+                    popup: 'animated-popup'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Go to tracking lamaran
+                    window.location.href = '<?php echo BASE_URL; ?>users/pelamar/tracking_lamaran.php';
+                } else if (result.isDenied) {
+                    // Go to dashboard
+                    window.location.href = '<?php echo BASE_URL; ?>users/pelamar/dashboard.php';
+                }
+            });
+        });
+    </script>
+    <style>
+        .animated-popup {
+            animation: slideInDown 0.3s ease-out;
+        }
+        
+        @keyframes slideInDown {
+            from {
+                transform: translateY(-100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+    <?php endif; ?>
+    
     <div class="main-content">
         <h1 class="page-title">Formulir Lamaran Kerja</h1>
         <p class="page-subtitle">"Lengkapi data diri Anda untuk memulai langkah karier baru"</p>
@@ -536,6 +709,7 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
         <?php endif; ?>
         
         <!-- Progress Steps -->
+        <?php if ($current_step !== 'success' && $current_step !== 'complete'): ?>
         <div class="progress-steps">
             <div class="step <?php echo $current_step >= 1 ? 'active' : ''; ?> <?php echo $current_step > 1 ? 'completed' : ''; ?>">
                 <div class="step-icon">
@@ -565,12 +739,16 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
                 <div class="step-label">Dokumen</div>
             </div>
         </div>
+        <?php endif; ?>
         
         <!-- Forms -->
         <?php if ($current_step == 1): ?>
         <!-- Step 1: Data Diri -->
         <form method="POST" class="form-card">
             <input type="hidden" name="step" value="1">
+            <?php if ($lowongan_id > 0): ?>
+            <input type="hidden" name="lowongan_id" value="<?php echo $lowongan_id; ?>">
+            <?php endif; ?>
             <h3 class="form-section-title">Informasi Pribadi</h3>
             
             <div class="row g-3">
@@ -597,6 +775,13 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
                     <label class="form-label">Nomor WhatsApp</label>
                     <input type="tel" name="no_wa" class="form-control" 
                            value="<?php echo htmlspecialchars($pelamar_info['no_wa'] ?? ''); ?>" required>
+                </div>
+                
+                <div class="col-md-6">
+                    <label class="form-label">Tempat Lahir</label>
+                    <input type="text" name="tempat_lahir" class="form-control" 
+                           placeholder="Contoh: Sukoharjo"
+                           value="<?php echo htmlspecialchars($pelamar_info['tempat_lahir'] ?? ''); ?>" required>
                 </div>
                 
                 <div class="col-md-6">
@@ -630,6 +815,9 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
         <!-- Step 2: Pendidikan -->
         <form method="POST" class="form-card">
             <input type="hidden" name="step" value="2">
+            <?php if ($lowongan_id > 0): ?>
+            <input type="hidden" name="lowongan_id" value="<?php echo $lowongan_id; ?>">
+            <?php endif; ?>
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h3 class="form-section-title mb-0">Riwayat Pendidikan</h3>
                 <button type="button" class="btn btn-add" onclick="addPendidikan()">
@@ -700,7 +888,7 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
             </div>
             
             <div class="d-flex justify-content-between mt-4">
-                <a href="?step=1" class="btn btn-nav btn-prev">
+                <a href="?step=1<?php echo $lowongan_id > 0 ? '&lowongan_id=' . $lowongan_id : ''; ?>" class="btn btn-nav btn-prev">
                     <i class="fas fa-chevron-left me-2"></i> Sebelumnya
                 </a>
                 <button type="submit" class="btn btn-nav btn-next">
@@ -713,6 +901,9 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
         <!-- Step 3: Pengalaman -->
         <form method="POST" class="form-card">
             <input type="hidden" name="step" value="3">
+            <?php if ($lowongan_id > 0): ?>
+            <input type="hidden" name="lowongan_id" value="<?php echo $lowongan_id; ?>">
+            <?php endif; ?>
             <h3 class="form-section-title">Pengalaman dan Keahlian</h3>
             
             <div class="row g-3">
@@ -738,7 +929,7 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
                 <div class="col-md-6">
                     <label class="form-label">Pengalaman Mengajar (Tahun)</label>
                     <input type="text" name="pengalaman_mengajar" class="form-control"
-                           placeholder="Diisi hanya untuk pelamar sebagai Dosen"
+                           placeholder="Pelamar Dosen wajib mengisi kolom ini"
                            value="<?php echo htmlspecialchars($pengalaman_info['pengalaman_mengajar'] ?? ''); ?>">
                 </div>
                 
@@ -750,7 +941,7 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
             </div>
             
             <div class="d-flex justify-content-between mt-4">
-                <a href="?step=2" class="btn btn-nav btn-prev">
+                <a href="?step=2<?php echo $lowongan_id > 0 ? '&lowongan_id=' . $lowongan_id : ''; ?>" class="btn btn-nav btn-prev">
                     <i class="fas fa-chevron-left me-2"></i> Sebelumnya
                 </a>
                 <button type="submit" class="btn btn-nav btn-next">
@@ -761,8 +952,11 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
         
         <?php elseif ($current_step == 4): ?>
         <!-- Step 4: Dokumen -->
-        <form method="POST" enctype="multipart/form-data" class="form-card">
+        <form method="POST" enctype="multipart/form-data" class="form-card" onsubmit="return validatePDFFiles()">
             <input type="hidden" name="step" value="4">
+            <?php if ($lowongan_id > 0): ?>
+            <input type="hidden" name="lowongan_id" value="<?php echo $lowongan_id; ?>">
+            <?php endif; ?>
             <h3 class="form-section-title">Berkas Lamaran</h3>
             
             <?php if (isset($error)): ?>
@@ -776,11 +970,11 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
                 <div class="col-md-6">
                     <label class="form-label">CV atau Resume <span class="text-danger">*</span></label>
                     <div class="file-upload" onclick="document.getElementById('cv').click()">
-                        <input type="file" id="cv" name="cv" accept=".pdf" onchange="updateFileName(this, 'cv-label')" required>
+                        <input type="file" id="cv" name="cv" accept=".pdf,application/pdf" onchange="updateFileName(this, 'cv-label')" required>
                         <div class="file-upload-label" id="cv-label">
                             <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #0D9ED5; margin-bottom: 10px;"></i><br>
                             <strong>Lampirkan CV/Resume terbaru (PDF)</strong>
-                            <small>*maksimal ukuran file 5 MB</small>
+                            <small>*format PDF | maksimal 5 MB</small>
                         </div>
                     </div>
                 </div>
@@ -788,11 +982,11 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
                 <div class="col-md-6">
                     <label class="form-label">Ijazah atau SKL <span class="text-danger">*</span></label>
                     <div class="file-upload" onclick="document.getElementById('ijazah').click()">
-                        <input type="file" id="ijazah" name="ijazah" accept=".pdf" onchange="updateFileName(this, 'ijazah-label')" required>
+                        <input type="file" id="ijazah" name="ijazah" accept=".pdf,application/pdf" onchange="updateFileName(this, 'ijazah-label')" required>
                         <div class="file-upload-label" id="ijazah-label">
                             <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #0D9ED5; margin-bottom: 10px;"></i><br>
                             <strong>Lampirkan Ijazah atau SKL terbaru (PDF)</strong>
-                            <small>*maksimal ukuran file 5 MB</small>
+                            <small>*format PDF | maksimal 5 MB</small>
                         </div>
                     </div>
                 </div>
@@ -800,27 +994,22 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
                 <div class="col-md-6">
                     <label class="form-label">Kartu Identitas (KTP/SIM) <span class="text-danger">*</span></label>
                     <div class="file-upload" onclick="document.getElementById('kartu_identitas').click()">
-                        <input type="file" id="kartu_identitas" name="kartu_identitas" accept=".pdf" onchange="updateFileName(this, 'kartu-label')" required>
+                        <input type="file" id="kartu_identitas" name="kartu_identitas" accept=".pdf,application/pdf" onchange="updateFileName(this, 'kartu-label')" required>
                         <div class="file-upload-label" id="kartu-label">
                             <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #0D9ED5; margin-bottom: 10px;"></i><br>
                             <strong>Lampirkan KTP atau SIM (PDF)</strong>
-                            <small>*maksimal ukuran file 5 MB</small>
+                            <small>*format PDF | maksimal 5 MB</small>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="alert alert-info mt-4">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Catatan:</strong> Semua dokumen wajib diunggah dalam format PDF dengan ukuran maksimal 5 MB per file.
-            </div>
-            
             <div class="d-flex justify-content-between mt-4">
-                <a href="?step=3" class="btn btn-nav btn-prev">
+                <a href="?step=3<?php echo $lowongan_id > 0 ? '&lowongan_id=' . $lowongan_id : ''; ?>" class="btn btn-nav btn-prev">
                     <i class="fas fa-chevron-left me-2"></i> Sebelumnya
                 </a>
                 <button type="submit" class="btn btn-nav btn-next">
-                    Selanjutnya <i class="fas fa-chevron-right ms-2"></i>
+                    Kirim Lamaran <i class="fas fa-chevron-right ms-2"></i>
                 </button>
             </div>
         </form>
@@ -833,27 +1022,108 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.all.min.js"></script>
     <script>
-        // Validate file size (max 5MB)
-        function validateFileSize(input) {
-            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-            
+        // Strict PDF validation function
+        function validatePDFFile(input) {
             if (input.files && input.files[0]) {
-                const fileSize = input.files[0].size;
+                const file = input.files[0];
+                const fileName = file.name.toLowerCase();
+                const fileSize = file.size;
+                const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                
+                // Check file extension
+                if (!fileName.endsWith('.pdf')) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format File Salah!',
+                        html: `
+                            <p>File harus dalam format <strong>PDF</strong>!</p>
+                            <p style="color: #666; font-size: 14px;">File yang Anda pilih: <strong>${fileName}</strong></p>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    input.value = '';
+                    return false;
+                }
+                
+                // Check file size
+                if (fileSize > maxSize) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File Terlalu Besar!',
+                        html: `
+                            <p>Ukuran file maksimal <strong>5 MB</strong></p>
+                            <p style="color: #666; font-size: 14px;">File yang Anda pilih: <strong>${(fileSize / 1024 / 1024).toFixed(2)} MB</strong></p>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    input.value = '';
+                    return false;
+                }
+                
+                return true;
+            }
+            return false;
+        }
+        
+        // Validate all PDF files before submit
+        function validatePDFFiles() {
+            const cvInput = document.getElementById('cv');
+            const ijazahInput = document.getElementById('ijazah');
+            const ktpInput = document.getElementById('kartu_identitas');
+            
+            // Check if all files are selected
+            if (!cvInput.files[0] || !ijazahInput.files[0] || !ktpInput.files[0]) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'File Belum Lengkap!',
+                    text: 'Mohon upload semua dokumen yang diperlukan',
+                    confirmButtonColor: '#ffc107'
+                });
+                return false;
+            }
+            
+            // Validate each file
+            const files = [
+                { input: cvInput, name: 'CV' },
+                { input: ijazahInput, name: 'Ijazah' },
+                { input: ktpInput, name: 'KTP/SIM' }
+            ];
+            
+            for (let fileInfo of files) {
+                const file = fileInfo.input.files[0];
+                const fileName = file.name.toLowerCase();
+                const fileSize = file.size;
+                const maxSize = 5 * 1024 * 1024;
+                
+                if (!fileName.endsWith('.pdf')) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format File Salah!',
+                        html: `
+                            <p><strong>${fileInfo.name}</strong> harus dalam format PDF!</p>
+                            <p style="color: #666; font-size: 14px;">File: ${file.name}</p>
+                        `,
+                        confirmButtonColor: '#d33'
+                    });
+                    return false;
+                }
                 
                 if (fileSize > maxSize) {
                     Swal.fire({
                         icon: 'error',
                         title: 'File Terlalu Besar!',
-                        text: 'Ukuran file maksimal 5 MB. File yang Anda pilih berukuran ' + (fileSize / 1024 / 1024).toFixed(2) + ' MB.',
-                        confirmButtonText: 'OK',
+                        html: `
+                            <p><strong>${fileInfo.name}</strong> melebihi batas 5 MB</p>
+                            <p style="color: #666; font-size: 14px;">Ukuran: ${(fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                        `,
                         confirmButtonColor: '#d33'
                     });
-                    
-                    // Reset input
-                    input.value = '';
                     return false;
                 }
             }
+            
             return true;
         }
         
@@ -892,8 +1162,8 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
         }
         
         function updateFileName(input, labelId) {
-            // Validate file size first
-            if (!validateFileSize(input)) {
+            // Validate PDF first
+            if (!validatePDFFile(input)) {
                 return;
             }
             
@@ -904,7 +1174,7 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
                 label.innerHTML = `
                     <i class="fas fa-check-circle" style="font-size: 32px; color: #4CAF50; margin-bottom: 10px;"></i><br>
                     <strong>${fileName}</strong>
-                    <small>${fileSize} MB</small>
+                    <small>${fileSize} MB | Format: PDF ✓</small>
                 `;
             }
         }
@@ -914,7 +1184,7 @@ if ($current_step == 'success' && isset($_SESSION['cv_completed'])) {
             const fileInputs = document.querySelectorAll('input[type="file"]');
             fileInputs.forEach(function(input) {
                 input.addEventListener('change', function() {
-                    validateFileSize(this);
+                    validatePDFFile(this);
                 });
             });
         });
