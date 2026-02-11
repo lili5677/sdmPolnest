@@ -15,6 +15,7 @@ $query = "SELECT
             sk.jabatan,
             sk.jenis_kepegawaian,
             sk.status_aktif,
+            sk.ptkp,
             sk.unit_kerja,
             sk.tanggal_mulai_kerja,
             sk.masa_kontrak_mulai,
@@ -39,6 +40,22 @@ $stmtDokumen = $conn->prepare($queryDokumen);
 $stmtDokumen->bindParam(':id', $id);
 $stmtDokumen->execute();
 $dokumenList = $stmtDokumen->fetchAll(PDO::FETCH_ASSOC);
+
+// Function untuk format PTKP
+function formatPTKP($ptkp) {
+    $ptkpLabels = [
+        'TK0' => 'TK/0 - Tidak Kawin (tanpa tanggungan)',
+        'TK1' => 'TK/1 - Tidak Kawin (1 tanggungan)',
+        'TK2' => 'TK/2 - Tidak Kawin (2 tanggungan)',
+        'TK3' => 'TK/3 - Tidak Kawin (3 tanggungan)',
+        'K0' => 'K/0 - Kawin (tanpa tanggungan)',
+        'K1' => 'K/1 - Kawin (1 tanggungan)',
+        'K2' => 'K/2 - Kawin (2 tanggungan)',
+        'K3' => 'K/3 - Kawin (3 tanggungan)'
+    ];
+    
+    return $ptkpLabels[$ptkp] ?? '-';
+}
 
 // Hitung masa kontrak dan sisa kontrak
 $masa_kontrak_hari = 0;
@@ -130,6 +147,7 @@ if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] 
         .badge-dosen { background: #e0e7ff; color: #3730a3; }
         .badge-staff { background: #fce7f3; color: #831843; }
         .badge-tendik { background: #e0f2fe; color: #075985; }
+        .badge-ptkp { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
         .badge-kontrak-normal { background: #dcfce7; color: #166534; }
         .badge-kontrak-mendekati { background: #fef3c7; color: #92400e; }
         .badge-kontrak-segera { background: #fed7aa; color: #9a3412; }
@@ -299,9 +317,24 @@ if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] 
                         </div>
                     </div>
                 </div>
-                <div class="detail-group">
-                    <div class="detail-label">Tanggal Mulai Kerja</div>
-                    <div class="detail-value"><?= $pegawai['tanggal_mulai_kerja'] ?? '-' ?></div>
+                <div class="detail-row">
+                    <div class="detail-group">
+                        <div class="detail-label">PTKP (Status Pajak)</div>
+                        <div class="detail-value">
+                            <?php if(!empty($pegawai['ptkp'])): ?>
+                                <span class="badge-custom badge-ptkp">
+                                    <i class="fas fa-file-invoice me-1"></i>
+                                    <?= formatPTKP($pegawai['ptkp']) ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-muted"> - </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="detail-group">
+                        <div class="detail-label">Tanggal Mulai Kerja</div>
+                        <div class="detail-value"><?= $pegawai['tanggal_mulai_kerja'] ?? '-' ?></div>
+                    </div>
                 </div>
                 
                 <?php if($pegawai['jenis_kepegawaian'] == 'kontrak'): ?>

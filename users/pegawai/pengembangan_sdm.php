@@ -489,25 +489,11 @@ if (isset($_SESSION['success_message'])) {
             margin-top: 5px;
         }
         
-        /* Status Rejected Styling */
-        .status-item.rejected {
-            border-left: 3px solid #dc3545 !important;
-        }
-
-        .status-item.rejected::before {
-            border-color: #dc3545 !important;
-            background: #dc3545 !important;
-        }
-
-        .badge-danger {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
         /* Smooth scroll */
         html {
             scroll-behavior: smooth;
         }
+        
         /* Buttons */
         .form-actions {
             display: flex;
@@ -589,6 +575,12 @@ if (isset($_SESSION['success_message'])) {
             background: #4caf50;
         }
         
+        /* Styling khusus untuk status ditolak */
+        .status-item.rejected::before {
+            border-color: #dc3545 !important;
+            background: #dc3545 !important;
+        }
+        
         .status-item:not(:last-child)::after {
             content: '';
             position: absolute;
@@ -597,6 +589,11 @@ if (isset($_SESSION['success_message'])) {
             width: 2px;
             height: 100%;
             background: #e0e0e0;
+        }
+        
+        /* Hilangkan garis penghubung untuk status ditolak */
+        .status-item.rejected::after {
+            display: none !important;
         }
         
         .status-title {
@@ -633,6 +630,11 @@ if (isset($_SESSION['success_message'])) {
         .badge-info {
             background: #d1ecf1;
             color: #0c5460;
+        }
+        
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
         }
         
         /* Responsive */
@@ -795,11 +797,11 @@ if (isset($_SESSION['success_message'])) {
                         
                         <?php elseif ($pengajuan_terakhir['status_pengajuan'] == 'ditolak'): ?>
                             <!-- DITOLAK -->
-                            <div class="status-item" style="border-left: 3px solid #dc3545;">
+                            <div class="status-item rejected">
                                 <div class="status-title">
                                     <i class="bi bi-x-circle-fill" style="color: #dc3545; margin-right: 8px;"></i>
                                     Pengajuan Ditolak
-                                    <span class="status-badge" style="background: #f8d7da; color: #721c24;">Ditolak</span>
+                                    <span class="status-badge badge-danger">Ditolak</span>
                                 </div>
                                 <div class="status-date">
                                     Ditolak pada <?php echo date('d F Y, H:i', strtotime($pengajuan_terakhir['updated_at'])); ?> WIB

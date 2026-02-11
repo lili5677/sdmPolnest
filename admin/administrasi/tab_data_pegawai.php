@@ -169,6 +169,15 @@
         color: white;
     }
 
+    .badge-ptkp {
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+        padding: 4px 8px;
+        font-size: 10px;
+        font-weight: 600;
+    }
+
     /* Action Buttons */
     .action-buttons {
         display: flex;
@@ -435,7 +444,7 @@
         }
 
         .table-pegawai {
-            min-width: 1200px;
+            min-width: 1400px;
         }
 
         .btn-action {
@@ -532,6 +541,24 @@
     let filteredDataPegawai = [];    // setelah filter diterapkan
     let currentPagePegawai = 1;
     const PAGE_SIZE_PEGAWAI = 10;
+
+    // ===== HELPER: Format PTKP untuk display =====
+    function formatPTKP(ptkp) {
+        if (!ptkp) return '-';
+        
+        const ptkpLabels = {
+            'TK0': 'TK/0',
+            'TK1': 'TK/1',
+            'TK2': 'TK/2',
+            'TK3': 'TK/3',
+            'K0': 'K/0',
+            'K1': 'K/1',
+            'K2': 'K/2',
+            'K3': 'K/3'
+        };
+        
+        return ptkpLabels[ptkp] || ptkp;
+    }
 
     // ===== LOAD DATA DARI SERVER =====
     async function loadDataPegawai() {
@@ -631,6 +658,7 @@
                             <th style="width: 150px;">JABATAN</th>
                             <th style="width: 100px;">PEGAWAI</th>
                             <th style="width: 100px;">STATUS</th>
+                            <th style="width: 90px;">PTKP</th>
                             <th style="width: 130px;">UNIT KERJA</th>
                             <th style="width: 120px;">SISA KONTRAK</th>
                             <th style="width: 140px;">AKSI</th>
@@ -653,6 +681,11 @@
                 ? '<span class="badge-custom badge-aktif">Aktif</span>'
                 : '<span class="badge-custom badge-tidak-aktif">Tidak Aktif</span>';
 
+            // Badge PTKP
+            const ptkpDisplay = pegawai.ptkp 
+                ? `<span class="badge-custom badge-ptkp"><i class="fas fa-file-invoice me-1"></i>${formatPTKP(pegawai.ptkp)}</span>` 
+                : '<span class="text-muted" style="font-size: 11px;">-</span>';
+
             // Sisa Kontrak
             let sisaKontrak = '-';
             let sisaKontrakClass = 'sisa-kontrak-normal';
@@ -674,6 +707,7 @@
                     <td style="font-size: 12px;">${pegawai.jabatan || '-'}</td>
                     <td class="text-center">${jenisKepegawaianBadge}</td>
                     <td class="text-center">${statusAktifBadge}</td>
+                    <td class="text-center">${ptkpDisplay}</td>
                     <td style="font-size: 12px;">${pegawai.unit_kerja || '-'}</td>
                     <td class="text-center" style="font-size: 12px;">
                         <span class="${sisaKontrakClass}">${sisaKontrak}</span>
@@ -825,6 +859,21 @@
         // Reset ke halaman 1 setiap kali filter berubah
         currentPagePegawai = 1;
         renderTablePegawai();
+    }
+
+    // ===== DISPLAY EMPTY STATE =====
+    function displayEmptyStatePegawai() {
+        const container = document.getElementById('data-pegawai-container');
+        container.innerHTML = `
+            <div class="empty-state-pegawai">
+                <i class="fas fa-users"></i>
+                <h4>Belum Ada Data Pegawai</h4>
+                <p>Mulai tambahkan data pegawai untuk mengelola informasi kepegawaian</p>
+                <button class="btn btn-primary-custom" onclick="tambahPegawai()">
+                    <i class="fas fa-plus me-1"></i> Tambah Pegawai Pertama
+                </button>
+            </div>
+        `;
     }
 
     // ===== REDIRECT FUNCTIONS =====

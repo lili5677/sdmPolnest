@@ -18,6 +18,7 @@ $query = "SELECT
             sk.jabatan,
             sk.jenis_kepegawaian,
             sk.status_aktif,
+            sk.ptkp,
             sk.unit_kerja,
             sk.tanggal_mulai_kerja,
             sk.masa_kontrak_mulai,
@@ -68,6 +69,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         $jabatan = emptyToNull($_POST['jabatan']);
         $unit_kerja = emptyToNull($_POST['unit_kerja']);
+        $ptkp = emptyToNull($_POST['ptkp']);
         
         $masa_kontrak_mulai = emptyToNull($_POST['masa_kontrak_mulai']);
         $masa_kontrak_selesai = emptyToNull($_POST['masa_kontrak_selesai']);
@@ -82,6 +84,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
                     jabatan = :jabatan,
                     jenis_kepegawaian = :jenis_kepegawaian,
                     status_aktif = :status_aktif,
+                    ptkp = :ptkp,
                     unit_kerja = :unit_kerja,
                     tanggal_mulai_kerja = :tanggal_mulai_kerja,
                     masa_kontrak_mulai = :masa_kontrak_mulai,
@@ -92,11 +95,11 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
                 // Insert new
                 $admin_id = 1;
                 $statusQuery = "INSERT INTO status_kepegawaian (
-                    pegawai_id, jabatan, jenis_kepegawaian, status_aktif,
+                    pegawai_id, jabatan, jenis_kepegawaian, status_aktif, ptkp,
                     unit_kerja, tanggal_mulai_kerja, masa_kontrak_mulai,
                     masa_kontrak_selesai, created_by
                 ) VALUES (
-                    :pegawai_id, :jabatan, :jenis_kepegawaian, :status_aktif,
+                    :pegawai_id, :jabatan, :jenis_kepegawaian, :status_aktif, :ptkp,
                     :unit_kerja, :tanggal_mulai_kerja, :masa_kontrak_mulai,
                     :masa_kontrak_selesai, $admin_id
                 )";
@@ -107,6 +110,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             $statusStmt->bindValue(':jabatan', $jabatan, $jabatan === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $statusStmt->bindParam(':jenis_kepegawaian', $_POST['jenis_kepegawaian']);
             $statusStmt->bindParam(':status_aktif', $_POST['status_aktif']);
+            $statusStmt->bindValue(':ptkp', $ptkp, $ptkp === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $statusStmt->bindValue(':unit_kerja', $unit_kerja, $unit_kerja === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
             $statusStmt->bindParam(':tanggal_mulai_kerja', $_POST['tanggal_mulai_kerja']);
             $statusStmt->bindValue(':masa_kontrak_mulai', $masa_kontrak_mulai, 
@@ -493,11 +497,29 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label for="tanggal_mulai_kerja" class="form-label">
-                            Tanggal Mulai Kerja <span class="required">*</span>
-                        </label>
-                        <input type="date" class="form-control" id="tanggal_mulai_kerja" name="tanggal_mulai_kerja" value="<?= $data['tanggal_mulai_kerja'] ?? '' ?>" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="ptkp" class="form-label">
+                                PTKP (Status Pajak)
+                            </label>
+                            <select class="form-select" id="ptkp" name="ptkp">
+                                <option value="">-- Pilih PTKP --</option>
+                                <option value="TK0" <?= ($data['ptkp'] ?? '') == 'TK0' ? 'selected' : '' ?>>TK/0 - Tidak Kawin (tanpa tanggungan)</option>
+                                <option value="TK1" <?= ($data['ptkp'] ?? '') == 'TK1' ? 'selected' : '' ?>>TK/1 - Tidak Kawin (1 tanggungan)</option>
+                                <option value="TK2" <?= ($data['ptkp'] ?? '') == 'TK2' ? 'selected' : '' ?>>TK/2 - Tidak Kawin (2 tanggungan)</option>
+                                <option value="TK3" <?= ($data['ptkp'] ?? '') == 'TK3' ? 'selected' : '' ?>>TK/3 - Tidak Kawin (3 tanggungan)</option>
+                                <option value="K0" <?= ($data['ptkp'] ?? '') == 'K0' ? 'selected' : '' ?>>K/0 - Kawin (tanpa tanggungan)</option>
+                                <option value="K1" <?= ($data['ptkp'] ?? '') == 'K1' ? 'selected' : '' ?>>K/1 - Kawin (1 tanggungan)</option>
+                                <option value="K2" <?= ($data['ptkp'] ?? '') == 'K2' ? 'selected' : '' ?>>K/2 - Kawin (2 tanggungan)</option>
+                                <option value="K3" <?= ($data['ptkp'] ?? '') == 'K3' ? 'selected' : '' ?>>K/3 - Kawin (3 tanggungan)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="tanggal_mulai_kerja" class="form-label">
+                                Tanggal Mulai Kerja <span class="required">*</span>
+                            </label>
+                            <input type="date" class="form-control" id="tanggal_mulai_kerja" name="tanggal_mulai_kerja" value="<?= $data['tanggal_mulai_kerja'] ?? '' ?>" required>
+                        </div>
                     </div>
 
                     <!-- Fields khusus Kontrak -->

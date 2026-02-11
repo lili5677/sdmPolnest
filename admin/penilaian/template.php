@@ -2,240 +2,594 @@
 session_start();
 require_once '../../config/database.php';
 
+// Cek login admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../../auth/login.php");
-    exit();
+    exit;
 }
 
-// ==========================================
-// HANDLE ACTIONS
-// ==========================================
+// Handle Create Template
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_template'])) {
+    $nama_template          = trim($_POST['nama_template']);
+    $periode                = $_POST['periode'];
+    $indikator_names        = $_POST['indikator_name']        ?? [];
+    $indikator_keterangans  = $_POST['indikator_keterangan']  ?? [];
 
-// CREATE TEMPLATE
-if (isset($_POST['action']) && $_POST['action'] === 'create_template') {
-    $nama = trim($_POST['nama_template']);
-    $periode = $_POST['periode'] . '-01';
-    
-    try {
-        $stmt = $conn->prepare("INSERT INTO penilaian_template (nama_template, periode, created_by) VALUES (?, ?, ?)");
-        $stmt->execute([$nama, $periode, $_SESSION['user_id']]);
-        $_SESSION['success'] = "Template berhasil dibuat!";
-        header("Location: template.php?id=" . $conn->lastInsertId());
-        exit();
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Gagal membuat template: " . $e->getMessage();
-    }
-}
+    $errors = [];
 
-// UPDATE TEMPLATE
-if (isset($_POST['action']) && $_POST['action'] === 'update_template') {
-    $template_id = (int)$_POST['template_id'];
-    $nama = trim($_POST['nama_template']);
-    $periode = $_POST['periode'] . '-01';
-    
-    try {
-        $stmt = $conn->prepare("UPDATE penilaian_template SET nama_template = ?, periode = ? WHERE template_id = ?");
-        $stmt->execute([$nama, $periode, $template_id]);
-        $_SESSION['success'] = "Template berhasil diupdate!";
-        header("Location: template.php?id=" . $template_id);
-        exit();
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Gagal update template: " . $e->getMessage();
-    }
-}
+    if (empty($nama_template)) $errors[] = "Nama template wajib diisi.";
+    if (empty($periode))       $errors[] = "Periode wajib diisi.";
 
-// DELETE TEMPLATE
-if (isset($_POST['action']) && $_POST['action'] === 'delete_template') {
-    $template_id = (int)$_POST['template_id'];
-    
-    try {
-        // Check if has penilaian
-        $stmt = $conn->prepare("SELECT COUNT(*) as jml FROM penilaian_kinerja WHERE template_id = ?");
-        $stmt->execute([$template_id]);
-        $count = $stmt->fetch(PDO::FETCH_ASSOC)['jml'];
-        
-        if ($count > 0) {
-            $_SESSION['error'] = "Template tidak bisa dihapus karena sudah ada penilaian yang menggunakannya!";
-        } else {
-            $stmt = $conn->prepare("DELETE FROM penilaian_template WHERE template_id = ?");
-            $stmt->execute([$template_id]);
-            $_SESSION['success'] = "Template berhasil dihapus!";
+    $valid_names = array_filter(array_map('trim', $indikator_names));
+    if (empty($valid_names))   $errors[] = "Minimal 1 indikator harus ditambahkan.";
+
+    if (empty($errors)) {
+        try {
+            $conn->beginTransaction();
+
+            $stmt = $conn->prepare("
+                INSERT INTO penilaian_template (nama_template, periode, created_by)
+                VALUES (?, ?, ?)
+            ");
+            $stmt->execute([$nama_template, $periode . '-01', $_SESSION['user_id']]);
+            $template_id = $conn->lastInsertId();
+
+            $stmt_ind = $conn->prepare("
+                INSERT INTO penilaian_indikator (template_id, nama_indikator, keterangan, urutan)
+                VALUES (?, ?, ?, ?)
+            ");
+
+            $urutan = 1;
+            foreach ($indikator_names as $i => $name) {
+                $name = trim($name);
+                if (!empty($name)) {
+                    $ket = trim($indikator_keterangans[$i] ?? '');
+                    $stmt_ind->execute([$template_id, $name, $ket, $urutan]);
+                    $urutan++;
+                }
+            }
+
+            $conn->commit();
+            $_SESSION['success_message'] = "Template penilaian berhasil dibuat dan siap digunakan pegawai!";
+            header("Location: template.php");
+            exit;
+
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $errors[] = "Gagal membuat template: " . $e->getMessage();
         }
-        header("Location: template.php");
-        exit();
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Gagal menghapus template: " . $e->getMessage();
-        header("Location: template.php");
-        exit();
     }
 }
 
-// ADD INDIKATOR
-if (isset($_POST['action']) && $_POST['action'] === 'add_indikator') {
-    $template_id = (int)$_POST['template_id'];
-    $nama = trim($_POST['nama_indikator']);
-    $keterangan = trim($_POST['keterangan']);
-    
+// Handle Delete Template (UPDATED - menggunakan POST)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_template'])) {
+    $del_id = (int)$_POST['template_id'];
+
     try {
-        // Get max urutan
-        $stmt = $conn->prepare("SELECT COALESCE(MAX(urutan), 0) + 1 as next_urutan FROM penilaian_indikator WHERE template_id = ?");
-        $stmt->execute([$template_id]);
-        $next_urutan = $stmt->fetch(PDO::FETCH_ASSOC)['next_urutan'];
-        
-        $stmt = $conn->prepare("INSERT INTO penilaian_indikator (template_id, nama_indikator, keterangan, urutan) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$template_id, $nama, $keterangan, $next_urutan]);
-        $_SESSION['success'] = "Indikator berhasil ditambahkan!";
+        $stmt_check = $conn->prepare("
+            SELECT COUNT(*) as total FROM penilaian_kinerja WHERE template_id = ?
+        ");
+        $stmt_check->execute([$del_id]);
+        $has_data = $stmt_check->fetch(PDO::FETCH_ASSOC)['total'] > 0;
+
+        if ($has_data) {
+            $_SESSION['error_message'] = "Template tidak dapat dihapus karena sudah ada penilaian yang menggunakan template ini.";
+        } else {
+            $stmt_del = $conn->prepare("DELETE FROM penilaian_template WHERE template_id = ?");
+            $stmt_del->execute([$del_id]);
+            $_SESSION['success_message'] = "Template berhasil dihapus.";
+        }
     } catch (Exception $e) {
-        $_SESSION['error'] = "Gagal menambah indikator: " . $e->getMessage();
+        $_SESSION['error_message'] = "Gagal menghapus template: " . $e->getMessage();
     }
-    header("Location: template.php?id=" . $template_id);
-    exit();
+
+    header("Location: template.php");
+    exit;
 }
 
-// UPDATE INDIKATOR
-if (isset($_POST['action']) && $_POST['action'] === 'update_indikator') {
-    $indikator_id = (int)$_POST['indikator_id'];
-    $template_id = (int)$_POST['template_id'];
-    $nama = trim($_POST['nama_indikator']);
-    $keterangan = trim($_POST['keterangan']);
-    
-    try {
-        $stmt = $conn->prepare("UPDATE penilaian_indikator SET nama_indikator = ?, keterangan = ? WHERE indikator_id = ?");
-        $stmt->execute([$nama, $keterangan, $indikator_id]);
-        $_SESSION['success'] = "Indikator berhasil diupdate!";
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Gagal update indikator: " . $e->getMessage();
-    }
-    header("Location: template.php?id=" . $template_id);
-    exit();
-}
-
-// DELETE INDIKATOR
-if (isset($_POST['action']) && $_POST['action'] === 'delete_indikator') {
-    $indikator_id = (int)$_POST['indikator_id'];
-    $template_id = (int)$_POST['template_id'];
-    
-    try {
-        $stmt = $conn->prepare("DELETE FROM penilaian_indikator WHERE indikator_id = ?");
-        $stmt->execute([$indikator_id]);
-        $_SESSION['success'] = "Indikator berhasil dihapus!";
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Gagal menghapus indikator: " . $e->getMessage();
-    }
-    header("Location: template.php?id=" . $template_id);
-    exit();
-}
-
-// ==========================================
-// GET DATA
-// ==========================================
-
-// Get template ID
-$template_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$edit_indikator_id = isset($_GET['edit_ind']) ? (int)$_GET['edit_ind'] : 0;
-
-// Get all templates
-$stmt = $conn->query("SELECT pt.*, 
-                             COUNT(DISTINCT pi.indikator_id) as jml_indikator,
-                             COUNT(DISTINCT pk.penilaian_id) as jml_penilaian,
-                             u.email as created_by_email
-                      FROM penilaian_template pt
-                      LEFT JOIN penilaian_indikator pi ON pt.template_id = pi.template_id
-                      LEFT JOIN penilaian_kinerja pk ON pt.template_id = pk.template_id
-                      LEFT JOIN users u ON pt.created_by = u.user_id
-                      GROUP BY pt.template_id
-                      ORDER BY pt.periode DESC");
+// Ambil semua template beserta statistik lengkap
+$stmt = $conn->prepare("
+    SELECT 
+        pt.*,
+        COUNT(DISTINCT pi.indikator_id) as jumlah_indikator,
+        COUNT(DISTINCT pk.penilaian_id) as jumlah_penilaian,
+        COUNT(DISTINCT CASE WHEN pk.status_verifikasi = 'belum_dilihat' THEN pk.penilaian_id END) as belum_dilihat,
+        COUNT(DISTINCT CASE WHEN pk.status_verifikasi = 'sudah_dilihat' THEN pk.penilaian_id END) as sudah_dilihat
+    FROM penilaian_template pt
+    LEFT JOIN penilaian_indikator pi ON pt.template_id = pi.template_id
+    LEFT JOIN penilaian_kinerja pk ON pt.template_id = pk.template_id
+    GROUP BY pt.template_id
+    ORDER BY pt.created_at DESC
+");
+$stmt->execute();
 $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get selected template
-$template = null;
-$indikator_list = [];
-if ($template_id > 0) {
-    foreach ($templates as $t) {
-        if ($t['template_id'] == $template_id) {
-            $template = $t;
-            break;
-        }
-    }
-    
-    if ($template) {
-        $stmt = $conn->prepare("SELECT * FROM penilaian_indikator WHERE template_id = ? ORDER BY urutan ASC");
-        $stmt->execute([$template_id]);
-        $indikator_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-}
-
-// Get edit indikator
-$edit_indikator = null;
-if ($edit_indikator_id > 0) {
-    $stmt = $conn->prepare("SELECT * FROM penilaian_indikator WHERE indikator_id = ?");
-    $stmt->execute([$edit_indikator_id]);
-    $edit_indikator = $stmt->fetch(PDO::FETCH_ASSOC);
-}
+$success_message = $_SESSION['success_message'] ?? null;
+$error_message   = $_SESSION['error_message']   ?? null;
+unset($_SESSION['success_message'], $_SESSION['error_message']);
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Manajemen Template Penilaian</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelola Template Penilaian - Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <style>
-        .main-content { margin-left: 250px; padding: 20px; background: #f8f9fa; min-height: 100vh; }
-        .card { border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .template-item { 
-            cursor: pointer; 
-            transition: all 0.3s; 
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            padding: 15px;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+            min-height: 100vh;
+        }
+
+        /* Page Header */
+        .page-header {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            padding: 28px 32px;
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 28px;
+            box-shadow: 0 5px 20px rgba(21, 101, 192, 0.3);
+        }
+
+        .page-header h1 { 
+            font-size: 24px; 
+            font-weight: 700; 
+            margin-bottom: 6px;
+            letter-spacing: -0.025em;
+        }
+        .page-header p  { 
+            font-size: 14px; 
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        /* Header biasa */
+         /* .page-header {
+            margin-bottom: 30px;
+        }
+
+        .page-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+
+        .page-header p {
+            color: #6b7280;
+            font-size: 15px;
+            margin: 0;
+        } */
+
+        /* Alert */
+        .alert {
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 14px;
+            animation: slideDown 0.3s ease;
+            border: 1px solid;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .alert-success { 
+            background: #f0fdf4; 
+            border-color: #86efac; 
+            color: #166534; 
+        }
+        .alert-danger  { 
+            background: #fef2f2; 
+            border-color: #fca5a5; 
+            color: #991b1b; 
+        }
+        .alert ul { margin-left: 20px; margin-top: 5px; }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(21, 101, 192, 0.35);
+        }
+
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-info:hover { background: #138496; }
+
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+
+        .btn-sm { padding: 7px 14px; font-size: 13px; }
+
+        /* Action bar */
+        .action-bar {
+            margin-bottom: 22px;
+        }
+
+        /* Layout Container */
+        .layout-container {
+            display: grid;
+            grid-template-columns: 480px 1fr;
+            gap: 28px;
+            align-items: start;
+        }
+
+        /* Card / Form Section */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid #f1f5f9;
+        }
+
+        .card-sticky {
+            position: sticky;
+            top: 30px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            letter-spacing: -0.025em;
+        }
+
+        /* Form */
+        .form-group { margin-bottom: 18px; }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 7px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #334155;
+            box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+        }
+
+        /* Indikator */
+        .indikator-container {
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 14px;
+            background: #f8fafc;
+        }
+
+        .indikator-item {
+            background: white;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .indikator-item:last-child { margin-bottom: 0; }
+
+        .indikator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 10px;
         }
-        .template-item:hover { background: #e7f3ff; border-color: #007bff; }
-        .template-item.active { background: #e7f3ff; border-color: #007bff; border-width: 3px; }
-        .indikator-item { 
-            background: white; 
-            border: 2px solid #dee2e6; 
-            padding: 15px; 
-            margin-bottom: 10px; 
-            border-radius: 8px; 
-            cursor: move;
+
+        .indikator-number {
+            background: #1976d2;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        .btn-remove-ind {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 11px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+
+        .btn-remove-ind:hover {
+            background: #c82333;
+        }
+
+        .btn-add-indikator {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .btn-add-indikator:hover { 
+            background: #218838; 
+            transform: translateY(-1px); 
+        }
+
+        .scale-info-box {
+            margin-top: 14px;
+            padding: 12px 15px;
+            background: #e3f0ff;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1565c0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Templates List */
+        .templates-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .template-item {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1.5px solid #f1f5f9;
             transition: all 0.3s;
         }
-        .indikator-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-        .preview-box {
-            background: #fff;
-            border: 2px dashed #007bff;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
+
+        .template-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-color: #cbd5e1;
         }
-        .radio-demo { display: inline-block; padding: 6px 12px; border: 2px solid #dee2e6; border-radius: 6px; margin-right: 5px; font-size: 0.9rem; }
-        .radio-demo.sb { background: #28a745; color: white; border-color: #28a745; }
-        .radio-demo.b { background: #17a2b8; color: white; border-color: #17a2b8; }
-        .radio-demo.c { background: #ffc107; color: #000; border-color: #ffc107; }
-        .radio-demo.k { background: #dc3545; color: white; border-color: #dc3545; }
-        .info-field { 
-            background: #f8f9fa; 
-            border: 2px solid #007bff; 
-            border-radius: 8px; 
-            padding: 15px; 
-            margin-bottom: 20px;
+
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
         }
-        .info-field-label {
+
+        .template-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+            letter-spacing: -0.025em;
+        }
+
+        .template-periode {
+            font-size: 13px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* Stats inside template item */
+        .template-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .tstat {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .tstat-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: #1565c0;
+            letter-spacing: -0.05em;
+        }
+
+        .tstat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 2px;
             font-weight: 600;
-            color: #495057;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
         }
-        .info-field-value {
+
+        /* Status row inside template */
+        .template-status {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .tstat-mini {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .tstat-mini-belum { background: #fef3c7; color: #92400e; }
+        .tstat-mini-sudah { background: #d1fae5; color: #065f46; }
+
+        .template-footer {
+            display: flex;
+            gap: 8px;
+            padding-top: 16px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
             background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 10px;
-            color: #6c757d;
+            border-radius: 16px;
+            border: 2px dashed #e2e8f0;
+        }
+
+        .empty-state i { 
+            font-size: 3.5rem; 
+            color: #cbd5e1; 
+            display: block; 
+            margin-bottom: 16px; 
+        }
+        .empty-state h3 { 
+            font-size: 18px; 
+            color: #64748b; 
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        .empty-state p { 
+            font-size: 14px; 
+            color: #94a3b8; 
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .layout-container {
+                grid-template-columns: 1fr;
+            }
+            .card-sticky {
+                position: static;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content { margin-left: 0; padding: 15px; }
+            .template-stats { grid-template-columns: 1fr; }
+        }
+
+        /* Custom SweetAlert2 Styling */
+        .swal2-popup {
+            font-family: 'Inter', sans-serif !important;
+            border-radius: 16px !important;
+        }
+        
+        .swal2-title {
+            font-size: 20px !important;
+            font-weight: 700 !important;
+            color: #1e293b !important;
+        }
+        
+        .swal2-html-container {
+            font-size: 14px !important;
+            color: #64748b !important;
+        }
+        
+        .swal2-confirm {
+            background: #dc3545 !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            padding: 10px 24px !important;
+        }
+        
+        .swal2-cancel {
+            background: #6c757d !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            padding: 10px 24px !important;
         }
     </style>
 </head>
@@ -243,381 +597,333 @@ if ($edit_indikator_id > 0) {
     <?php include '../sidebar/sidebar.php'; ?>
 
     <div class="main-content">
-        <div class="container-fluid">
-            <!-- Header -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1><i class=""></i> Kelola Template Penilaian</h1>
+            <p>Buat template baru dan kelola daftar template penilaian kinerja pegawai</p>
+        </div>
+
+        <?php if ($success_message): ?>
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill" style="font-size:18px; flex-shrink:0;"></i>
+                <span><?php echo htmlspecialchars($success_message); ?></span>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error_message): ?>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size:18px; flex-shrink:0;"></i>
+                <span><?php echo htmlspecialchars($error_message); ?></span>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill" style="font-size:18px; flex-shrink:0;"></i>
                 <div>
-                    <h2 class="mb-0">Manajemen Template Penilaian</h2>
-                    <p class="text-muted">Kelola template dan indikator penilaian kinerja</p>
-                </div>
-                <div>
-                    <a href="penilaianKinerja.php" class="btn btn-secondary me-2">
-                        <i class="bi bi-arrow-left"></i> Kembali
-                    </a>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCreateTemplate">
-                        <i class="bi bi-plus-circle"></i> Buat Template Baru
-                    </button>
+                    <strong>Terjadi kesalahan:</strong>
+                    <ul>
+                        <?php foreach ($errors as $err): ?>
+                            <li><?php echo htmlspecialchars($err); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
             </div>
+        <?php endif; ?>
 
-            <!-- Messages -->
-            <?php if (isset($_SESSION['success'])): ?>
-                <div class="alert alert-success alert-dismissible fade show">
-                    <?= $_SESSION['success'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                <?php unset($_SESSION['success']); ?>
-            <?php endif; ?>
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <a href="penilaianKinerja.php" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Kembali ke Daftar Penilaian
+            </a>
+        </div>
 
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show">
-                    <?= $_SESSION['error'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                <?php unset($_SESSION['error']); ?>
-            <?php endif; ?>
+        <!-- Layout: Form (Kiri) + List (Kanan) -->
+        <div class="layout-container">
+            
+            <!-- FORM CREATE TEMPLATE (KIRI) -->
+            <div class="card card-sticky">
+                <h2 class="card-title">
+                    <i class=""></i> Buat Template Baru
+                </h2>
 
-            <div class="row">
-                <!-- Sidebar: Daftar Template -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0"><i class="bi bi-list-ul"></i> Daftar Template</h5>
+                <form method="POST" id="templateForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">
+                                Nama Template <span style="color: #ef4444;">*</span>
+                            </label>
+                            <input type="text" name="nama_template" class="form-input"
+                                   placeholder="Contoh: Penilaian Kinerja Semester 1 2026"
+                                   value="<?php echo htmlspecialchars($_POST['nama_template'] ?? ''); ?>"
+                                   required>
                         </div>
-                        <div class="card-body p-3">
-                            <?php if (count($templates) > 0): ?>
-                                <?php foreach ($templates as $t): ?>
-                                    <div class="template-item <?= $template && $t['template_id'] == $template['template_id'] ? 'active' : '' ?>"
-                                         onclick="window.location='template.php?id=<?= $t['template_id'] ?>'">
-                                        <h6 class="mb-1"><?= htmlspecialchars($t['nama_template']) ?></h6>
-                                        <small class="text-muted">
-                                            <i class="bi bi-calendar"></i> <?= date('M Y', strtotime($t['periode'])) ?> • 
-                                            <i class="bi bi-list-check"></i> <?= $t['jml_indikator'] ?> indikator • 
-                                            <i class="bi bi-people"></i> <?= $t['jml_penilaian'] ?> penilaian
-                                        </small>
-                                    </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <div class="text-center py-4">
-                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
-                                    <p class="text-muted mt-2">Belum ada template</p>
-                                </div>
-                            <?php endif; ?>
+                        <div class="form-group">
+                            <label class="form-label">
+                                Periode (Bulan & Tahun) <span style="color: #ef4444;">*</span>
+                            </label>
+                            <input type="month" name="periode" class="form-input"
+                                   value="<?php echo htmlspecialchars($_POST['periode'] ?? ''); ?>"
+                                   required>
                         </div>
                     </div>
-                </div>
 
-                <!-- Main: Detail Template -->
-                <div class="col-md-8">
-                    <?php if ($template): ?>
-                        <div class="card">
-                            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h5 class="mb-0"><?= htmlspecialchars($template['nama_template']) ?></h5>
-                                    <small class="text-muted">
-                                        Periode: <?= date('F Y', strtotime($template['periode'])) ?> • 
-                                        Dibuat oleh: <?= htmlspecialchars($template['created_by_email']) ?>
-                                    </small>
-                                </div>
-                                <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditTemplate">
-                                        <i class="bi bi-pencil"></i> Edit
+                    <div class="form-group">
+                        <label class="form-label">
+                            Kriteria / Indikator Penilaian <span style="color: #ef4444;">*</span>
+                        </label>
+
+                        <div class="indikator-container" id="indikatorContainer">
+                            <div class="indikator-item">
+                                <div class="indikator-header">
+                                    <div class="indikator-number">1</div>
+                                    <button type="button" class="btn-remove-ind" onclick="removeIndikator(this)">
+                                        <i class="bi bi-trash"></i> Hapus
                                     </button>
-                                    <?php if ($template['jml_penilaian'] == 0): ?>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="if(confirm('Yakin hapus template ini?')) document.getElementById('delTemplateForm').submit();">
-                                            <i class="bi bi-trash"></i> Hapus
-                                        </button>
-                                        <form id="delTemplateForm" method="POST" style="display:none;">
-                                            <input type="hidden" name="action" value="delete_template">
-                                            <input type="hidden" name="template_id" value="<?= $template_id ?>">
-                                        </form>
-                                    <?php endif; ?>
+                                </div>
+                                <div class="form-group" style="margin-bottom:10px;">
+                                    <input type="text" name="indikator_name[]" class="form-input"
+                                           placeholder="Nama Indikator (contoh: Integritas)" required>
+                                </div>
+                                <div class="form-group" style="margin-bottom:0;">
+                                    <input type="text" name="indikator_keterangan[]" class="form-input"
+                                           placeholder="Keterangan tambahan (opsional)">
                                 </div>
                             </div>
-                            <div class="card-body">
-                                <!-- Form Tambah Indikator -->
-                                <form method="POST" class="mb-4 p-3 bg-light rounded">
-                                    <input type="hidden" name="action" value="add_indikator">
-                                    <input type="hidden" name="template_id" value="<?= $template_id ?>">
-                                    <h6 class="mb-3"><i class="bi bi-plus-circle"></i> Tambah Indikator Baru</h6>
-                                    <div class="row">
-                                        <div class="col-md-5 mb-2">
-                                            <input type="text" name="nama_indikator" class="form-control" 
-                                                   placeholder="Nama Indikator *" required>
+                        </div>
+
+                        <button type="button" class="btn-add-indikator" onclick="addIndikator()">
+                            <i class="bi bi-plus-circle"></i> Tambah Indikator
+                        </button>
+
+                        <!-- <div class="scale-info-box">
+                            <i class="bi bi-info-circle-fill" style="flex-shrink:0;"></i>
+                            <span>
+                                <strong>Skala penilaian tetap:</strong>
+                                Sangat Baik, Baik, Cukup, Kurang
+                            </span>
+                        </div> -->
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin-top: 10px;">
+                        <button type="submit" name="create_template" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Simpan Template
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                            <i class="bi bi-x-circle"></i> Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- DAFTAR TEMPLATE (KANAN) -->
+            <div>
+                <div class="card" style="margin-bottom: 16px;">
+                    <h2 class="card-title">
+                        <i class=""></i> Daftar Template Penilaian
+                        <span style="margin-left:auto; font-size:13px; font-weight:600; color:#64748b;">
+                            <?php echo count($templates); ?> template
+                        </span>
+                    </h2>
+                </div>
+
+                <?php if (count($templates) > 0): ?>
+                    <div class="templates-list">
+                        <?php foreach ($templates as $tpl): ?>
+                            <div class="template-item">
+                                <div class="template-header">
+                                    <div>
+                                        <div class="template-title">
+                                            <?php echo htmlspecialchars($tpl['nama_template']); ?>
                                         </div>
-                                        <div class="col-md-5 mb-2">
-                                            <input type="text" name="keterangan" class="form-control" 
-                                                   placeholder="Keterangan (opsional)">
-                                        </div>
-                                        <div class="col-md-2 mb-2">
-                                            <button type="submit" class="btn btn-success w-100">
-                                                <i class="bi bi-plus"></i> Tambah
-                                            </button>
+                                        <div class="template-periode">
+                                            <i class="bi bi-calendar-event"></i>
+                                            Periode: <?php echo date('F Y', strtotime($tpl['periode'])); ?>
                                         </div>
                                     </div>
-                                </form>
+                                </div>
 
-                                <!-- Daftar Indikator -->
-                                <h6 class="mb-3"><i class="bi bi-list-check"></i> Daftar Indikator (<?= count($indikator_list) ?>)</h6>
-                                
-                                <?php if (count($indikator_list) > 0): ?>
-                                    <div id="sortableIndikator">
-                                        <?php foreach ($indikator_list as $ind): ?>
-                                            <div class="indikator-item" data-id="<?= $ind['indikator_id'] ?>">
-                                                <div class="d-flex align-items-center">
-                                                    <i class="bi bi-grip-vertical text-muted me-3 fs-4"></i>
-                                                    <div class="flex-grow-1">
-                                                        <h6 class="mb-0"><?= htmlspecialchars($ind['nama_indikator']) ?></h6>
-                                                        <?php if ($ind['keterangan']): ?>
-                                                            <small class="text-muted"><?= htmlspecialchars($ind['keterangan']) ?></small>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                    <div class="btn-group btn-group-sm">
-                                                        <a href="?id=<?= $template_id ?>&edit_ind=<?= $ind['indikator_id'] ?>" 
-                                                           class="btn btn-outline-primary">
-                                                            <i class="bi bi-pencil"></i>
-                                                        </a>
-                                                        <button class="btn btn-outline-danger" 
-                                                                onclick="if(confirm('Hapus indikator ini?')) document.getElementById('delInd<?= $ind['indikator_id'] ?>').submit();">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <form id="delInd<?= $ind['indikator_id'] ?>" method="POST" style="display:none;">
-                                                    <input type="hidden" name="action" value="delete_indikator">
-                                                    <input type="hidden" name="indikator_id" value="<?= $ind['indikator_id'] ?>">
-                                                    <input type="hidden" name="template_id" value="<?= $template_id ?>">
-                                                </form>
-                                            </div>
-                                        <?php endforeach; ?>
+                                <!-- Statistik Utama -->
+                                <div class="template-stats">
+                                    <div class="tstat">
+                                        <div class="tstat-value"><?php echo $tpl['jumlah_indikator']; ?></div>
+                                        <div class="tstat-label">Indikator</div>
                                     </div>
-                                    <small class="text-muted">
-                                        <i class="bi bi-info-circle"></i> Drag & drop untuk mengubah urutan indikator
-                                    </small>
+                                    <div class="tstat">
+                                        <div class="tstat-value"><?php echo $tpl['jumlah_penilaian']; ?></div>
+                                        <div class="tstat-label">Terisi</div>
+                                    </div>
+                                </div>
 
-                                    <!-- Preview -->
-                                    <div class="preview-box mt-4">
-                                        <h6 class="mb-3"><i class="bi bi-eye"></i> Preview Tampilan User</h6>
-                                        
-                                        <!-- Field Informasi Karyawan (Paten) -->
-                                        <div class="alert alert-info mb-3">
-                                            <i class="bi bi-info-circle"></i> <strong>Informasi Berikut Akan Otomatis Terisi dari Data Karyawan yang Dinilai</strong>
-                                        </div>
-                                        
-                                        <div class="row mb-4">
-                                            <div class="col-md-4">
-                                                <div class="info-field">
-                                                    <div class="info-field-label">
-                                                        <i class="bi bi-person"></i> Nama Lengkap
-                                                    </div>
-                                                    <div class="info-field-value">
-                                                        [Akan terisi otomatis]
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="info-field">
-                                                    <div class="info-field-label">
-                                                        <i class="bi bi-briefcase"></i> Jabatan/Posisi
-                                                    </div>
-                                                    <div class="info-field-value">
-                                                        [Akan terisi otomatis]
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <div class="info-field">
-                                                    <div class="info-field-label">
-                                                        <i class="bi bi-building"></i> Unit Kerja
-                                                    </div>
-                                                    <div class="info-field-value">
-                                                        [Akan terisi otomatis]
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <hr class="my-4">
-
-                                        <!-- Kriteria Penilaian -->
-                                        <h6 class="mb-3"><i class="bi bi-clipboard-check"></i> Kriteria Penilaian</h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-bordered">
-                                                <thead class="table-light">
-                                                    <tr>
-                                                        <th width="45%">Kriteria Penilaian</th>
-                                                        <th width="55%">Penilaian</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($indikator_list as $ind): ?>
-                                                        <tr>
-                                                            <td>
-                                                                <strong><?= htmlspecialchars($ind['nama_indikator']) ?></strong>
-                                                                <?php if ($ind['keterangan']): ?>
-                                                                    <br><small class="text-muted"><?= htmlspecialchars($ind['keterangan']) ?></small>
-                                                                <?php endif; ?>
-                                                            </td>
-                                                            <td>
-                                                                <span class="radio-demo sb">Sangat Baik</span>
-                                                                <span class="radio-demo b">Baik</span>
-                                                                <span class="radio-demo c">Cukup</span>
-                                                                <span class="radio-demo k">Kurang</span>
-                                                            </td>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        <div class="alert alert-warning mt-3">
-                                            <i class="bi bi-lightbulb"></i> <strong>Catatan:</strong> Field Nama Lengkap, Jabatan/Posisi, dan Unit Kerja akan otomatis terisi dari data karyawan yang dipilih saat membuat penilaian.
-                                        </div>
+                                <!-- Status verifikasi -->
+                                <?php if ($tpl['jumlah_penilaian'] > 0): ?>
+                                    <div class="template-status">
+                                        <span class="tstat-mini tstat-mini-belum">
+                                            <i class="bi bi-clock"></i>
+                                            <?php echo $tpl['belum_dilihat']; ?> Belum Dilihat
+                                        </span>
+                                        <span class="tstat-mini tstat-mini-sudah">
+                                            <i class="bi bi-check-circle-fill"></i>
+                                            <?php echo $tpl['sudah_dilihat']; ?> Sudah Dilihat
+                                        </span>
                                     </div>
                                 <?php else: ?>
-                                    <div class="text-center py-5">
-                                        <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
-                                        <h5 class="text-muted mt-3">Belum Ada Indikator</h5>
-                                        <p class="text-muted">Silakan tambah indikator menggunakan form di atas</p>
+                                    <div style="margin-bottom:16px;">
+                                        <span style="font-size:12px; color:#94a3b8; font-style:italic;">
+                                            <i class="bi bi-info-circle"></i> Belum ada pegawai yang mengisi
+                                        </span>
                                     </div>
                                 <?php endif; ?>
+
+                                <!-- Aksi -->
+                                <div class="template-footer">
+                                    <a href="penilaianKinerja.php?template_id=<?php echo $tpl['template_id']; ?>"
+                                       class="btn btn-info btn-sm" style="flex:1;">
+                                        <i class="bi bi-eye"></i> Lihat Penilaian
+                                    </a>
+                                    <a href="edit_template.php?id=<?php echo $tpl['template_id']; ?>"
+                                       class="btn btn-warning btn-sm"
+                                       title="Edit Template">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <!-- UPDATED: Button dengan onclick untuk custom alert -->
+                                    <button type="button" 
+                                            class="btn btn-danger btn-sm"
+                                            onclick="confirmDelete(<?php echo $tpl['template_id']; ?>, '<?php echo addslashes($tpl['nama_template']); ?>')"
+                                            title="Hapus Template">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    <?php else: ?>
-                        <div class="card">
-                            <div class="card-body text-center py-5">
-                                <i class="bi bi-arrow-left-circle" style="font-size: 5rem; color: #ccc;"></i>
-                                <h5 class="text-muted mt-3">Pilih Template</h5>
-                                <p class="text-muted">Pilih template dari sidebar untuk mengelola indikator</p>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-                </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <i class="bi bi-inbox"></i>
+                        <h3>Belum Ada Template</h3>
+                        <p>Buat template penilaian baru menggunakan form di sebelah kiri.</p>
+                    </div>
+                <?php endif; ?>
             </div>
+
         </div>
+
     </div>
 
-    <!-- Modal: Create Template -->
-    <div class="modal fade" id="modalCreateTemplate" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="POST">
-                    <input type="hidden" name="action" value="create_template">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Buat Template Baru</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Nama Template *</label>
-                            <input type="text" name="nama_template" class="form-control" 
-                                   placeholder="Contoh: Penilaian Kinerja Semester 1 2026" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Periode *</label>
-                            <input type="month" name="periode" class="form-control" required>
-                            <small class="text-muted">Pilih bulan dan tahun periode penilaian</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">Buat Template</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
+    <!-- Hidden Form untuk Delete -->
+    <form id="deleteForm" method="POST" style="display: none;">
+        <input type="hidden" name="delete_template" value="1">
+        <input type="hidden" name="template_id" id="deleteTemplateId">
+    </form>
 
-    <!-- Modal: Edit Template -->
-    <?php if ($template): ?>
-    <div class="modal fade" id="modalEditTemplate" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="POST">
-                    <input type="hidden" name="action" value="update_template">
-                    <input type="hidden" name="template_id" value="<?= $template_id ?>">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Edit Template</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Nama Template *</label>
-                            <input type="text" name="nama_template" class="form-control" 
-                                   value="<?= htmlspecialchars($template['nama_template']) ?>" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Periode *</label>
-                            <input type="month" name="periode" class="form-control" 
-                                   value="<?= date('Y-m', strtotime($template['periode'])) ?>" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">Update</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <!-- Modal: Edit Indikator -->
-    <?php if ($edit_indikator): ?>
-    <div class="modal fade show" id="modalEditIndikator" tabindex="-1" 
-         style="display: block;" data-bs-backdrop="static">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="POST">
-                    <input type="hidden" name="action" value="update_indikator">
-                    <input type="hidden" name="indikator_id" value="<?= $edit_indikator['indikator_id'] ?>">
-                    <input type="hidden" name="template_id" value="<?= $edit_indikator['template_id'] ?>">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Edit Indikator</h5>
-                        <button type="button" class="btn-close" 
-                                onclick="window.location='?id=<?= $edit_indikator['template_id'] ?>'"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Nama Indikator *</label>
-                            <input type="text" name="nama_indikator" class="form-control" 
-                                   value="<?= htmlspecialchars($edit_indikator['nama_indikator']) ?>" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Keterangan</label>
-                            <textarea name="keterangan" class="form-control" rows="2"><?= htmlspecialchars($edit_indikator['keterangan'] ?? '') ?></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" 
-                                onclick="window.location='?id=<?= $edit_indikator['template_id'] ?>'">Batal</button>
-                        <button type="submit" class="btn btn-primary">Update</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop fade show"></div>
-    <?php endif; ?>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Sortable untuk drag & drop
-        $(function() {
-            $("#sortableIndikator").sortable({
-                handle: ".bi-grip-vertical",
-                update: function() {
-                    const order = $(this).sortable('toArray', { attribute: 'data-id' });
-                    $.post('ajax.php', {
-                        action: 'update_urutan',
-                        template_id: <?= $template_id ?>,
-                        order: order
-                    });
+        let indikatorCount = 1;
+
+        function addIndikator() {
+            indikatorCount++;
+            const container = document.getElementById('indikatorContainer');
+            const item = document.createElement('div');
+            item.className = 'indikator-item';
+            item.innerHTML = `
+                <div class="indikator-header">
+                    <div class="indikator-number">${indikatorCount}</div>
+                    <button type="button" class="btn-remove-ind" onclick="removeIndikator(this)">
+                        <i class="bi bi-trash"></i> Hapus
+                    </button>
+                </div>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <input type="text" name="indikator_name[]" class="form-input"
+                           placeholder="Nama Indikator" required>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="text" name="indikator_keterangan[]" class="form-input"
+                           placeholder="Keterangan tambahan (opsional)">
+                </div>
+            `;
+            container.appendChild(item);
+            updateNumbers();
+        }
+
+        function removeIndikator(btn) {
+            const items = document.querySelectorAll('.indikator-item');
+            if (items.length > 1) {
+                btn.closest('.indikator-item').remove();
+                updateNumbers();
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tidak Bisa Dihapus',
+                    text: 'Minimal harus ada 1 indikator!',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#1565c0'
+                });
+            }
+        }
+
+        function updateNumbers() {
+            document.querySelectorAll('.indikator-item').forEach((item, i) => {
+                item.querySelector('.indikator-number').textContent = i + 1;
+            });
+            indikatorCount = document.querySelectorAll('.indikator-item').length;
+        }
+
+        function resetForm() {
+            document.getElementById('indikatorContainer').innerHTML = `
+                <div class="indikator-item">
+                    <div class="indikator-header">
+                        <div class="indikator-number">1</div>
+                        <button type="button" class="btn-remove-ind" onclick="removeIndikator(this)">
+                            <i class="bi bi-trash"></i> Hapus
+                        </button>
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px;">
+                        <input type="text" name="indikator_name[]" class="form-input"
+                               placeholder="Nama Indikator (contoh: Integritas)" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <input type="text" name="indikator_keterangan[]" class="form-input"
+                               placeholder="Keterangan tambahan (opsional)">
+                    </div>
+                </div>
+            `;
+            indikatorCount = 1;
+            document.getElementById('templateForm').reset();
+        }
+
+        // Custom Delete Confirmation dengan SweetAlert2
+        function confirmDelete(templateId, templateName) {
+            Swal.fire({
+                title: 'Hapus Template?',
+                html: `Apakah Anda yakin ingin menghapus template:<br><strong>"${templateName}"</strong>?<br><br><small style="color: #dc3545;">⚠️ Template yang sudah digunakan untuk penilaian tidak dapat dihapus.</small>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="bi bi-trash"></i> Ya, Hapus',
+                cancelButtonText: '<i class="bi bi-x-circle"></i> Batal',
+                reverseButtons: true,
+                customClass: {
+                    confirmButton: 'btn btn-danger',
+                    cancelButton: 'btn btn-secondary'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Submit form delete
+                    document.getElementById('deleteTemplateId').value = templateId;
+                    document.getElementById('deleteForm').submit();
                 }
             });
-        });
+        }
+
+        // Auto-hide alerts
+        setTimeout(function() {
+            document.querySelectorAll('.alert').forEach(a => {
+                a.style.transition = 'opacity 0.5s';
+                a.style.opacity = '0';
+                setTimeout(() => a.remove(), 500);
+            });
+        }, 6000);
     </script>
 </body>
 </html>

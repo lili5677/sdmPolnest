@@ -2,140 +2,473 @@
 session_start();
 require_once '../../config/database.php';
 
+// Cek login admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../../auth/login.php");
-    exit();
+    exit;
 }
 
-$penilaian_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    $_SESSION['error_message'] = "ID penilaian tidak valid.";
+    header("Location: penilaianKinerja.php");
+    exit;
+}
 
-// Get penilaian detail
-$stmt = $conn->prepare("SELECT 
-                            pk.*,
-                            IFNULL(pk.status_verifikasi, 'belum_dilihat') as status_verifikasi,
-                            p.nama_lengkap,
-                            p.email,
-                            p.jenis_pegawai,
-                            sk.jabatan,
-                            sk.unit_kerja,
-                            pt.nama_template,
-                            u_creator.email as created_by_email,
-                            u_verifier.email as verified_by_email
-                        FROM penilaian_kinerja pk
-                        INNER JOIN pegawai p ON pk.pegawai_id = p.pegawai_id
-                        LEFT JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
-                        INNER JOIN penilaian_template pt ON pk.template_id = pt.template_id
-                        LEFT JOIN users u_creator ON pk.created_by = u_creator.user_id
-                        LEFT JOIN users u_verifier ON pk.verified_by = u_verifier.user_id
-                        WHERE pk.penilaian_id = ?");
+$penilaian_id = (int)$_GET['id'];
+
+// Ambil data penilaian + pegawai + template
+$stmt = $conn->prepare("
+    SELECT 
+        pk.*,
+        p.nama_lengkap,
+        p.foto_path,
+        sk.jabatan,
+        sk.unit_kerja,
+        pt.nama_template,
+        pt.periode,
+        u_verif.email as verified_by_email
+    FROM penilaian_kinerja pk
+    JOIN pegawai p ON pk.pegawai_id = p.pegawai_id
+    LEFT JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
+    JOIN penilaian_template pt ON pk.template_id = pt.template_id
+    LEFT JOIN users u_verif ON pk.verified_by = u_verif.user_id
+    WHERE pk.penilaian_id = ?
+");
 $stmt->execute([$penilaian_id]);
 $penilaian = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$penilaian) {
-    $_SESSION['error'] = "Penilaian tidak ditemukan!";
+    $_SESSION['error_message'] = "Data penilaian tidak ditemukan.";
     header("Location: penilaianKinerja.php");
-    exit();
+    exit;
 }
 
-// Get detail jawaban 
-$stmt = $conn->prepare("SELECT 
-                            pkd.*,
-                            pi.nama_indikator,
-                            pi.keterangan,
-                            pi.urutan
-                        FROM penilaian_kinerja_detail pkd
-                        INNER JOIN penilaian_indikator pi ON pkd.indikator_id = pi.indikator_id
-                        WHERE pkd.penilaian_id = ?
-                        ORDER BY pi.urutan ASC");
-$stmt->execute([$penilaian_id]);
-$jawaban_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Ambil detail nilai per indikator
+$stmt_detail = $conn->prepare("
+    SELECT 
+        pi.nama_indikator,
+        pi.keterangan,
+        pi.urutan,
+        pkd.nilai
+    FROM penilaian_kinerja_detail pkd
+    JOIN penilaian_indikator pi ON pkd.indikator_id = pi.indikator_id
+    WHERE pkd.penilaian_id = ?
+    ORDER BY pi.urutan ASC
+");
+$stmt_detail->execute([$penilaian_id]);
+$detail_list = $stmt_detail->fetchAll(PDO::FETCH_ASSOC);
 
-// Map nilai ke label
-$nilai_map = [
-    'sangat_baik' => ['label' => 'Sangat Baik', 'color' => 'success', 'icon' => 'emoji-smile'],
-    'baik' => ['label' => 'Baik', 'color' => 'info', 'icon' => 'emoji-neutral'],
-    'cukup' => ['label' => 'Cukup', 'color' => 'warning', 'icon' => 'emoji-frown'],
-    'kurang' => ['label' => 'Kurang', 'color' => 'danger', 'icon' => 'emoji-frown-fill']
+// Hitung statistik skala penilaian
+$statistik = [
+    'Sangat Baik' => 0,
+    'Baik'        => 0,
+    'Cukup'       => 0,
+    'Kurang'      => 0,
+];
+$total_indikator = count($detail_list);
+
+foreach ($detail_list as $d) {
+    if (isset($statistik[$d['nilai']])) {
+        $statistik[$d['nilai']]++;
+    }
+}
+
+// Handle mark as viewed dari halaman ini
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_viewed'])) {
+    $stmt_update = $conn->prepare("
+        UPDATE penilaian_kinerja 
+        SET status_verifikasi = 'sudah_dilihat',
+            verified_by = ?,
+            verified_at = NOW()
+        WHERE penilaian_id = ?
+    ");
+    if ($stmt_update->execute([$_SESSION['user_id'], $penilaian_id])) {
+        $_SESSION['success_message'] = "Status penilaian berhasil ditandai sebagai 'Sudah Dilihat'.";
+    }
+    header("Location: detail.php?id=" . $penilaian_id);
+    exit;
+}
+
+$success_message = $_SESSION['success_message'] ?? null;
+unset($_SESSION['success_message']);
+
+// Warna badge untuk nilai
+$nilai_config = [
+    'Sangat Baik' => ['bg' => '#10b981', 'text' => 'white', 'icon' => 'emoji-smile'],
+    'Baik'        => ['bg' => '#3b82f6', 'text' => 'white', 'icon' => 'hand-thumbs-up'],
+    'Cukup'       => ['bg' => '#f59e0b', 'text' => 'white', 'icon' => 'dash-circle'],
+    'Kurang'      => ['bg' => '#ef4444', 'text' => 'white', 'icon' => 'emoji-frown'],
+];
+
+$statistik_config = [
+    'Sangat Baik' => ['color' => '#10b981', 'light' => '#d1fae5'],
+    'Baik'        => ['color' => '#3b82f6', 'light' => '#dbeafe'],
+    'Cukup'       => ['color' => '#f59e0b', 'light' => '#fef3c7'],
+    'Kurang'      => ['color' => '#ef4444', 'light' => '#fee2e2'],
 ];
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Detail Penilaian - <?= htmlspecialchars($penilaian['nama_lengkap']) ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Penilaian Kinerja - Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+
     <style>
-        .main-content { 
-            margin-left: 250px; 
-            padding: 20px; 
-            background: #f8f9fa; 
-            min-height: 100vh; 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
         }
-        .card { 
-            border: none; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
-            margin-bottom: 20px; 
-        }
-        .profile-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+
+        .main-content {
+            margin-left: 250px;
             padding: 30px;
-            border-radius: 8px 8px 0 0;
+            min-height: 100vh;
         }
-        .info-box {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 4px;
+
+        /* Page Header */
+        .page-header {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            padding: 28px 32px;
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(21, 101, 192, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
         }
-        .info-label {
-            font-weight: 600;
-            color: #495057;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+
+        .page-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            letter-spacing: -0.025em;
         }
-        .info-value {
-            color: #212529;
-            font-size: 1rem;
-            margin-top: 5px;
+
+        .page-header p {
+            font-size: 14px;
+            opacity: 0.9;
+            font-weight: 400;
         }
-        .jawaban-card {
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 15px;
-            transition: all 0.3s;
+
+        /* Header biasa */
+         /* .page-header {
+            margin-bottom: 30px;
         }
-        .jawaban-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
+
+        .page-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 8px;
         }
-        .nilai-badge {
+
+        .page-header p {
+            color: #6b7280;
+            font-size: 15px;
+            margin: 0;
+        } */
+
+        /* Alert */
+        .alert {
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            border: 1px solid;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border-color: #86efac;
+            color: #166534;
+        }
+
+        /* Buttons */
+        .btn {
             padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
             font-size: 14px;
             font-weight: 600;
-            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            font-family: 'Inter', sans-serif;
         }
-        .status-verified {
-            background: #d4edda;
-            border: 2px solid #28a745;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.5);
         }
-        .status-pending {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            padding: 15px;
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.35);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
+            border: 1px solid #f1f5f9;
+        }
+
+        .card-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.025em;
+        }
+
+        /* Profile Card - UPDATED */
+        .profile-card {
+            background: linear-gradient(135deg, #e8f4f8 0%, #d8eaf2 100%);
+            border: 1px solid #b8d8e6;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 28px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .profile-card-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #0f4c75;
+            margin-bottom: 24px;
+            padding-bottom: 14px;
+            border-bottom: 2px solid #b8d8e6;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .profile-info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .profile-info-column {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .info-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            border: 1px solid rgba(184, 216, 230, 0.5);
+            transition: all 0.2s;
+        }
+
+        .info-row:hover {
+            background: rgba(255, 255, 255, 0.95);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: #0f4c75;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .jenis-badge {
+            display: inline-block;
+            padding: 6px 14px;
             border-radius: 8px;
-            margin-bottom: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .jenis-dosen { background: #dbeafe; color: #1e40af; }
+        .jenis-staff { background: #f3e8ff; color: #6b21a8; }
+        .jenis-tendik { background: #fed7aa; color: #92400e; }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .badge-belum {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-sudah {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Statistik Cards */
+        .statistik-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #e8f0ff;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-card .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .stat-card .stat-percent {
+            font-size: 12px;
+            margin-top: 6px;
+            color: #888;
+            font-weight: 500;
+        }
+
+        /* Indikator Table */
+        .indikator-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .indikator-table thead tr {
+            background: #f8fafc;
+        }
+
+        .indikator-table thead th {
+            padding: 16px 18px;
+            text-align: left;
+            color: #475569;
+            font-weight: 700;
+            font-size: 13px;
+            border-bottom: 2px solid #e2e8f0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .indikator-table tbody tr {
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s;
+        }
+
+        .indikator-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .indikator-table tbody td {
+            padding: 18px;
+            font-size: 14px;
+            vertical-align: middle;
+        }
+
+        .nilai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        /* Catatan box */
+        .catatan-box {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-left: 4px solid #64748b;
+            border-radius: 12px;
+            padding: 18px 20px;
+            font-size: 14px;
+            color: #475569;
+            line-height: 1.6;
+        }
+
+        .no-catatan {
+            color: #94a3b8;
+            font-style: italic;
+            font-size: 14px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-content { margin-left: 0; padding: 15px; }
+            .statistik-grid { grid-template-columns: repeat(2, 1fr); }
+            .profile-info-grid { grid-template-columns: 1fr; }
+        }
+        
+        @media (max-width: 992px) and (min-width: 769px) {
+            .profile-info-grid { gap: 18px; }
         }
     </style>
 </head>
@@ -143,264 +476,219 @@ $nilai_map = [
     <?php include '../sidebar/sidebar.php'; ?>
 
     <div class="main-content">
-        <div class="container-fluid">
-            <!-- Header -->
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Detail Penilaian Kinerja</h2>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <h1><i class=""></i> Detail Penilaian Kinerja</h1>
+                <p>
+                    <?php echo htmlspecialchars($penilaian['nama_template']); ?> &mdash;
+                    Periode <?php echo date('F Y', strtotime($penilaian['periode'])); ?>
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <?php if ($penilaian['status_verifikasi'] === 'belum_dilihat'): ?>
+                    <form method="POST" onsubmit="return confirm('Tandai penilaian ini sebagai sudah dilihat?');">
+                        <button type="submit" name="mark_viewed" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> Tandai Sudah Dilihat
+                        </button>
+                    </form>
+                <?php endif; ?>
                 <a href="penilaianKinerja.php" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Kembali
                 </a>
             </div>
+        </div>
 
-            <!-- Messages -->
-            <?php if (isset($_SESSION['success'])): ?>
-                <div class="alert alert-success alert-dismissible fade show">
-                    <i class="bi bi-check-circle me-2"></i>
-                    <?= $_SESSION['success'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                <?php unset($_SESSION['success']); ?>
-            <?php endif; ?>
+        <?php if ($success_message): ?>
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill" style="font-size: 18px;"></i>
+                <span><?php echo htmlspecialchars($success_message); ?></span>
+            </div>
+        <?php endif; ?>
 
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show">
-                    <i class="bi bi-exclamation-triangle me-2"></i>
-                    <?= $_SESSION['error'] ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                <?php unset($_SESSION['error']); ?>
-            <?php endif; ?>
-
-            <div class="row">
-                <!-- Profile Card -->
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="profile-header">
-                            <div class="text-center mb-3">
-                                <i class="bi bi-person-circle" style="font-size: 5rem;"></i>
-                            </div>
-                            <h4 class="text-center mb-0"><?= htmlspecialchars($penilaian['nama_lengkap']) ?></h4>
-                            <p class="text-center mb-0 mt-2 opacity-75">
-                                <i class="bi bi-envelope"></i> <?= htmlspecialchars($penilaian['email']) ?>
-                            </p>
+        <!-- Profile Card - Info Pegawai - UPDATED -->
+        <div class="profile-card">
+            <div class="profile-card-title">
+                <i class=""></i> Informasi Pegawai
+            </div>
+            
+            <!-- Grid 2 Kolom -->
+            <div class="profile-info-grid">
+                <!-- Kolom Kiri -->
+                <div class="profile-info-column">
+                    <div class="info-row">
+                        <div class="info-label">Nama Lengkap</div>
+                        <div class="info-value"><?php echo htmlspecialchars($penilaian['nama_lengkap']); ?></div>
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="info-label">Jabatan / Posisi</div>
+                        <div class="info-value"><?php echo htmlspecialchars($penilaian['jabatan'] ?? '-'); ?></div>
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="info-label">Unit Kerja / Divisi</div>
+                        <div class="info-value"><?php echo htmlspecialchars($penilaian['unit_kerja'] ?? '-'); ?></div>
+                    </div>
+                    
+                    <!-- <div class="info-row">
+                        <div class="info-label">Jenis Pegawai</div>
+                        <div class="info-value">
+                            <span class="jenis-badge jenis-<?php echo strtolower($penilaian['jenis_pegawai']); ?>">
+                                <?php echo ucfirst($penilaian['jenis_pegawai']); ?>
+                            </span>
                         </div>
-                        <div class="card-body">
-                            <div class="info-box">
-                                <div class="info-label">
-                                    <i class="bi bi-briefcase"></i> Jabatan/Posisi
-                                </div>
-                                <div class="info-value">
-                                    <?= htmlspecialchars($penilaian['jabatan'] ?? '-') ?>
-                                </div>
-                            </div>
-
-                            <div class="info-box">
-                                <div class="info-label">
-                                    <i class="bi bi-building"></i> Unit Kerja
-                                </div>
-                                <div class="info-value">
-                                    <?= htmlspecialchars($penilaian['unit_kerja'] ?? '-') ?>
-                                </div>
-                            </div>
-
-                            <div class="info-box">
-                                <div class="info-label">
-                                    <i class="bi bi-person-badge"></i> Jenis Pegawai
-                                </div>
-                                <div class="info-value">
-                                    <span class="badge bg-info">
-                                        <?= strtoupper($penilaian['jenis_pegawai']) ?>
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="info-box">
-                                <div class="info-label">
-                                    <i class="bi bi-file-earmark-text"></i> Template
-                                </div>
-                                <div class="info-value">
-                                    <?= htmlspecialchars($penilaian['nama_template']) ?>
-                                </div>
-                            </div>
-
-                            <div class="info-box">
-                                <div class="info-label">
-                                    <i class="bi bi-calendar-event"></i> Periode
-                                </div>
-                                <div class="info-value">
-                                    <?= date('F Y', strtotime($penilaian['periode'])) ?>
-                                </div>
-                            </div>
-
-                            <div class="info-box">
-                                <div class="info-label">
-                                    <i class="bi bi-clock"></i> Tanggal Isi
-                                </div>
-                                <div class="info-value">
-                                    <?= date('d F Y, H:i', strtotime($penilaian['created_at'])) ?> WIB
-                                </div>
-                            </div>
-
-                            <?php if ($penilaian['created_by_email']): ?>
-                            <div class="info-box">
-                                <div class="info-label">
-                                    <i class="bi bi-person"></i> Diisi Oleh
-                                </div>
-                                <div class="info-value">
-                                    <?= htmlspecialchars($penilaian['created_by_email']) ?>
-                                </div>
-                            </div>
+                    </div> -->
+                </div>
+                
+                <!-- Kolom Kanan -->
+                <div class="profile-info-column">
+                    <div class="info-row">
+                        <div class="info-label">Tanggal Penilaian</div>
+                        <div class="info-value"><?php echo date('d F Y', strtotime($penilaian['created_at'])); ?></div>
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="info-label">Status Verifikasi</div>
+                        <div class="info-value">
+                            <?php if ($penilaian['status_verifikasi'] === 'sudah_dilihat'): ?>
+                                <span class="status-badge badge-sudah">
+                                    <i class="bi bi-check-circle-fill"></i> Sudah Dilihat
+                                </span>
+                            <?php else: ?>
+                                <span class="status-badge badge-belum">
+                                    <i class="bi bi-clock"></i> Belum Dilihat
+                                </span>
                             <?php endif; ?>
                         </div>
                     </div>
-                </div>
-
-                <!-- Penilaian Detail -->
-                <div class="col-md-8">
-                    <!-- Status Verifikasi -->
-                    <?php if ($penilaian['status_verifikasi'] === 'sudah_dilihat'): ?>
-                        <div class="status-verified">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <h5 class="mb-1 text-success">
-                                        <i class="bi bi-check-circle-fill"></i> Penilaian Sudah Dilihat
-                                    </h5>
-                                    <small class="text-muted">
-                                        Dilihat pada: <?= date('d F Y, H:i', strtotime($penilaian['verified_at'])) ?> WIB
-                                        <?php if ($penilaian['verified_by_email']): ?>
-                                            oleh <?= htmlspecialchars($penilaian['verified_by_email']) ?>
-                                        <?php endif; ?>
-                                    </small>
-                                </div>
-                                <form method="POST" action="verifikasi.php" onsubmit="return confirm('Tandai penilaian ini belum dilihat?')">
-                                    <input type="hidden" name="action" value="verify">
-                                    <input type="hidden" name="penilaian_id" value="<?= $penilaian_id ?>">
-                                    <input type="hidden" name="status" value="belum_dilihat">
-                                    <button type="submit" class="btn btn-outline-secondary">
-                                        <i class="bi bi-x-circle"></i> Tandai Belum Dilihat
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    <?php else: ?>
-                        <div class="status-pending">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div>
-                                    <h5 class="mb-0 text-warning">
-                                        <i class="bi bi-clock-fill"></i> Penilaian Belum Dilihat
-                                    </h5>
-                                    <small class="text-muted">Silakan verifikasi penilaian ini</small>
-                                </div>
-                                <form method="POST" action="verifikasi.php" onsubmit="return confirm('Tandai penilaian ini sudah dilihat?')">
-                                    <input type="hidden" name="action" value="verify">
-                                    <input type="hidden" name="penilaian_id" value="<?= $penilaian_id ?>">
-                                    <input type="hidden" name="status" value="sudah_dilihat">
-                                    <button type="submit" class="btn btn-success">
-                                        <i class="bi bi-check-circle"></i> Tandai Sudah Dilihat
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    <?php endif; ?>
-
-                    <!-- Hasil Penilaian -->
-                    <div class="card">
-                        <div class="card-header bg-white">
-                            <h5 class="mb-0">
-                                <i class="bi bi-clipboard-check"></i> Hasil Penilaian Kinerja
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <?php if (count($jawaban_list) > 0): ?>
-                                <?php foreach ($jawaban_list as $index => $jawaban): 
-                                    $nilai_data = $nilai_map[$jawaban['nilai']] ?? ['label' => $jawaban['nilai'], 'color' => 'secondary', 'icon' => 'circle'];
-                                ?>
-                                    <div class="jawaban-card">
-                                        <div class="d-flex justify-content-between align-items-start mb-3">
-                                            <div class="flex-grow-1">
-                                                <h6 class="mb-1">
-                                                    <span class="badge bg-light text-dark me-2"><?= $index + 1 ?></span>
-                                                    <?= htmlspecialchars($jawaban['nama_indikator']) ?>
-                                                </h6>
-                                                <?php if ($jawaban['keterangan']): ?>
-                                                    <small class="text-muted">
-                                                        <i class="bi bi-info-circle"></i> 
-                                                        <?= htmlspecialchars($jawaban['keterangan']) ?>
-                                                    </small>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                        
-                                        <div>
-                                            <span class="nilai-badge bg-<?= $nilai_data['color'] ?> text-white">
-                                                <i class="bi bi-<?= $nilai_data['icon'] ?>"></i>
-                                                <?= $nilai_data['label'] ?>
-                                            </span>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-
-                                <!-- Summary -->
-                                <div class="card bg-light mt-3">
-                                    <div class="card-body">
-                                        <h6 class="mb-3"><i class="bi bi-bar-chart"></i> Ringkasan Penilaian</h6>
-                                        <div class="row text-center">
-                                            <?php
-                                            $summary = [
-                                                'sangat_baik' => 0,
-                                                'baik' => 0,
-                                                'cukup' => 0,
-                                                'kurang' => 0
-                                            ];
-                                            foreach ($jawaban_list as $j) {
-                                                if (isset($summary[$j['nilai']])) {
-                                                    $summary[$j['nilai']]++;
-                                                }
-                                            }
-                                            ?>
-                                            <div class="col-3">
-                                                <div class="p-3 bg-success text-white rounded">
-                                                    <h3 class="mb-0"><?= $summary['sangat_baik'] ?></h3>
-                                                    <small>Sangat Baik</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-3">
-                                                <div class="p-3 bg-info text-white rounded">
-                                                    <h3 class="mb-0"><?= $summary['baik'] ?></h3>
-                                                    <small>Baik</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-3">
-                                                <div class="p-3 bg-warning text-dark rounded">
-                                                    <h3 class="mb-0"><?= $summary['cukup'] ?></h3>
-                                                    <small>Cukup</small>
-                                                </div>
-                                            </div>
-                                            <div class="col-3">
-                                                <div class="p-3 bg-danger text-white rounded">
-                                                    <h3 class="mb-0"><?= $summary['kurang'] ?></h3>
-                                                    <small>Kurang</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                    
+                    <div class="info-row">
+                        <div class="info-label">Waktu Verifikasi</div>
+                        <div class="info-value">
+                            <?php if ($penilaian['verified_at']): ?>
+                                <?php echo date('d/m/Y H:i', strtotime($penilaian['verified_at'])); ?> WIB
                             <?php else: ?>
-                                <div class="text-center py-5">
-                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
-                                    <p class="text-muted mt-3">Tidak ada data penilaian</p>
-                                    <small class="text-muted">
-                                        Pastikan user sudah mengisi penilaian untuk pegawai ini.
-                                    </small>
-                                </div>
+                                <span style="color: #94a3b8; font-style: italic;">Belum diverifikasi</span>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Detail Penilaian Per Indikator -->
+        <div class="card">
+            <div class="card-title">
+                <i class=""></i> Detail Penilaian Per Indikator
+            </div>
+
+            <?php if (count($detail_list) > 0): ?>
+                <div style="overflow-x: auto;">
+                    <table class="indikator-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">No</th>
+                                <th>Kriteria / Indikator</th>
+                                <th style="width: 200px; text-align: center;">Nilai</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($detail_list as $index => $item):
+                                $cfg = $nilai_config[$item['nilai']] ?? ['bg' => '#94a3b8', 'text' => 'white', 'icon' => 'dash'];
+                            ?>
+                                <tr>
+                                    <td style="color: #64748b; font-weight: 700;">
+                                        <?php echo $index + 1; ?>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight: 600; color: #0f172a; margin-bottom: 4px;">
+                                            <?php echo htmlspecialchars($item['nama_indikator']); ?>
+                                        </div>
+                                        <?php if (!empty($item['keterangan'])): ?>
+                                            <div style="font-size: 13px; color: #64748b;">
+                                                <?php echo htmlspecialchars($item['keterangan']); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <span class="nilai-badge"
+                                              style="background: <?php echo $cfg['bg']; ?>; color: <?php echo $cfg['text']; ?>;">
+                                            <i class="bi bi-<?php echo $cfg['icon']; ?>"></i>
+                                            <?php echo htmlspecialchars($item['nilai']); ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                    <i class="bi bi-inbox" style="font-size: 2.5rem; display: block; margin-bottom: 10px;"></i>
+                    Belum ada data detail penilaian.
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Statistik Ringkasan -->
+        <div class="card">
+            <div class="card-title">
+                <i class=""></i> Ringkasan Hasil Penilaian
+                <span style="margin-left: auto; font-size: 13px; font-weight: 600; color: #64748b;">
+                    Total: <?php echo $total_indikator; ?> indikator
+                </span>
+            </div>
+
+            <div class="statistik-grid">
+                <?php foreach ($statistik as $label => $jumlah):
+                    $cfg = $statistik_config[$label];
+                    $persen = $total_indikator > 0 ? round(($jumlah / $total_indikator) * 100) : 0;
+                ?>
+                    <div class="stat-card" style="background: <?php echo $cfg['light']; ?>;">
+                        <div class="stat-number" style="color: <?php echo $cfg['color']; ?>;">
+                            <?php echo $jumlah; ?>
+                        </div>
+                        <div class="stat-label">
+                            <?php echo $label; ?>
+                        </div>
+                        <div class="stat-percent">
+                            <?php echo $persen; ?>% dari total
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Catatan Tambahan -->
+        <div class="card">
+            <div class="card-title">
+                <i class=""></i> Catatan Tambahan
+            </div>
+            <?php if (!empty($penilaian['catatan'])): ?>
+                <div class="catatan-box">
+                    <?php echo nl2br(htmlspecialchars($penilaian['catatan'])); ?>
+                </div>
+            <?php else: ?>
+                <p class="no-catatan">
+                    <i class="bi bi-dash-circle"></i> Tidak ada catatan tambahan.
+                </p>
+            <?php endif; ?>
+        </div>
+
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Auto-hide alerts
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(a => {
+                a.style.transition = 'opacity 0.5s';
+                a.style.opacity = '0';
+                setTimeout(() => a.remove(), 500);
+            });
+        }, 5000);
+    </script>
 </body>
 </html>

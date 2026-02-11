@@ -122,6 +122,13 @@
         color: white;
         flex-shrink: 0;
         font-weight: 600;
+        overflow: hidden;
+    }
+
+    .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
 
     .member-info {
@@ -504,13 +511,25 @@
     <!-- Level Tabs -->
     <div class="level-tabs">
         <button class="level-tab active" onclick="gantiLevel(1)" data-level="1">
-            <i class=""></i> Level 1 - Pimpinan Tertinggi
+            <i class=""></i> Level 1 - Direktur
         </button>
         <button class="level-tab" onclick="gantiLevel(2)" data-level="2">
-            <i class=""></i> Level 2 - Kepala Unit
+            <i class=""></i> Level 2 - Wakil Direktur
         </button>
         <button class="level-tab" onclick="gantiLevel(3)" data-level="3">
-            <i class=""></i> Level 3 - Anggota
+            <i class=""></i> Level 3 - Kaprodi
+        </button>
+        <button class="level-tab" onclick="gantiLevel(4)" data-level="4">
+            <i class=""></i> Level 4 - Kepala Unit
+        </button>
+        <button class="level-tab" onclick="gantiLevel(5)" data-level="5">
+            <i class=""></i> Level 5 - Laboran
+        </button>
+        <button class="level-tab" onclick="gantiLevel(6)" data-level="6">
+            <i class=""></i> Level 6 - Tendik
+        </button>
+        <button class="level-tab" onclick="gantiLevel(7)" data-level="7">
+            <i class=""></i> Level 7 - Staff
         </button>
     </div>
 
@@ -623,10 +642,17 @@
 
         pageData.forEach(anggota => {
             const initials = getInitials(anggota.nama_lengkap);
+            let avatarContent = '';
+            
+            if(anggota.path_gambar) {
+                avatarContent = `<img src="${anggota.path_gambar}" alt="${anggota.nama_lengkap}">`;
+            } else {
+                avatarContent = initials;
+            }
 
             html += `
                 <div class="member-card" data-id="${anggota.struktur_id}">
-                    <div class="avatar">${initials}</div>
+                    <div class="avatar">${avatarContent}</div>
                     <div class="member-info">
                         <div class="member-name">${anggota.nama_lengkap}</div>
                         <div class="member-position">
@@ -801,6 +827,9 @@
         document.getElementById('modalTitleText').textContent = 'Tambah Anggota Baru';
         document.getElementById('level_struktur').value = currentLevel;
         document.getElementById('pegawai_id').disabled = false;
+        
+        // Sembunyikan preview foto
+        document.getElementById('current-foto-preview').style.display = 'none';
 
         loadPegawaiList();
         loadParentList();
@@ -829,6 +858,17 @@
                     document.getElementById('parent_id').value = data.parent_id;
                 }
 
+                // Tampilkan preview foto jika ada
+                if(data.path_gambar) {
+                    document.getElementById('current-foto-preview').style.display = 'block';
+                    document.getElementById('preview-img').src = data.path_gambar;
+                } else {
+                    document.getElementById('current-foto-preview').style.display = 'none';
+                }
+                
+                // Reset input file
+                document.getElementById('foto').value = '';
+
                 document.getElementById('pegawai_id').disabled = true;
 
                 modalAnggota.show();
@@ -854,29 +894,23 @@
         }
 
         const mode = document.getElementById('mode').value;
-        const data = {
-            pegawai_id: document.getElementById('pegawai_id').value,
-            jabatan_struktur: document.getElementById('jabatan_struktur').value,
-            level_struktur: document.getElementById('level_struktur').value,
-            parent_id: document.getElementById('parent_id').value || null
-        };
-
-        if(mode === 'edit') {
-            data.struktur_id = document.getElementById('struktur_id').value;
-        }
-
+        const formData = new FormData(form);
+        
+        // PENTING: Kirim action sebagai query parameter, bukan di FormData
         const action = mode === 'edit' ? 'update' : 'add';
 
         try {
             const response = await fetch(`?action=${action}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: formData
             });
 
             const result = await response.json();
 
             if(result.success) {
+                // Tutup modal dulu sebelum tampilkan notifikasi
+                modalAnggota.hide();
+                
                 Swal.fire({
                     icon: 'success',
                     title: 'Berhasil!',
@@ -885,7 +919,6 @@
                     timer: 2000
                 });
 
-                modalAnggota.hide();
                 loadAnggotaByLevel(currentLevel);
                 loadPegawaiList();
                 document.getElementById('pegawai_id').disabled = false;
@@ -959,12 +992,14 @@
 
     // ===== PREVIEW =====
     function tampilkanPreview() {
-        window.open('preview.php', '_blank');
+        window.location.href = 'preview.php';
     }
 
     // ===== EVENT LISTENERS MODAL =====
     document.getElementById('modalAnggota').addEventListener('hidden.bs.modal', function() {
         document.getElementById('pegawai_id').disabled = false;
+        document.getElementById('foto').value = ''; // Reset input file
+        document.getElementById('current-foto-preview').style.display = 'none'; // Sembunyikan preview
     });
 
     document.getElementById('modalAnggota').addEventListener('show.bs.modal', function(e) {
