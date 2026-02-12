@@ -1,17 +1,10 @@
 <?php
-<<<<<<< HEAD
 // File: api/notifications.php
 // Notifikasi sebagai halaman biasa (bukan API)
 
 require_once '../../config/database.php';
 
 // SECTION 1: CSS STYLES
-=======
-
-require_once '../../config/database.php';
-
-//CSS 
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
 if (isset($_GET['get']) && $_GET['get'] === 'css') {
     header('Content-Type: text/css');
     ?>
@@ -309,11 +302,7 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
     exit();
 }
 
-<<<<<<< HEAD
 // SECTION 2: JAVASCRIPT
-=======
-//SCRIPT
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
 if (isset($_GET['get']) && $_GET['get'] === 'js') {
     header('Content-Type: application/javascript');
     ?>
@@ -427,36 +416,23 @@ function timeAgo(datetime) {
     exit();
 }
 
-<<<<<<< HEAD
 // SECTION 3: LOAD NOTIFICATIONS (HALAMAN BIASA - RENDER HTML)
-=======
-// LOAD NOTIFICATIONS 
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
 if (isset($_GET['action']) && $_GET['action'] === 'load') {
     try {
         $last_check = isset($_GET['last_check']) ? $_GET['last_check'] : null;
         
-<<<<<<< HEAD
         // Array untuk menampung notifikasi
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         $notifications = [];
         $total_notifikasi = 0;
         $notifikasi_baru = 0;
         $notif_types_from_table = [];
         
-<<<<<<< HEAD
         // STEP 1: Ambil dari tabel notifikasi_admin (hasil stored procedure)
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         $query_table = "SELECT * FROM notifikasi_admin WHERE is_read = 0 ORDER BY created_at DESC";
         $stmt = $conn->query($query_table);
         $table_notifs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-<<<<<<< HEAD
         // Mapping jenis notifikasi ke tipe dan URL
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         $type_mapping = [
             'verifikasi_pegawai' => [
                 'type' => 'lamaran',
@@ -471,7 +447,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             'pengajuan_studi' => [
                 'type' => 'studi',
                 'priority' => 'info',
-                'url' => '/sdmPolnest/admin/pengembanganSdm/pengembangan-sdm.php'
+                'url' => '/sdmPolnest/admin/pengembanganSdm/indexpengembangan-sdm.php'
             ],
             'sertifikasi_dosen' => [
                 'type' => 'sertifikasi',
@@ -516,12 +492,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-<<<<<<< HEAD
         // STEP 2: Query real-time untuk notifikasi yang TIDAK ada di tabel (fallback)
         
         // 1. LAMARAN BARU
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         if (!in_array('verifikasi_pegawai', $notif_types_from_table)) {
             $query_lamaran = "
                 SELECT 
@@ -551,10 +524,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-<<<<<<< HEAD
         // 2. KONTRAK AKAN HABIS
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         if (!in_array('kontrak_habis', $notif_types_from_table)) {
             $query_kontrak = "
                 SELECT 
@@ -592,10 +562,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-<<<<<<< HEAD
         // 3. PENGAJUAN STUDI LANJUT
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         if (!in_array('pengajuan_studi', $notif_types_from_table)) {
             $query_studi = "
                 SELECT 
@@ -625,10 +592,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-<<<<<<< HEAD
         // 4. SERTIFIKASI PENDING VALIDASI
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         if (!in_array('sertifikasi_dosen', $notif_types_from_table)) {
             $query_sertif = "
                 SELECT 
@@ -658,10 +622,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-<<<<<<< HEAD
         // 5. SERTIFIKASI AKAN HABIS (selalu real-time)
-=======
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         $query_sertif_habis = "
             SELECT 
                 COUNT(*) as count,
@@ -700,6 +661,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             $total_notifikasi += (int)$result['count'];
         }
         
+        // 6. RESET PASSWORD REQUEST (selalu real-time)
         $query_reset = "
             SELECT 
                 COUNT(*) as count,
@@ -728,11 +690,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
+        // Sort berdasarkan prioritas
         usort($notifications, function($a, $b) {
             return strtotime($b['created_at']) - strtotime($a['created_at']);
         });
 
-<<<<<<< HEAD
         
         // Helper function untuk icon
         function getIconClass($type) {
@@ -780,65 +742,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
         <div data-timestamp="<?php echo date('Y-m-d H:i:s'); ?>" style="display:none;"></div>
         
         <!-- Notification List -->
-=======
-        function getIconClass($type) {
-            $icons = [
-                'lamaran' => 'fa-envelope',
-                'kontrak' => 'fa-file-contract',
-                'studi' => 'fa-graduation-cap',
-                'sertifikasi' => 'fa-certificate',
-                'sertifikasi_habis' => 'fa-certificate',
-                'password' => 'fa-key',
-                'dokumen' => 'fa-file-alt',
-                'kinerja' => 'fa-chart-line'
-            ];
-            return $icons[$type] ?? 'fa-bell';
-        }
-        
-        function getColorClass($priority) {
-            $colors = [
-                'danger' => 'notif-danger',
-                'warning' => 'notif-warning',
-                'info' => 'notif-info',
-                'success' => 'notif-success'
-            ];
-            return $colors[$priority] ?? 'notif-info';
-        }
-        
-       function timeAgo($datetime) {
-            if (!$datetime) return '-';
-
-            $now = new DateTime();
-            $past = new DateTime($datetime);
-            $diffSeconds = $now->getTimestamp() - $past->getTimestamp();
-
-            if ($diffSeconds < 60) {
-                return 'Baru saja';
-            }
-
-            if ($diffSeconds < 3600) {
-                return floor($diffSeconds / 60) . ' menit lalu';
-            }
-
-            if ($diffSeconds < 86400) {
-                return floor($diffSeconds / 3600) . ' jam lalu';
-            }
-
-            if ($diffSeconds < 2592000) { // 30 hari
-                return floor($diffSeconds / 86400) . ' hari lalu';
-            }
-            if ($diffSeconds < 31536000) { // 12 bulan
-                return floor($diffSeconds / 2592000) . ' bulan lalu';
-            }
-
-            return floor($diffSeconds / 31536000) . ' tahun lalu';
-        }
-
-        ?>
-        <div data-badge="<?php echo $total_notifikasi; ?>" style="display:none;"></div>
-        <div data-timestamp="<?php echo date('Y-m-d H:i:s'); ?>" style="display:none;"></div>
-        
->>>>>>> 08e38eb (mengedit notifikasi dan update index admin)
         <div data-list>
             <?php if (empty($notifications)): ?>
                 <div class="notification-empty">
