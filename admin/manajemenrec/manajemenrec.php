@@ -1,5 +1,4 @@
 <?php
-
 // Koneksi database
 require_once '../../config/database.php';
 
@@ -14,7 +13,6 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
 
 $tahapFilter = isset($_GET['tahap']) ? $_GET['tahap'] : 'semua';
 
-// STATISTIK
 try {
     $queryStats = "
         SELECT 
@@ -31,7 +29,6 @@ try {
     die("Error: " . $e->getMessage());
 }
 
-// WHERE CLAUSE BASED ON FILTER
 $whereClause = "";
 switch ($tahapFilter) {
     case 'seleksi_admin':
@@ -51,7 +48,6 @@ switch ($tahapFilter) {
         break;
 }
 
-// GET DATA LAMARAN (FIXED: Removed lp.kategori)
 try {
     $queryLamaran = "
         SELECT 
@@ -65,22 +61,16 @@ try {
             l.surat_terkirim_at,
             p.nama_lengkap,
             p.email_aktif,
-            p.user_id,
             lp.posisi,
-            lp.lowongan_id,
             jp.jadwal_psikotes_id,
             jp.tanggal_psikotes,
             ji.jadwal_interview_id,
-            ji.tanggal_interview,
-            at.token as activation_token,
-            at.expired_at as token_expired,
-            at.role as token_role
+            ji.tanggal_interview
         FROM lamaran l
         INNER JOIN pelamar p ON l.pelamar_id = p.pelamar_id
         INNER JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
         LEFT JOIN jadwal_psikotes jp ON l.lamaran_id = jp.lamaran_id
         LEFT JOIN jadwal_interview ji ON l.lamaran_id = ji.lamaran_id
-        LEFT JOIN activation_tokens at ON l.pelamar_id = at.pelamar_id AND at.is_used = 0
         $whereClause
         ORDER BY l.tanggal_daftar DESC
     ";
@@ -137,6 +127,7 @@ function getTahapSekarang($row) {
 }
 
 $page_title = 'Manajemen Recruitment';
+$current_page = 'manajemen_recruitment';
 include '../sidebar/sidebar.php';
 ?>
 
@@ -145,6 +136,9 @@ include '../sidebar/sidebar.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title><?= $page_title ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
@@ -157,7 +151,7 @@ include '../sidebar/sidebar.php';
         }
         body {
             background: #f5f7fa;
-        }
+        } 
         .main-content {
             margin-left: 290px;
             padding: 30px 40px;
@@ -174,7 +168,6 @@ include '../sidebar/sidebar.php';
             font-size: 14px;
         }
         
-        /* STATS */
         .stats-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -216,8 +209,7 @@ include '../sidebar/sidebar.php';
             font-weight: 700;
             color: #1a1a1a;
         }
-        
-        /* PROGRESS */
+
         .progress-section {
             background: white;
             border-radius: 16px;
@@ -273,7 +265,6 @@ include '../sidebar/sidebar.php';
             font-weight: 600;
         }
         
-        /* TABLE */
         .table-section {
             background: white;
             border-radius: 16px;
@@ -295,8 +286,16 @@ include '../sidebar/sidebar.php';
             align-items: center;
             gap: 10px;
         }
+
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+        }
+        
         .data-table {
             width: 100%;
+            margin-bottom: 0;
         }
         .data-table thead {
             background: #f9fafb;
@@ -308,6 +307,7 @@ include '../sidebar/sidebar.php';
             color: #6b7280;
             text-transform: uppercase;
             border: none;
+            white-space: nowrap;
         }
         .data-table tbody td {
             padding: 20px 28px;
@@ -315,12 +315,12 @@ include '../sidebar/sidebar.php';
             color: #374151;
             border-bottom: 1px solid #f3f4f6;
             vertical-align: middle;
+            white-space: nowrap;
         }
         .data-table tbody tr:hover {
             background: #f9fafb;
         }
         
-        /* ACTION BUTTONS */
         .action-buttons {
             display: flex;
             gap: 6px;
@@ -379,40 +379,7 @@ include '../sidebar/sidebar.php';
             background: #f59e0b;
             color: white;
         }
-        
-        /* TOKEN BADGE */
-        .token-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            background: #dbeafe;
-            color: #3b82f6;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            font-family: 'Courier New', monospace;
-        }
-        .token-badge:hover {
-            background: #3b82f6;
-            color: white;
-        }
-        
-        .role-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 2px 6px;
-            background: #f3e8ff;
-            color: #9333ea;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 600;
-            margin-left: 4px;
-        }
-        
-        /* EMPTY STATE */
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -423,32 +390,322 @@ include '../sidebar/sidebar.php';
             margin-bottom: 16px;
         }
         
-        /* LOGIN LINK */
-        .login-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            background: #e0f2fe;
-            color: #0284c7;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .login-link:hover {
-            background: #0284c7;
-            color: white;
-        }
-        
         @media (max-width: 968px) {
             .main-content {
                 margin-left: 80px;
-                padding: 24px;
+                padding: 20px 16px;
             }
+            
+            .page-header h1 {
+                font-size: 24px;
+                margin-bottom: 6px;
+            }
+            
+            .page-header p {
+                font-size: 13px;
+            }
+            
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+            
+            .stat-card {
+                padding: 16px;
+                gap: 12px;
+            }
+            
+            .stat-card .icon-wrapper {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+            
+            .stat-card .stat-label {
+                font-size: 11px;
+            }
+            
+            .stat-card .stat-value {
+                font-size: 22px;
+            }
+            
+            .alert.alert-info {
+                flex-direction: column !important;
+                padding: 16px !important;
+                gap: 12px !important;
+            }
+            
+            .alert.alert-info > div:first-child {
+                width: 100% !important;
+                align-items: flex-start !important;
+            }
+            
+            .alert.alert-info h5 {
+                font-size: 15px !important;
+            }
+            
+            .alert.alert-info p {
+                font-size: 12px !important;
+            }
+            
+            .alert.alert-info .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .progress-section {
+                padding: 20px 16px;
+                margin-bottom: 20px;
+            }
+            
+            .progress-section h2 {
+                font-size: 16px;
+                margin-bottom: 16px;
+            }
+            
+            .progress-container {
+                margin: 20px 0;
+                gap: 8px;
+                overflow-x: auto;
+                padding-bottom: 10px;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+            
+            .progress-container::-webkit-scrollbar {
+                height: 4px;
+            }
+            
+            .progress-container::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+            
+            .progress-container::-webkit-scrollbar-thumb {
+                background: #ec4899;
+                border-radius: 10px;
+            }
+            
+            .progress-step {
+                min-width: 80px;
+            }
+            
+            .progress-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 18px;
+                margin-bottom: 8px;
+            }
+            
+            .progress-label {
+                font-size: 11px;
+                padding: 0 4px;
+            }
+            
+            .table-section {
+                border-radius: 12px;
+            }
+            
+            .table-header {
+                padding: 16px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .table-title {
+                font-size: 16px;
+            }
+            
+            .table-responsive {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                display: block !important;
+                width: 100% !important;
+            }
+            
+            .table-responsive::-webkit-scrollbar {
+                height: 8px;
+            }
+            
+            .table-responsive::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+            
+            .table-responsive::-webkit-scrollbar-thumb {
+                background: #ec4899;
+                border-radius: 10px;
+            }
+            
+            .table-responsive::-webkit-scrollbar-thumb:hover {
+                background: #db2777;
+            }
+            
+            .data-table {
+                min-width: 900px !important;
+                width: 100%;
+                display: table !important;
+            }
+            
+            .data-table thead th {
+                padding: 12px 16px;
+                font-size: 11px;
+            }
+            
+            .data-table tbody td {
+                padding: 14px 16px;
+                font-size: 13px;
+            }
+            
+            .action-buttons {
+                gap: 4px;
+                flex-wrap: nowrap;
+            }
+            
+            .action-btn {
+                padding: 5px 10px;
+                font-size: 11px;
+                white-space: nowrap;
+            }
+            
+            .action-btn i {
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-content {
+                margin-left: 70px;
+                padding: 16px 12px;
+            }
+            
+            .page-header h1 {
+                font-size: 20px;
+            }
+            
+            .page-header p {
+                font-size: 12px;
+            }
+            
+            .stats-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .stat-card {
+                padding: 14px;
+            }
+            
+            .stat-card .icon-wrapper {
+                width: 36px;
+                height: 36px;
+                font-size: 16px;
+            }
+            
+            .stat-card .stat-value {
+                font-size: 20px;
+            }
+            
+            .alert.alert-info {
+                padding: 14px !important;
+            }
+            
+            .alert.alert-info h5 {
+                font-size: 14px !important;
+            }
+            
+            .alert.alert-info p {
+                font-size: 11px !important;
+            }
+            
+            .progress-section {
+                padding: 16px 12px;
+            }
+            
+            .progress-section h2 {
+                font-size: 15px;
+            }
+            
+            .progress-step {
+                min-width: 70px;
+            }
+            
+            .progress-icon {
+                width: 38px;
+                height: 38px;
+                font-size: 16px;
+            }
+            
+            .progress-label {
+                font-size: 10px;
+            }
+            
+            .table-header {
+                padding: 12px;
+            }
+            
+            .table-title {
+                font-size: 14px;
+            }
+            
+            .table-responsive {
+                overflow-x: auto !important;
+            }
+            
+            .data-table {
+                min-width: 800px !important;
+            }
+            
+            .data-table thead th {
+                padding: 10px 12px;
+                font-size: 10px;
+            }
+            
+            .data-table tbody td {
+                padding: 12px;
+                font-size: 12px;
+            }
+            
+            .action-btn {
+                padding: 4px 8px;
+                font-size: 10px;
+            }
+            
+            .action-btn i {
+                font-size: 11px;
+            }
+
+            .badge {
+                font-size: 10px !important;
+                padding: 4px 8px !important;
+            }
+        }
+        
+        @media (max-width: 375px) {
+            .main-content {
+                padding: 12px 8px;
+            }
+            
+            .page-header h1 {
+                font-size: 18px;
+            }
+            
+            .stat-card {
+                padding: 12px;
+            }
+            
+            .progress-section {
+                padding: 14px 10px;
+            }
+            
+            .table-header {
+                padding: 10px;
+            }
+            
+            .alert.alert-info {
+                padding: 12px !important;
             }
         }
     </style>
@@ -456,13 +713,11 @@ include '../sidebar/sidebar.php';
 <body>
 
 <div class="main-content">
-    <!-- HEADER -->
     <div class="page-header">
         <h1>Manajemen Recruitment</h1>
         <p>Kelola proses seleksi dan penerimaan pegawai baru</p>
     </div>
 
-    <!-- STATS -->
     <div class="stats-row">
         <div class="stat-card">
             <div class="icon-wrapper">
@@ -502,11 +757,10 @@ include '../sidebar/sidebar.php';
         </div>
     </div>
 
-    <!-- TEMPLATE SURAT CARD -->
     <div class="card mb-4" style="background: linear-gradient(135deg, rgb(132, 151, 234) 0%, #1245b5 100%); border-radius: 16px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
         <div class="card-body p-4">
             <div class="d-flex align-items-center justify-content-between text-white">
-                <div class="d-flex align-items: center gap-3">
+                <div class="d-flex align-items-center gap-3">
                     <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
                         <i class="bi bi-file-earmark-text" style="font-size: 28px;"></i>
                     </div>
@@ -522,7 +776,6 @@ include '../sidebar/sidebar.php';
         </div>
     </div>
 
-    <!-- PROGRESS -->
     <div class="progress-section">
         <div class="progress-container">
             <a href="?tahap=semua" class="progress-step <?= $tahapFilter == 'semua' ? 'active' : '' ?>">
@@ -552,7 +805,6 @@ include '../sidebar/sidebar.php';
         </div>
     </div>
 
-    <!-- TABLE -->
     <div class="table-section">
         <div class="table-header">
             <div class="table-title">
@@ -571,7 +823,7 @@ include '../sidebar/sidebar.php';
                         <th>POSISI</th>
                         <th>TAHAP</th>
                         <th>STATUS</th>
-                        <th style="min-width: 300px;">AKSI</th>
+                        <th style="min-width: 250px;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -584,7 +836,6 @@ include '../sidebar/sidebar.php';
                         <td><?= getStatusBadge($row['status_lamaran']) ?></td>
                         <td>
                             <div class="action-buttons">
-                                <!-- LIHAT DETAIL -->
                                 <a href="detail_pelamar.php?id=<?= $row['lamaran_id'] ?>" class="action-btn view" title="Lihat Detail">
                                     <i class="bi bi-eye"></i> Lihat
                                 </a>
@@ -592,7 +843,6 @@ include '../sidebar/sidebar.php';
                                 <?php 
                                 $status = $row['status_lamaran'];
                                 
-                                // SELEKSI ADMINISTRASI
                                 if (in_array($status, ['dikirim', 'seleksi_administrasi'])): ?>
                                     <button class="action-btn approve" onclick="loloskanAdmin(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Loloskan
@@ -601,7 +851,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // PENGISIAN FORM - VERIFIKASI
+                                <?php 
                                 elseif ($status == 'form_lanjutan'): ?>
                                     <button class="action-btn approve" onclick="loloskanForm(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Verifikasi
@@ -610,7 +860,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // PENGISIAN FORM - LOLOS (JADWALKAN PSIKOTES)
+                                <?php 
                                 elseif ($status == 'lolos_form'): ?>
                                     <button class="action-btn schedule" onclick="jadwalkanPsikotes(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-calendar-check"></i> Jadwalkan Psikotes
@@ -619,7 +869,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // PSIKOTES - HASIL
+                                <?php 
                                 elseif ($status == 'psikotes'): ?>
                                     <button class="action-btn approve" onclick="loloskanPsikotes(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Lolos
@@ -628,7 +878,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // LOLOS PSIKOTES - JADWALKAN INTERVIEW
+                                <?php 
                                 elseif ($status == 'lolos_psikotes'): ?>
                                     <button class="action-btn schedule" onclick="jadwalkanInterview(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-calendar-check"></i> Jadwalkan Interview
@@ -637,7 +887,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // INTERVIEW - HASIL AKHIR
+                                <?php
                                 elseif ($status == 'interview'): ?>
                                     <button class="action-btn approve" onclick="terimaLamaran(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Terima
@@ -646,36 +896,14 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // HASIL - KIRIM SURAT DAN TOKEN
+                                <?php 
                                 elseif ($status == 'diterima'): 
-                                    if (!empty($row['activation_token'])): ?>
-                                        <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                                            <span class="token-badge" onclick="copyToken('<?= htmlspecialchars($row['activation_token']) ?>')" title="Klik untuk copy token">
-                                                <i class="bi bi-key-fill"></i>
-                                                <?= substr($row['activation_token'], 0, 10) ?>...
-                                            </span>
-                                            <?php if (!empty($row['token_role'])): ?>
-                                                <span class="role-badge">
-                                                    <i class="bi bi-<?= $row['token_role'] == 'dosen' ? 'mortarboard' : 'person-badge' ?>-fill"></i>
-                                                    <?= strtoupper($row['token_role']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                            <a href="../../auth/login_pegawai.php?email=<?= urlencode($row['email_aktif']) ?>" 
-                                               class="login-link" 
-                                               target="_blank"
-                                               title="Buka link login">
-                                                <i class="bi bi-box-arrow-up-right"></i>
-                                                Link Login
-                                            </a>
-                                        </div>
-                                    <?php endif; ?>
-                                    
-                                    <?php if (!empty($row['surat_resmi_path'])): ?>
+                                    if (!empty($row['surat_resmi_path'])): ?>
                                         <span class="badge bg-success">
                                             <i class="bi bi-file-earmark-check me-1"></i>
                                             Surat Terkirim
                                         </span>
-                                        <a href="../../<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
+                                        <a href="<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
                                             <i class="bi bi-download"></i> Unduh
                                         </a>
                                     <?php else: ?>
@@ -690,7 +918,7 @@ include '../sidebar/sidebar.php';
                                             <i class="bi bi-file-earmark-x me-1"></i>
                                             Surat Terkirim
                                         </span>
-                                        <a href="../../<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
+                                        <a href="<?= htmlspecialchars($row['surat_resmi_path']) ?>" class="action-btn view" target="_blank" title="Lihat Surat">
                                             <i class="bi bi-download"></i> Unduh
                                         </a>
                                     <?php else: ?>
@@ -716,7 +944,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL JADWAL PSIKOTES -->
+<!--JADWAL PSIKOTES -->
 <div class="modal fade" id="modalPsikotes" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -761,7 +989,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL JADWAL INTERVIEW -->
+<!-- JADWAL INTERVIEW -->
 <div class="modal fade" id="modalInterview" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -810,7 +1038,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL KIRIM SURAT DITERIMA -->
+<!-- KIRIM SURAT DITERIMA -->
 <div class="modal fade" id="modalSuratDiterima" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -842,7 +1070,7 @@ include '../sidebar/sidebar.php';
                             <i class="bi bi-file-earmark-pdf me-2"></i>Unggah Surat Keterangan Diterima
                         </label>
                         <input type="file" class="form-control" name="surat_file" id="suratDiterimaFile" 
-                               accept=".pdf" required>
+                               accept=".pdf,.doc,.docx" required>
                         <small class="text-muted">Format: PDF (Maks. 5MB)</small>
                     </div>
                     
@@ -865,7 +1093,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL KIRIM SURAT DITOLAK -->
+<!-- KIRIM SURAT DITOLAK -->
 <div class="modal fade" id="modalSuratDitolak" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -897,8 +1125,8 @@ include '../sidebar/sidebar.php';
                             <i class="bi bi-file-earmark-pdf me-2"></i>Unggah Surat Keterangan Penolakan
                         </label>
                         <input type="file" class="form-control" name="surat_file" id="suratDitolakFile" 
-                               accept=".pdf" required>
-                        <small class="text-muted">Format: PDF (Maks. 5MB)</small>
+                               accept=".pdf,.doc,.docx" required>
+                        <small class="text-muted">Format: PDF, DOC, DOCX (Maks. 5MB)</small>
                     </div>
                     
                     <div class="mb-3">
@@ -924,22 +1152,6 @@ include '../sidebar/sidebar.php';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
 
 <script>
-// COPY TOKEN
-function copyToken(token) {
-    navigator.clipboard.writeText(token).then(() => {
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: 'Token berhasil dicopy!',
-            text: token,
-            showConfirmButton: false,
-            timer: 3000
-        });
-    });
-}
-
-// ACTIONS
 function loloskanAdmin(lamaranId, nama) {
     Swal.fire({
         title: 'Konfirmasi Loloskan',
@@ -994,7 +1206,7 @@ function loloskanPsikotes(lamaranId, nama) {
 function terimaLamaran(lamaranId, nama) {
     Swal.fire({
         title: 'Terima Pelamar',
-        html: `Terima pelamar <strong>${nama}</strong> sebagai pegawai?<br><br><small class="text-muted"><i class="bi bi-info-circle"></i> Token aktivasi akan dibuat otomatis dan role akan di-detect dari posisi lowongan</small>`,
+        html: `Terima pelamar <strong>${nama}</strong> sebagai pegawai?`,
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#10b981',
@@ -1003,8 +1215,7 @@ function terimaLamaran(lamaranId, nama) {
         cancelButtonText: 'Batal'
     }).then((result) => {
         if (result.isConfirmed) {
-            // Update status + generate token
-            updateStatusWithToken(lamaranId, 'diterima');
+            updateStatus(lamaranId, 'diterima');
         }
     });
 }
@@ -1075,88 +1286,6 @@ function updateStatus(lamaranId, status, catatan = '') {
     });
 }
 
-// UPDATE STATUS + GENERATE TOKEN (Untuk penerimaan)
-function updateStatusWithToken(lamaranId, status) {
-    Swal.fire({
-        title: 'Memproses...',
-        html: 'Menerima pelamar dan membuat token aktivasi...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
-    // Update status dulu
-    fetch('update_status_lamaran.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            lamaran_id: lamaranId,
-            status: status
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Setelah update status berhasil, generate token
-            return fetch('generate_token_pegawai.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    lamaran_id: lamaranId
-                })
-            });
-        } else {
-            throw new Error(data.message || 'Gagal update status');
-        }
-    })
-    .then(response => response.json())
-    .then(tokenData => {
-        if (tokenData.success) {
-            Swal.fire({
-                title: 'Berhasil!',
-                html: `
-                    <div class="text-start">
-                        <p><i class="bi bi-check-circle-fill text-success"></i> Pelamar berhasil diterima</p>
-                        <p><i class="bi bi-check-circle-fill text-success"></i> Token aktivasi berhasil dibuat</p>
-                        <hr>
-                        <div class="alert alert-info mb-0">
-                            <div class="mb-2"><strong>Token Aktivasi:</strong></div>
-                            <code style="font-size: 16px; background: #f0f0f0; padding: 8px; display: block; border-radius: 4px; font-family: 'Courier New', monospace;">
-                                ${tokenData.data.token}
-                            </code>
-                            <div class="mt-2">
-                                <small><strong>Role:</strong> <span class="badge bg-primary">${tokenData.data.role.toUpperCase()}</span></small>
-                            </div>
-                            <div class="mt-1">
-                                <small class="text-muted">Berlaku hingga: ${new Date(tokenData.data.expired_at).toLocaleString('id-ID')}</small>
-                            </div>
-                        </div>
-                        <p class="mt-3 mb-0"><small><i class="bi bi-info-circle"></i> Token akan ditampilkan di tabel dan bisa dicopy</small></p>
-                    </div>
-                `,
-                icon: 'success',
-                confirmButtonColor: '#10b981',
-                confirmButtonText: 'OK',
-                width: '600px'
-            }).then(() => location.reload());
-        } else {
-            Swal.fire({
-                title: 'Peringatan!',
-                html: `Status berhasil diupdate, namun token gagal dibuat:<br><small class="text-danger">${tokenData.message}</small>`,
-                icon: 'warning',
-                confirmButtonColor: '#f59e0b'
-            }).then(() => location.reload());
-        }
-    })
-    .catch(error => {
-        Swal.fire({
-            title: 'Error!',
-            text: 'Terjadi kesalahan: ' + error,
-            icon: 'error'
-        });
-    });
-}
-
-// JADWAL PSIKOTES
 function jadwalkanPsikotes(lamaranId, nama) {
     document.getElementById('psikoLamaranId').value = lamaranId;
     document.getElementById('psikoNama').textContent = nama;
@@ -1218,7 +1347,7 @@ function submitJadwalPsikotes() {
     });
 }
 
-// JADWAL INTERVIEW
+// jadwal interview
 function jadwalkanInterview(lamaranId, nama) {
     document.getElementById('interviewLamaranId').value = lamaranId;
     document.getElementById('interviewNama').textContent = nama;
@@ -1229,58 +1358,7 @@ function jadwalkanInterview(lamaranId, nama) {
     modal.show();
 }
 
-function submitJadwalInterview() {
-    const form = document.getElementById('formInterview');
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-
-    const formData = new FormData(form);
-    const tanggal = formData.get('tanggal_interview');
-    const waktu = formData.get('waktu_mulai');
-    formData.set('tanggal_interview', tanggal + ' ' + waktu + ':00');
-    formData.delete('waktu_mulai');
-
-    Swal.fire({
-        title: 'Memproses...',
-        allowOutsideClick: false,
-        didOpen: () => { Swal.showLoading(); }
-    });
-
-    fetch('jadwalkan_interview.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
-        if (data.success) {
-            Swal.fire({
-                title: 'Berhasil!',
-                text: 'Jadwal interview berhasil dibuat',
-                icon: 'success',
-                confirmButtonColor: '#10b981'
-            }).then(() => location.reload());
-        } else {
-            Swal.fire({
-                title: 'Gagal!',
-                text: data.message || 'Terjadi kesalahan',
-                icon: 'error'
-            });
-        }
-    })
-    .catch(error => {
-        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
-        Swal.fire({
-            title: 'Error!',
-            text: 'Terjadi kesalahan: ' + error,
-            icon: 'error'
-        });
-    });
-}
-
-// KIRIM SURAT DITERIMA
+// kirim surat diterima
 function kirimSuratDiterima(lamaranId, nama, posisi) {
     document.getElementById('diterimaLamaranId').value = lamaranId;
     document.getElementById('diterimaName').textContent = nama;
@@ -1321,7 +1399,8 @@ function submitSuratDiterima() {
         return;
     }
 
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; 
     if (file.size > maxSize) {
         Swal.fire({
             title: 'Gagal!',
@@ -1374,7 +1453,7 @@ function submitSuratDiterima() {
     });
 }
 
-// KIRIM SURAT DITOLAK
+// kirim surat ditolak lamaran
 function kirimSuratDitolak(lamaranId, nama, posisi) {
     document.getElementById('ditolakLamaranId').value = lamaranId;
     document.getElementById('ditolakName').textContent = nama;
@@ -1415,7 +1494,8 @@ function submitSuratDitolak() {
         return;
     }
 
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; 
     if (file.size > maxSize) {
         Swal.fire({
             title: 'Gagal!',
@@ -1460,6 +1540,57 @@ function submitSuratDitolak() {
     })
     .catch(error => {
         bootstrap.Modal.getInstance(document.getElementById('modalSuratDitolak')).hide();
+        Swal.fire({
+            title: 'Error!',
+            text: 'Terjadi kesalahan: ' + error,
+            icon: 'error'
+        });
+    });
+}
+
+function submitJadwalInterview() {
+    const form = document.getElementById('formInterview');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const formData = new FormData(form);
+    const tanggal = formData.get('tanggal_interview');
+    const waktu = formData.get('waktu_mulai');
+    formData.set('tanggal_interview', tanggal + ' ' + waktu + ':00');
+    formData.delete('waktu_mulai');
+
+    Swal.fire({
+        title: 'Memproses...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    fetch('jadwalkan_interview.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
+        if (data.success) {
+            Swal.fire({
+                title: 'Berhasil!',
+                text: 'Jadwal interview berhasil dibuat',
+                icon: 'success',
+                confirmButtonColor: '#10b981'
+            }).then(() => location.reload());
+        } else {
+            Swal.fire({
+                title: 'Gagal!',
+                text: data.message || 'Terjadi kesalahan',
+                icon: 'error'
+            });
+        }
+    })
+    .catch(error => {
+        bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
         Swal.fire({
             title: 'Error!',
             text: 'Terjadi kesalahan: ' + error,
