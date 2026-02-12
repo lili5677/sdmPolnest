@@ -149,7 +149,8 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <!-- Google Fonts - Poppins -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
             --primary-blue: #1e40af;
@@ -177,6 +178,18 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
         }
 
         .page-header {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            padding: 28px 32px;
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(21, 101, 192, 0.3);
+        }
+
+        .page-header h2 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+        .page-header p  { font-size: 14px; opacity: 0.88; }
+        
+        /* .page-header {
             color: #1e293b;
             margin: 0px 0px 30px;
         }
@@ -192,7 +205,7 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
             font-size: 15px;
             font-weight: 400;
             color: #64748b;
-        }
+        } */
 
         .card {
             border: none;
@@ -624,7 +637,7 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
         <ul class="nav custom-tabs mb-4" role="tablist">
             <li class="nav-item" role="presentation">
                 <a class="nav-link active" href="manajemen-pegawai.php">
-                    <i class="fas fa-users me-2"></i>Data Pegawai
+                    <i class="fas fa-users me-2"></i>Daftar Pegawai
                 </a>
             </li>
             <li class="nav-item" role="presentation">
