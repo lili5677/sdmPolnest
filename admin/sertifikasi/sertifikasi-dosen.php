@@ -130,6 +130,18 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
         }
 
         .header {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            padding: 28px 32px;
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(21, 101, 192, 0.3);
+        }
+
+        .header h2 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+        .header p  { font-size: 14px; opacity: 0.88; }
+
+        /* .header {
             margin-bottom: 32px;
         }
 
@@ -144,7 +156,7 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
             font-size: 15px;
             color: #64748b;
             font-weight: 400;
-        }
+        } */
 
         .stats-container {
             display: grid;
