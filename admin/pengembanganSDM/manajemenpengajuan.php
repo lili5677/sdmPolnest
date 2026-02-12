@@ -1,6 +1,6 @@
 <?php
 // ===== PAGINATION CONFIGURATION =====
-$items_per_page = 5; // Jumlah data per halaman
+$items_per_page = 9; // Ubah menjadi 9 (kelipatan 3) agar pas dengan grid 3 kolom
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $current_page = max(1, $current_page); // Minimal halaman 1
 $offset = ($current_page - 1) * $items_per_page;
@@ -34,26 +34,74 @@ $stmt_pengajuan->execute();
 ?>
 
 <style>
+    /* ===== CONTENT CARD HEADER ===== */
+    .content-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #f1f5f9;
+    }
+
+    .content-card-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #1e293b;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+    }
+
+    .content-card-title i {
+        color: #3b82f6;
+        font-size: 18px;
+    }
+
+    .btn-kelola-template {
+        padding: 9px 16px;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+    }
+
+    .btn-kelola-template:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+        color: white;
+    }
+
     /* ===== SEARCH & FILTER ===== */
     .controls-row {
         display: flex;
-        gap: 12px;
-        margin-bottom: 24px;
+        gap: 10px;
+        margin-bottom: 20px;
         flex-wrap: wrap;
     }
 
     .search-box {
         flex: 1;
-        min-width: 250px;
+        min-width: 220px;
         position: relative;
     }
 
     .search-box input {
         width: 100%;
-        padding: 12px 16px 12px 44px;
+        padding: 10px 14px 10px 38px;
         border: 2px solid #e2e8f0;
-        border-radius: 10px;
-        font-size: 14px;
+        border-radius: 8px;
+        font-size: 13px;
         font-family: 'Poppins', sans-serif;
         transition: all 0.3s ease;
     }
@@ -66,23 +114,23 @@ $stmt_pengajuan->execute();
 
     .search-box i {
         position: absolute;
-        left: 16px;
+        left: 14px;
         top: 50%;
         transform: translateY(-50%);
         color: #94a3b8;
-        font-size: 16px;
+        font-size: 14px;
     }
 
     .filter-select {
-        padding: 12px 16px;
+        padding: 10px 14px;
         border: 2px solid #e2e8f0;
-        border-radius: 10px;
-        font-size: 14px;
+        border-radius: 8px;
+        font-size: 13px;
         font-family: 'Poppins', sans-serif;
         color: #475569;
         cursor: pointer;
         transition: all 0.3s ease;
-        min-width: 180px;
+        min-width: 160px;
     }
 
     .filter-select:focus {
@@ -90,182 +138,213 @@ $stmt_pengajuan->execute();
         border-color: #3b82f6;
     }
 
-    /* ===== PENGAJUAN CARDS - GRID LAYOUT ===== */
+    /* ===== PENGAJUAN CARDS - GRID 3 KOLOM ===== */
     .pengajuan-list {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
     }
 
     .pengajuan-card {
         background: white;
         border: 2px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 20px;
+        border-radius: 10px;
+        padding: 12px;
         transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
     }
 
     .pengajuan-card:hover {
-        border-color: #cbd5e1;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        border-color: #3b82f6;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        transform: translateY(-2px);
     }
 
     .pengajuan-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 12px;
-        gap: 12px;
-        flex-wrap: wrap;
+        margin-bottom: 10px;
+        gap: 8px;
+    }
+
+    .pengajuan-info {
+        flex: 1;
+        min-width: 0;
     }
 
     .pengajuan-title {
-        font-size: 16px;
+        font-size: 13px;
         font-weight: 600;
         color: #1e293b;
         margin-bottom: 2px;
-    }
-
-    .pengajuan-id {
-        font-size: 12px;
-        color: #64748b;
-    }
-
-    .status-badge {
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 600;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        white-space: nowrap;
-    }
-
-    .status-badge.pending {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .status-badge.approved {
-        background: #d1fae5;
-        color: #065f46;
-    }
-
-    .status-badge.rejected {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .pengajuan-details {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        margin-bottom: 12px;
-    }
-
-    .detail-item {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-
-    .detail-label {
-        font-size: 11px;
-        color: #64748b;
-        font-weight: 500;
-    }
-
-    .detail-value {
-        font-size: 13px;
-        color: #1e293b;
-        font-weight: 600;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .pengajuan-tags {
+    .pengajuan-id {
+        font-size: 10px;
+        color: #64748b;
+    }
+
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 9px;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        flex-shrink: 0;
+    }
+
+    .status-badge i {
+        font-size: 8px;
+    }
+
+    .status-badge.pending {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        border: 1px solid #fcd34d;
+    }
+
+    .status-badge.approved {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #065f46;
+        border: 1px solid #6ee7b7;
+    }
+
+    .status-badge.rejected {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #991b1b;
+        border: 1px solid #fca5a5;
+    }
+
+    .pengajuan-details {
+        margin-bottom: 10px;
+        flex: 1;
+    }
+
+    .detail-item {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        margin-bottom: 6px;
+    }
+
+    .detail-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .detail-label {
+        font-size: 9px;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        flex-shrink: 0;
+        min-width: 50px;
+    }
+
+    .detail-value {
+        font-size: 11px;
+        color: #1e293b;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+    }
+
+    .pengajuan-meta {
         display: flex;
         gap: 6px;
         flex-wrap: wrap;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
+        padding-top: 8px;
+        border-top: 1px solid #f1f5f9;
     }
 
-    .tag {
-        padding: 3px 10px;
-        background: #e0e7ff;
+    .meta-tag {
+        padding: 3px 6px;
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
         color: #3730a3;
-        border-radius: 6px;
-        font-size: 10px;
-        font-weight: 600;
+        border-radius: 4px;
+        font-size: 8px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .meta-tag i {
+        font-size: 7px;
     }
 
     .pengajuan-actions {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         flex-wrap: wrap;
     }
 
     .btn-custom {
-        padding: 8px 14px;
+        padding: 6px 10px;
         border: none;
-        border-radius: 8px;
-        font-size: 12px;
-        font-weight: 600;
+        border-radius: 6px;
+        font-size: 9px;
+        font-weight: 700;
         cursor: pointer;
         transition: all 0.3s ease;
         font-family: 'Poppins', sans-serif;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        flex: 1;
+        justify-content: center;
+        min-width: 0;
+    }
+
+    .btn-custom i {
+        font-size: 8px;
     }
 
     .btn-detail {
-        background: #f1f5f9;
-        color: #475569;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+        flex: 1 1 100%;
     }
 
     .btn-detail:hover {
-        background: #e2e8f0;
-        color: #1e293b;
-    }
-
-    .btn-approve {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-    }
-
-    .btn-approve:hover {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    }
-
-    .btn-reject {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white;
-    }
-
-    .btn-reject:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.25);
     }
 
     .empty-state {
         grid-column: 1 / -1;
         text-align: center;
-        padding: 60px 20px;
+        padding: 50px 20px;
         color: #94a3b8;
     }
 
     .empty-state i {
-        font-size: 64px;
-        margin-bottom: 16px;
+        font-size: 56px;
+        margin-bottom: 12px;
         opacity: 0.3;
     }
 
     .empty-state p {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 500;
     }
 
@@ -274,21 +353,22 @@ $stmt_pengajuan->execute();
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: 24px;
-        padding-top: 24px;
+        margin-top: 20px;
+        padding-top: 20px;
         border-top: 2px solid #e2e8f0;
         flex-wrap: wrap;
-        gap: 16px;
+        gap: 12px;
     }
 
     .pagination-info {
-        font-size: 14px;
+        font-size: 13px;
         color: #64748b;
+        font-weight: 500;
     }
 
     .pagination {
         display: flex;
-        gap: 8px;
+        gap: 4px;
         list-style: none;
         margin: 0;
         padding: 0;
@@ -298,14 +378,14 @@ $stmt_pengajuan->execute();
         display: flex;
         align-items: center;
         justify-content: center;
-        min-width: 40px;
-        height: 40px;
-        padding: 0 12px;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 10px;
         border: 2px solid #e2e8f0;
-        border-radius: 8px;
+        border-radius: 6px;
         color: #475569;
         font-weight: 600;
-        font-size: 14px;
+        font-size: 13px;
         text-decoration: none;
         transition: all 0.3s ease;
     }
@@ -314,35 +394,85 @@ $stmt_pengajuan->execute();
         border-color: #3b82f6;
         background: #eff6ff;
         color: #3b82f6;
+        transform: translateY(-1px);
     }
 
     .pagination li.active a {
-        background: #3b82f6;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         border-color: #3b82f6;
         color: white;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+
+    .pagination li.active a:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     }
 
     .pagination li.disabled a {
-        opacity: 0.5;
+        opacity: 0.4;
         cursor: not-allowed;
         pointer-events: none;
     }
 
     /* ===== RESPONSIVE ===== */
-    @media (max-width: 1024px) {
+    @media (max-width: 1440px) {
         .pengajuan-list {
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 1200px) {
+        .pengajuan-list {
+            grid-template-columns: repeat(2, 1fr);
         }
     }
 
     @media (max-width: 768px) {
-        .pengajuan-details {
+        .pengajuan-list {
             grid-template-columns: 1fr;
+        }
+
+        .content-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .btn-custom {
+            font-size: 10px;
+            padding: 7px 11px;
+        }
+
+        .detail-label {
+            min-width: 60px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .detail-item {
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .detail-label {
+            min-width: auto;
         }
     }
 </style>
 
 <div class="content-card">
+    <!-- Header with Button -->
+    <div class="content-card-header">
+        <h3 class="content-card-title">
+            <i class="fas fa-table"></i>
+            Data Pengajuan Studi Lanjut
+        </h3>
+        <a href="kelolatemplate.php" class="btn-kelola-template">
+            <i class="fas fa-file-alt"></i>
+            Kelola Template
+        </a>
+    </div>
+
     <!-- Search & Filter -->
     <div class="controls-row">
         <div class="search-box">
@@ -392,8 +522,10 @@ $stmt_pengajuan->execute();
         ?>
         <div class="pengajuan-card" data-status="<?php echo $row['status_pengajuan']; ?>">
             <div class="pengajuan-header">
-                <div>
-                    <div class="pengajuan-title"><?php echo htmlspecialchars($row['nama_lengkap']); ?></div>
+                <div class="pengajuan-info">
+                    <div class="pengajuan-title" title="<?php echo htmlspecialchars($row['nama_lengkap']); ?>">
+                        <?php echo htmlspecialchars($row['nama_lengkap']); ?>
+                    </div>
                     <div class="pengajuan-id">NIK: <?php echo htmlspecialchars($row['nik']); ?></div>
                 </div>
                 <span class="status-badge <?php echo $status_class; ?>">
@@ -403,40 +535,42 @@ $stmt_pengajuan->execute();
 
             <div class="pengajuan-details">
                 <div class="detail-item">
-                    <div class="detail-label">Jabatan</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($row['jabatan'] ?? '-'); ?></div>
+                    <div class="detail-label">Jabatan:</div>
+                    <div class="detail-value" title="<?php echo htmlspecialchars($row['jabatan'] ?? '-'); ?>">
+                        <?php echo htmlspecialchars($row['jabatan'] ?? '-'); ?>
+                    </div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Jenjang</div>
+                    <div class="detail-label">Jenjang:</div>
                     <div class="detail-value"><?php echo htmlspecialchars($row['jenjang_pendidikan']); ?></div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Institusi</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($row['nama_institusi']); ?></div>
+                    <div class="detail-label">Institusi:</div>
+                    <div class="detail-value" title="<?php echo htmlspecialchars($row['nama_institusi']); ?>">
+                        <?php echo htmlspecialchars($row['nama_institusi']); ?>
+                    </div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Program Studi</div>
-                    <div class="detail-value"><?php echo htmlspecialchars($row['program_studi']); ?></div>
+                    <div class="detail-label">Prodi:</div>
+                    <div class="detail-value" title="<?php echo htmlspecialchars($row['program_studi']); ?>">
+                        <?php echo htmlspecialchars($row['program_studi']); ?>
+                    </div>
                 </div>
             </div>
 
-            <div class="pengajuan-tags">
-                <span class="tag"><i class="fas fa-graduation-cap"></i> <?php echo strtoupper($row['jenjang_pendidikan']); ?></span>
-                <span class="tag"><i class="fas fa-calendar"></i> <?php echo $created_at; ?></span>
+            <div class="pengajuan-meta">
+                <span class="meta-tag">
+                    <i class="fas fa-graduation-cap"></i> <?php echo strtoupper($row['jenjang_pendidikan']); ?>
+                </span>
+                <span class="meta-tag">
+                    <i class="fas fa-calendar"></i> <?php echo $created_at; ?>
+                </span>
             </div>
 
             <div class="pengajuan-actions">
                 <button class="btn-custom btn-detail" onclick="viewDetail(<?php echo $row['pengajuan_id']; ?>)">
                     <i class="fas fa-eye"></i> Detail
                 </button>
-                <?php if ($row['status_pengajuan'] == 'diajukan') { ?>
-                <button class="btn-custom btn-approve" onclick="approveRequest(<?php echo $row['pengajuan_id']; ?>)">
-                    <i class="fas fa-check"></i> Setujui
-                </button>
-                <button class="btn-custom btn-reject" onclick="rejectRequest(<?php echo $row['pengajuan_id']; ?>)">
-                    <i class="fas fa-times"></i> Tolak
-                </button>
-                <?php } ?>
             </div>
         </div>
         <?php 
@@ -511,7 +645,7 @@ $stmt_pengajuan->execute();
             const nik = card.querySelector('.pengajuan-id').textContent.toLowerCase();
             
             if (name.includes(searchTerm) || nik.includes(searchTerm)) {
-                card.style.display = 'block';
+                card.style.display = 'flex';
             } else {
                 card.style.display = 'none';
             }
@@ -525,11 +659,11 @@ $stmt_pengajuan->execute();
         
         cards.forEach(card => {
             if (status === '') {
-                card.style.display = 'block';
+                card.style.display = 'flex';
             } else {
                 const cardStatus = card.getAttribute('data-status');
                 if (cardStatus === status) {
-                    card.style.display = 'block';
+                    card.style.display = 'flex';
                 } else {
                     card.style.display = 'none';
                 }
@@ -540,47 +674,5 @@ $stmt_pengajuan->execute();
     // View detail
     function viewDetail(id) {
         window.location.href = 'detail_pengajuan.php?id=' + id;
-    }
-
-    // Approve request
-    function approveRequest(id) {
-        Swal.fire({
-            title: 'Setujui Pengajuan?',
-            text: 'Apakah Anda yakin ingin menyetujui pengajuan ini?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#10b981',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: '<i class="fas fa-check"></i> Ya, Setujui',
-            cancelButtonText: 'Batal'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'proses_pengajuan.php?action=approve&id=' + id;
-            }
-        });
-    }
-
-    // Reject request
-    function rejectRequest(id) {
-        Swal.fire({
-            title: 'Tolak Pengajuan',
-            text: 'Masukkan alasan penolakan:',
-            input: 'textarea',
-            inputPlaceholder: 'Tulis alasan penolakan di sini...',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: '<i class="fas fa-times"></i> Tolak',
-            cancelButtonText: 'Batal',
-            inputValidator: (value) => {
-                if (!value) {
-                    return 'Alasan penolakan harus diisi!'
-                }
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'proses_pengajuan.php?action=reject&id=' + id + '&reason=' + encodeURIComponent(result.value);
-            }
-        });
     }
 </script>
