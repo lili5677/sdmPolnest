@@ -83,6 +83,124 @@
         border-color: #9ca3af;
     }
 
+    /* Info Alert - Biru Simple */
+    .info-alert {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 1px solid #93c5fd;
+        border-radius: 10px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+    }
+
+    .info-alert .icon-container {
+        background: #2563eb;
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .info-alert .content {
+        flex: 1;
+    }
+
+    .info-alert .content p {
+        font-size: 13px;
+        color: #1e40af;
+        margin: 0;
+        line-height: 1.6;
+    }
+
+    .info-alert .content p strong {
+        color: #1e3a8a;
+        font-weight: 700;
+    }
+
+    /* Stats Cards Container */
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .stat-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 15px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: all 0.3s;
+    }
+
+    .stat-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transform: translateY(-2px);
+    }
+
+    .stat-card .stat-icon {
+        width: 45px;
+        height: 45px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+
+    .stat-card.stat-total .stat-icon {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+    }
+
+    .stat-card.stat-lengkap .stat-icon {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+    }
+
+    .stat-card.stat-belum .stat-icon {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+    }
+
+    .stat-card .stat-info {
+        flex: 1;
+    }
+
+    .stat-card .stat-info .stat-label {
+        font-size: 11px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        font-weight: 600;
+    }
+
+    .stat-card .stat-info .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1f2937;
+        line-height: 1;
+    }
+
+    .stat-card .stat-info .stat-percentage {
+        font-size: 11px;
+        color: #9ca3af;
+        margin-top: 4px;
+    }
+
     /* Table Responsive */
     .table-responsive {
         border-radius: 8px;
@@ -176,6 +294,20 @@
         padding: 4px 8px;
         font-size: 10px;
         font-weight: 600;
+    }
+
+    /* Text Warning - Belum Diisi */
+    .text-warning-empty {
+        color: #ef4444;
+        font-size: 11px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .text-warning-empty i {
+        font-size: 10px;
     }
 
     /* Action Buttons */
@@ -462,6 +594,19 @@
             align-items: center;
             text-align: center;
         }
+
+        .info-alert {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .info-alert .icon-container {
+            margin: 0 auto;
+        }
+
+        .stats-container {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 
@@ -483,6 +628,53 @@
                 <i class="fas fa-plus"></i>
                 Tambah Pegawai
             </button>
+        </div>
+    </div>
+
+    <!-- Info Alert -->
+    <div class="info-alert">
+        <div class="icon-container">
+            <i class="fas fa-info-circle"></i>
+        </div>
+        <div class="content">
+            <p>
+                <strong>Penting!</strong> Lengkapi data kepegawaian agar pegawai dapat didaftarkan ke <strong>Struktur Organisasi</strong>.
+            </p>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-container" id="stats-container" style="display: none;">
+        <div class="stat-card stat-total">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-label">Total Pegawai</div>
+                <div class="stat-value" id="stat-total">0</div>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-lengkap">
+            <div class="stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-label">Data Lengkap</div>
+                <div class="stat-value" id="stat-lengkap">0</div>
+                <div class="stat-percentage" id="stat-lengkap-persen">0%</div>
+            </div>
+        </div>
+        
+        <div class="stat-card stat-belum">
+            <div class="stat-icon">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <div class="stat-info">
+                <div class="stat-label">Belum Lengkap</div>
+                <div class="stat-value" id="stat-belum">0</div>
+                <div class="stat-percentage" id="stat-belum-persen">0%</div>
+            </div>
         </div>
     </div>
     
@@ -524,6 +716,7 @@
         </div>
     </div>
     
+    
     <!-- Data Pegawai Container -->
     <div id="data-pegawai-container">
         <div class="spinner-container">
@@ -542,6 +735,34 @@
     let currentPagePegawai = 1;
     const PAGE_SIZE_PEGAWAI = 10;
 
+    // ===== HELPER: Cek kelengkapan data kepegawaian =====
+    function isDataKepegawaianLengkap(pegawai) {
+        // 1. Cek Jabatan
+        if (!pegawai.jabatan || pegawai.jabatan.trim() === '') return false;
+        
+        // 2. Cek Unit Kerja
+        if (!pegawai.unit_kerja || pegawai.unit_kerja.trim() === '') return false;
+        
+        // 3. Cek Jenis Kepegawaian (tetap/kontrak)
+        if (!pegawai.jenis_kepegawaian || pegawai.jenis_kepegawaian.trim() === '') return false;
+        
+        // 4. Cek Status Aktif
+        if (!pegawai.status_aktif || pegawai.status_aktif.trim() === '') return false;
+        
+        // 5. Cek PTKP - WAJIB TERISI
+        if (!pegawai.ptkp || pegawai.ptkp.toString().trim() === '') return false;
+        
+        // 6. Cek Tanggal Mulai Kerja
+        if (!pegawai.tanggal_mulai_kerja) return false;
+        
+        // 7. Jika kontrak, cek masa kontrak mulai dan selesai
+        if (pegawai.jenis_kepegawaian.toLowerCase() === 'kontrak') {
+            if (!pegawai.masa_kontrak_mulai || !pegawai.masa_kontrak_selesai) return false;
+        }
+        
+        return true;
+    }
+
     // ===== HELPER: Format PTKP untuk display =====
     function formatPTKP(ptkp) {
         if (!ptkp) return '-';
@@ -558,6 +779,30 @@
         };
         
         return ptkpLabels[ptkp] || ptkp;
+    }
+
+    // ===== UPDATE STATISTIK =====
+    function updateStatistics() {
+        const total = allDataPegawai.length;
+        const lengkap = allDataPegawai.filter(p => isDataKepegawaianLengkap(p)).length;
+        const belum = total - lengkap;
+        
+        const persenLengkap = total > 0 ? Math.round((lengkap / total) * 100) : 0;
+        const persenBelum = total > 0 ? Math.round((belum / total) * 100) : 0;
+        
+        document.getElementById('stat-total').textContent = total;
+        document.getElementById('stat-lengkap').textContent = lengkap;
+        document.getElementById('stat-lengkap-persen').textContent = persenLengkap + '%';
+        document.getElementById('stat-belum').textContent = belum;
+        document.getElementById('stat-belum-persen').textContent = persenBelum + '%';
+        
+        // Tampilkan stats container
+        const statsContainer = document.getElementById('stats-container');
+        if (total > 0) {
+            statsContainer.style.display = 'grid';
+        } else {
+            statsContainer.style.display = 'none';
+        }
     }
 
     // ===== LOAD DATA DARI SERVER =====
@@ -581,10 +826,12 @@
                 allDataPegawai = result.data;
                 filteredDataPegawai = [...allDataPegawai];
                 currentPagePegawai = 1;
+                updateStatistics();
                 renderTablePegawai();
             } else {
                 allDataPegawai = [];
                 filteredDataPegawai = [];
+                updateStatistics();
                 displayEmptyStatePegawai();
             }
         } catch(error) {
@@ -677,14 +924,17 @@
                 : '<span class="badge-custom badge-tetap">Tetap</span>';
 
             // Badge Status
-            const statusAktifBadge = statusAktif === 'aktif'
+            const statusCell = statusAktif === 'aktif' 
                 ? '<span class="badge-custom badge-aktif">Aktif</span>'
                 : '<span class="badge-custom badge-tidak-aktif">Tidak Aktif</span>';
 
-            // Badge PTKP
-            const ptkpDisplay = pegawai.ptkp 
-                ? `<span class="badge-custom badge-ptkp"><i class="fas fa-file-invoice me-1"></i>${formatPTKP(pegawai.ptkp)}</span>` 
-                : '<span class="text-muted" style="font-size: 11px;">-</span>';
+            // Badge PTKP - dengan warning jika belum diisi
+            let ptkpDisplay = '';
+            if (pegawai.ptkp) {
+                ptkpDisplay = `<span class="badge-custom badge-ptkp"><i class="fas fa-file-invoice me-1"></i>${formatPTKP(pegawai.ptkp)}</span>`;
+            } else {
+                ptkpDisplay = '<span class="text-warning-empty"><i class="fas fa-exclamation-triangle"></i> Belum diisi</span>';
+            }
 
             // Sisa Kontrak
             let sisaKontrak = '-';
@@ -695,8 +945,18 @@
                 sisaKontrakClass = kontrakInfo.isWarning ? 'sisa-kontrak-warning' : 'sisa-kontrak-normal';
             }
 
-            // Nomor urut global (bukan reset per halaman)
+            // Nomor urut global
             const nomor = startIndex + index + 1;
+
+            // Jabatan dengan warning jika kosong
+            const jabatanDisplay = pegawai.jabatan && pegawai.jabatan.trim() !== ''
+                ? pegawai.jabatan 
+                : '<span class="text-warning-empty"><i class="fas fa-exclamation-triangle"></i> Belum diisi</span>';
+
+            // Unit Kerja dengan warning jika kosong
+            const unitKerjaDisplay = pegawai.unit_kerja && pegawai.unit_kerja.trim() !== ''
+                ? pegawai.unit_kerja
+                : '<span class="text-warning-empty"><i class="fas fa-exclamation-triangle"></i> Belum diisi</span>';
 
             html += `
                 <tr>
@@ -704,11 +964,11 @@
                     <td>
                         <div class="nama-pegawai">${pegawai.nama_lengkap}</div>
                     </td>
-                    <td style="font-size: 12px;">${pegawai.jabatan || '-'}</td>
+                    <td style="font-size: 12px;">${jabatanDisplay}</td>
                     <td class="text-center">${jenisKepegawaianBadge}</td>
-                    <td class="text-center">${statusAktifBadge}</td>
+                    <td class="text-center">${statusCell}</td>
                     <td class="text-center">${ptkpDisplay}</td>
-                    <td style="font-size: 12px;">${pegawai.unit_kerja || '-'}</td>
+                    <td style="font-size: 12px;">${unitKerjaDisplay}</td>
                     <td class="text-center" style="font-size: 12px;">
                         <span class="${sisaKontrakClass}">${sisaKontrak}</span>
                     </td>

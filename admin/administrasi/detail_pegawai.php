@@ -10,11 +10,12 @@ if($id <= 0) {
 }
 
 // Get data pegawai
+// Get data pegawai
 $query = "SELECT 
             p.*,
             sk.jabatan,
             sk.jenis_kepegawaian,
-            sk.status_aktif,
+            COALESCE(sk.status_aktif, 'aktif') as status_aktif,
             sk.ptkp,
             sk.unit_kerja,
             sk.tanggal_mulai_kerja,
@@ -32,6 +33,14 @@ $pegawai = $stmt->fetch(PDO::FETCH_ASSOC);
 if(!$pegawai) {
     header('Location: administrasiKepegawaian.php?error=1&message=' . urlencode('Data pegawai tidak ditemukan'));
     exit;
+}
+
+//Set default values jika NULL (untuk pegawai baru dari import)
+if(empty($pegawai['status_aktif'])) {
+    $pegawai['status_aktif'] = 'aktif';
+}
+if(empty($pegawai['jenis_kepegawaian'])) {
+    $pegawai['jenis_kepegawaian'] = 'tetap';
 }
 
 // Get data dokumen pegawai
