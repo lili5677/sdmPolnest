@@ -11,15 +11,26 @@ $user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
 $is_pegawai = false;
 $jenis_pegawai = null;
 
+// ===== CEK KELENGKAPAN DATA PEGAWAI =====
+$data_complete = true;
+$completion_message = '';
+
 if ($is_logged_in && $user_id) {
     try {
-        $stmt = $conn->prepare("SELECT jenis_pegawai FROM pegawai WHERE user_id = ?");
+        $stmt = $conn->prepare("SELECT jenis_pegawai, pegawai_id FROM pegawai WHERE user_id = ?");
         $stmt->execute([$user_id]);
         $pegawai_data = $stmt->fetch();
         
         if ($pegawai_data) {
             $is_pegawai = true;
             $jenis_pegawai = $pegawai_data['jenis_pegawai'];
+            
+            // Include helper untuk cek kelengkapan
+            require_once __DIR__ . '/config/check_completion.php';
+            
+            $check_result = checkPegawaiCompletion($conn, $pegawai_data['pegawai_id']);
+            $data_complete = $check_result['is_complete'];
+            $completion_message = $check_result['message'];
         }
     } catch (PDOException $e) {
         // Error handling - user tidak ditemukan di tabel pegawai
@@ -98,22 +109,26 @@ if ($is_pegawai) {
             [
                 'title' => 'Layanan Administrasi Kepegawaian',
                 'image' => 'users/assets/layanan/administrasi.png',
-                'link' => BASE_URL . 'users/pegawai/administrasi.php'
+                'link' => BASE_URL . 'users/pegawai/administrasi.php',
+                'locked' => false // Selalu bisa diakses
             ],
             [
                 'title' => 'Pengembangan SDM',
                 'image' => 'users/assets/layanan/sdm.png', 
-                'link' => BASE_URL . 'users/pegawai/pengembangan.php'
+                'link' => BASE_URL . 'users/pegawai/pengembangan_sdm.php',
+                'locked' => !$data_complete // Dikunci jika data belum lengkap
             ],
             [
                 'title' => 'Sertifikasi Dosen',
                 'image' => 'users/assets/layanan/sertifikasi.png', 
-                'link' => BASE_URL . 'users/pegawai/sertifikasi.php'
+                'link' => BASE_URL . 'users/pegawai/sertifikasi_dosen.php',
+                'locked' => !$data_complete // Dikunci jika data belum lengkap
             ],
             [
                 'title' => 'Penilaian & Kinerja Pegawai',
                 'image' => 'users/assets/layanan/evaluasi.png',
-                'link' => BASE_URL . 'users/pegawai/penilaian.php'
+                'link' => BASE_URL . 'users/pegawai/penilaian/penilaian_kinerja.php',
+                'locked' => !$data_complete // Dikunci jika data belum lengkap
             ]
         ];
     } elseif ($jenis_pegawai === 'tendik' || $jenis_pegawai === 'staff') {
@@ -122,17 +137,20 @@ if ($is_pegawai) {
             [
                 'title' => 'Layanan Administrasi Kepegawaian',
                 'image' => 'users/assets/layanan/administrasi.png', 
-                'link' => BASE_URL . 'users/pegawai/administrasi.php'
+                'link' => BASE_URL . 'users/pegawai/administrasi.php',
+                'locked' => false // Selalu bisa diakses
             ],
             [
                 'title' => 'Pengembangan SDM',
-                'image' => 'users/assets/layanan/pengembangan_sdm.png', 
-                'link' => BASE_URL . 'users/pegawai/pengembangan.php'
+                'image' => 'users/assets/layanan/sdm.png', 
+                'link' => BASE_URL . 'users/pegawai/pengembangan.php',
+                'locked' => !$data_complete // Dikunci jika data belum lengkap
             ],
             [
                 'title' => 'Penilaian & Kinerja Pegawai',
-                'image' => 'users/assets/layanan/penilaian.png',
-                'link' => BASE_URL . 'users/pegawai/penilaian.php'
+                'image' => 'users/assets/layanan/evaluasi.png',
+                'link' => BASE_URL . 'users/pegawai/penilaian.php',
+                'locked' => !$data_complete // Dikunci jika data belum lengkap
             ]
         ];
     }
@@ -276,7 +294,13 @@ if ($is_pegawai) {
             position: relative;
         }
 
-        .service-card:hover {
+        /* Service card yang terkunci */
+        .service-card.locked {
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+
+        .service-card:hover:not(.locked) {
             transform: translateY(-15px);
             box-shadow: 0 20px 50px rgba(0,0,0,0.25);
         }
@@ -298,7 +322,7 @@ if ($is_pegawai) {
             background-blend-mode: normal;
         }
 
-        .service-card:hover .service-card-image img {
+        .service-card:hover:not(.locked) .service-card-image img {
             transform: scale(1.15);
         }
 
@@ -315,7 +339,7 @@ if ($is_pegawai) {
             transition: background 0.3s ease;
         }
 
-        .service-card:hover .service-card-overlay {
+        .service-card:hover:not(.locked) .service-card-overlay {
             background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.85) 100%);
         }
 
@@ -330,7 +354,7 @@ if ($is_pegawai) {
             transition: transform 0.3s ease;
         }
 
-        .service-card:hover .service-card-title {
+        .service-card:hover:not(.locked) .service-card-title {
             transform: scale(1.05);
         }
 
@@ -469,17 +493,35 @@ if ($is_pegawai) {
             <div class="row g-4">
                 <?php foreach ($services as $service): ?>
                 <div class="col-lg-3 col-md-6">
-                    <a href="<?php echo $service['link']; ?>" class="service-card">
-                        <div class="service-card-image">
-                            <img src="<?php echo BASE_URL . $service['image']; ?>" 
-                                 alt="<?php echo $service['title']; ?>"
-                                 loading="lazy"
-                                 onerror="this.onerror=null; this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)';">
-                            <div class="service-card-overlay">
-                                <h5 class="service-card-title"><?php echo $service['title']; ?></h5>
+                    <?php if ($service['locked']): ?>
+                        <!-- Card Terkunci - Klik akan muncul alert -->
+                        <a href="javascript:void(0)" 
+                           class="service-card locked" 
+                           onclick="showIncompleteAlertIndex(event)">
+                            <div class="service-card-image">
+                                <img src="<?php echo BASE_URL . $service['image']; ?>" 
+                                     alt="<?php echo $service['title']; ?>"
+                                     loading="lazy"
+                                     onerror="this.onerror=null; this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)';">
+                                <div class="service-card-overlay">
+                                    <h5 class="service-card-title"><?php echo $service['title']; ?></h5>
+                                </div>
                             </div>
-                        </div>
-                    </a>
+                        </a>
+                    <?php else: ?>
+                        <!-- Card Normal - Bisa diklik -->
+                        <a href="<?php echo $service['link']; ?>" class="service-card">
+                            <div class="service-card-image">
+                                <img src="<?php echo BASE_URL . $service['image']; ?>" 
+                                     alt="<?php echo $service['title']; ?>"
+                                     loading="lazy"
+                                     onerror="this.onerror=null; this.style.display='none'; this.parentElement.style.background='linear-gradient(135deg, #667eea 0%, #764ba2 100%)';">
+                                <div class="service-card-overlay">
+                                    <h5 class="service-card-title"><?php echo $service['title']; ?></h5>
+                                </div>
+                            </div>
+                        </a>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -665,6 +707,26 @@ if ($is_pegawai) {
             timerProgressBar: true
         });
         <?php endif; ?>
+        
+        // ===== ALERT UNTUK DATA BELUM LENGKAP DI INDEX =====
+        function showIncompleteAlertIndex(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            Swal.fire({
+                icon: 'warning',
+                title: 'Data Belum Lengkap!',
+                html: '<?php echo addslashes($completion_message); ?>',
+                showCancelButton: false,
+                confirmButtonText: 'Lengkapi Data Sekarang',
+                confirmButtonColor: '#F6C35A',
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = '<?php echo BASE_URL; ?>users/pegawai/administrasi.php';
+                }
+            });
+        }
         
         // Show pelatihan detail
         function showPelatihanDetail(pelatihan) {

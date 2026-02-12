@@ -11,6 +11,20 @@ $is_pegawai_dosen = ($user_type == 'pegawai' || $user_type == 'dosen');
 $is_dosen = ($user_type === 'dosen'); // Khusus dosen
 $user_email = $is_logged_in ? $_SESSION['email'] : '';
 $username = $is_logged_in ? explode('@', $user_email)[0] : '';
+
+// ===== CEK KELENGKAPAN DATA PEGAWAI =====
+$data_complete = true;
+$completion_message = '';
+
+if ($is_pegawai_dosen && isset($_SESSION['pegawai_id'])) {
+    // Include helper untuk cek kelengkapan
+    require_once __DIR__ . '/../../config/check_completion.php';
+    require_once __DIR__ . '/../../config/database.php';
+    
+    $check_result = checkPegawaiCompletion($conn, $_SESSION['pegawai_id']);
+    $data_complete = $check_result['is_complete'];
+    $completion_message = addslashes($check_result['message']);
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -218,6 +232,28 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
 
         .dropdown-layanan-item:hover i {
             transform: scale(1.1);
+        }
+
+        /* Style untuk menu yang terkunci */
+        .dropdown-layanan-item.locked {
+            opacity: 0.7;
+            cursor: not-allowed;
+            position: relative;
+        }
+
+        /* HAPUS BAGIAN INI - YANG MENAMBAHKAN ICON LOCK DUPLIKAT */
+        /* .dropdown-layanan-item.locked::after {
+            content: '\F23E';
+            font-family: 'bootstrap-icons';
+            position: absolute;
+            right: 20px;
+            font-size: 16px;
+            color: white;
+        } */
+
+        .dropdown-layanan-item.locked:hover {
+            background: rgba(255, 255, 255, 0.1);
+            padding-left: 20px;
         }
 
         /* Login Button */
@@ -540,28 +576,40 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
                         </a>
 
                         <div class="dropdown-layanan-menu">
-                            <!-- Administrasi Kepegawaian - untuk semua (pegawai & dosen) -->
+                            <!-- Administrasi Kepegawaian - SELALU BISA DIAKSES -->
                             <a href="<?php echo BASE_URL; ?>users/pegawai/administrasi.php" class="dropdown-layanan-item">
                                 <i class="bi bi-file-earmark-text-fill"></i>
                                 <span>Administrasi Kepegawaian</span>
                             </a>
                             
-                            <!-- Pengembangan SDM - untuk semua (pegawai & dosen) -->
-                            <a href="<?php echo BASE_URL; ?>users/pegawai/pengembangan_sdm.php" class="dropdown-layanan-item">
+                            <!-- Pengembangan SDM - DIKUNCI jika data belum lengkap -->
+                            <a href="<?php echo $data_complete ? BASE_URL . 'users/pegawai/pengembangan_sdm.php' : 'javascript:void(0)'; ?>" 
+                               class="dropdown-layanan-item <?php echo !$data_complete ? 'locked' : ''; ?>"
+                               <?php if (!$data_complete): ?>
+                               onclick="showIncompleteAlert(event)"
+                               <?php endif; ?>>
                                 <i class="bi bi-graph-up-arrow"></i>
                                 <span>Pengembangan SDM</span>
                             </a>
                             
-                            <!-- Sertifikasi Dosen - KHUSUS DOSEN SAJA -->
+                            <!-- Sertifikasi Dosen - KHUSUS DOSEN + DIKUNCI jika data belum lengkap -->
                             <?php if ($is_dosen): ?>
-                            <a href="<?php echo BASE_URL; ?>users/pegawai/sertifikasi_dosen.php" class="dropdown-layanan-item">
+                            <a href="<?php echo $data_complete ? BASE_URL . 'users/pegawai/sertifikasi_dosen.php' : 'javascript:void(0)'; ?>" 
+                               class="dropdown-layanan-item <?php echo !$data_complete ? 'locked' : ''; ?>"
+                               <?php if (!$data_complete): ?>
+                               onclick="showIncompleteAlert(event)"
+                               <?php endif; ?>>
                                 <i class="bi bi-award-fill"></i>
                                 <span>Sertifikasi Dosen</span>
                             </a>
                             <?php endif; ?>
                             
-                            <!-- Penilaian dan Kinerja Pegawai - untuk semua (pegawai & dosen) -->
-                            <a href="<?php echo BASE_URL; ?>users/pegawai/penilaian/penilaian_kinerja.php" class="dropdown-layanan-item">
+                            <!-- Penilaian dan Kinerja Pegawai - DIKUNCI jika data belum lengkap -->
+                            <a href="<?php echo $data_complete ? BASE_URL . 'users/pegawai/penilaian/penilaian_kinerja.php' : 'javascript:void(0)'; ?>" 
+                               class="dropdown-layanan-item <?php echo !$data_complete ? 'locked' : ''; ?>"
+                               <?php if (!$data_complete): ?>
+                               onclick="showIncompleteAlert(event)"
+                               <?php endif; ?>>
                                 <i class="bi bi-clipboard-check-fill"></i>
                                 <span>Penilaian dan Kinerja Pegawai</span>
                             </a>
@@ -700,6 +748,25 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
         }
     });
 
+    // ===== ALERT UNTUK DATA BELUM LENGKAP =====
+    function showIncompleteAlert(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        Swal.fire({
+            icon: 'warning',
+            title: 'Data Belum Lengkap!',
+            html: '<?php echo $completion_message; ?>',
+            showCancelButton: false,
+            confirmButtonText: 'Lengkapi Data Sekarang',
+            confirmButtonColor: '#F6C35A',
+            allowOutsideClick: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = '<?php echo BASE_URL; ?>users/pegawai/administrasi.php';
+            }
+        });
+    }
 </script>
 
 </body>
