@@ -38,7 +38,7 @@ function fixImagePath($dbPath) {
     return '../' . $cleanPath;
 }
 
-// Ambil data untuk setiap level (disesuaikan dengan preview.php)
+// Ambil data untuk setiap level
 $level1 = getDataByLevel($conn, 1); // Direktur
 $level2 = getDataByLevel($conn, 2); // Wakil Direktur
 $level3 = getDataByLevel($conn, 3); // Kaprodi
@@ -167,19 +167,27 @@ if ($is_pegawai_dosen) {
             margin-bottom: 30px;
         }
 
-        /* Layout khusus untuk Direktur & Wakil Direktur - BERDAMPINGAN */
-        .level-direktur-wadir-grid {
-            grid-template-columns: repeat(2, 1fr);
-            max-width: 800px;
-            margin: 0 auto;
-            gap: 32px;
+        /* Layout khusus untuk Direktur - TUNGGAL DI TENGAH */
+        .level-direktur-grid {
+            grid-template-columns: 1fr;
+            max-width: 380px;
+            margin: 0 auto 40px;
         }
 
-        /* Layout untuk level lainnya */
-        .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            max-width: 1200px;
+        /* Layout khusus untuk Wakil Direktur - BARIS DI BAWAH DIREKTUR */
+        .level-wadir-grid {
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            max-width: 1000px;
             margin: 0 auto;
+            gap: 28px;
+        }
+
+        /* Layout untuk level 3-7 - 5-6 CARD PER BARIS */
+        .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            max-width: 1400px;
+            margin: 0 auto;
+            gap: 20px;
         }
 
         /* Member Card */
@@ -207,8 +215,12 @@ if ($is_pegawai_dosen) {
             transition: opacity 0.3s ease;
         }
 
-        .level-direktur-wadir-grid .member-card-preview::before {
-            background: linear-gradient(90deg, #105666, #E59D2C);
+        .level-direktur-grid .member-card-preview::before {
+            background: linear-gradient(90deg, #105666, #105666);
+        }
+
+        .level-wadir-grid .member-card-preview::before {
+            background: linear-gradient(90deg, #E59D2C, #E59D2C);
         }
 
         .level-3-grid .member-card-preview::before {
@@ -235,8 +247,14 @@ if ($is_pegawai_dosen) {
             opacity: 1;
         }
 
-        .level-direktur-wadir-grid .member-card-preview {
+        /* Direktur lebih besar */
+        .level-direktur-grid .member-card-preview {
             padding: 40px 32px;
+        }
+
+        /* Wakil Direktur ukuran sedang */
+        .level-wadir-grid .member-card-preview {
+            padding: 36px 28px;
         }
 
         .member-card-preview:hover {
@@ -257,12 +275,33 @@ if ($is_pegawai_dosen) {
             border: 4px solid white;
         }
 
-        .level-direktur-wadir-grid .avatar-container {
+        /* Direktur avatar lebih besar */
+        .level-direktur-grid .avatar-container {
             width: 180px;
             height: 180px;
             margin-bottom: 24px;
             box-shadow: 0 12px 32px rgba(0,0,0,0.15);
             border-width: 5px;
+        }
+
+        /* Wakil Direktur avatar sedang */
+        .level-wadir-grid .avatar-container {
+            width: 160px;
+            height: 160px;
+            margin-bottom: 22px;
+            box-shadow: 0 10px 28px rgba(0,0,0,0.13);
+            border-width: 4px;
+        }
+
+        /* Level 3-7 avatar lebih kecil */
+        .level-3-grid .avatar-container,
+        .level-4-grid .avatar-container,
+        .level-5-grid .avatar-container,
+        .level-6-grid .avatar-container,
+        .level-7-grid .avatar-container {
+            width: 110px;
+            height: 110px;
+            margin-bottom: 16px;
         }
 
         .avatar-img {
@@ -288,8 +327,20 @@ if ($is_pegawai_dosen) {
             color: white;
         }
 
-        .level-direktur-wadir-grid .avatar-default {
+        .level-direktur-grid .avatar-default {
             font-size: 56px;
+        }
+
+        .level-wadir-grid .avatar-default {
+            font-size: 50px;
+        }
+
+        .level-3-grid .avatar-default,
+        .level-4-grid .avatar-default,
+        .level-5-grid .avatar-default,
+        .level-6-grid .avatar-default,
+        .level-7-grid .avatar-default {
+            font-size: 34px;
         }
 
         /* Member Info */
@@ -306,9 +357,23 @@ if ($is_pegawai_dosen) {
             letter-spacing: -0.01em;
         }
 
-        .level-direktur-wadir-grid .member-name-preview {
+        .level-direktur-grid .member-name-preview {
             font-size: 20px;
             margin-bottom: 8px;
+        }
+
+        .level-wadir-grid .member-name-preview {
+            font-size: 18px;
+            margin-bottom: 7px;
+        }
+
+        .level-3-grid .member-name-preview,
+        .level-4-grid .member-name-preview,
+        .level-5-grid .member-name-preview,
+        .level-6-grid .member-name-preview,
+        .level-7-grid .member-name-preview {
+            font-size: 14px;
+            margin-bottom: 5px;
         }
 
         .member-position-preview {
@@ -318,9 +383,22 @@ if ($is_pegawai_dosen) {
             line-height: 1.5;
         }
 
-        .level-direktur-wadir-grid .member-position-preview {
+        .level-direktur-grid .member-position-preview {
             font-size: 15px;
             color: #475569;
+        }
+
+        .level-wadir-grid .member-position-preview {
+            font-size: 14px;
+            color: #475569;
+        }
+
+        .level-3-grid .member-position-preview,
+        .level-4-grid .member-position-preview,
+        .level-5-grid .member-position-preview,
+        .level-6-grid .member-position-preview,
+        .level-7-grid .member-position-preview {
+            font-size: 12px;
         }
 
         /* Empty State */
@@ -352,14 +430,13 @@ if ($is_pegawai_dosen) {
             font-size: 15px;
         }
 
-        /* Responsive - Tablet */
+        /* Responsive */
         @media (max-width: 1200px) {
             .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             }
         }
 
-        /* Responsive - Mobile */
         @media (max-width: 768px) {
             .preview-container {
                 padding: 30px 20px 60px;
@@ -377,95 +454,140 @@ if ($is_pegawai_dosen) {
                 font-size: 15px;
             }
 
-            /* Direktur & Wakil Direktur tetap berdampingan di tablet */
-            .level-direktur-wadir-grid {
-                max-width: 600px;
-                gap: 20px;
+            .level-direktur-grid {
+                max-width: 320px;
+            }
+
+            .level-wadir-grid {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                max-width: 700px;
+                gap: 24px;
             }
 
             .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 20px;
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 16px;
             }
 
-            .avatar-container {
-                width: 120px;
-                height: 120px;
+            .level-direktur-grid .avatar-container {
+                width: 150px;
+                height: 150px;
             }
 
-            .level-direktur-wadir-grid .avatar-container {
-                width: 140px;
-                height: 140px;
+            .level-wadir-grid .avatar-container {
+                width: 130px;
+                height: 130px;
             }
 
-            .avatar-default {
-                font-size: 36px;
-            }
-
-            .level-direktur-wadir-grid .avatar-default {
-                font-size: 44px;
+            .level-3-grid .avatar-container,
+            .level-4-grid .avatar-container,
+            .level-5-grid .avatar-container,
+            .level-6-grid .avatar-container,
+            .level-7-grid .avatar-container {
+                width: 90px;
+                height: 90px;
             }
 
             .member-card-preview {
                 padding: 24px 20px;
             }
 
-            .level-direktur-wadir-grid .member-card-preview {
-                padding: 32px 20px;
+            .level-direktur-grid .member-card-preview {
+                padding: 32px 24px;
+            }
+
+            .level-wadir-grid .member-card-preview {
+                padding: 28px 22px;
             }
         }
 
-        /* Responsive - Small Mobile */
         @media (max-width: 480px) {
             .preview-container {
                 padding: 30px 20px 60px;
             }
 
-            /* Di mobile, Direktur & Wakil Direktur jadi 1 kolom */
-            .level-direktur-wadir-grid {
+            .level-direktur-grid {
+                max-width: 280px;
+            }
+
+            .level-wadir-grid {
                 grid-template-columns: 1fr;
-                max-width: 300px;
-                gap: 24px;
+                max-width: 280px;
+                gap: 20px;
             }
 
             .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
-                grid-template-columns: 1fr;
-                max-width: 300px;
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 400px;
                 margin: 0 auto;
+                gap: 16px;
             }
 
-            .avatar-container {
-                width: 110px;
-                height: 110px;
+            .level-direktur-grid .avatar-container {
+                width: 130px;
+                height: 130px;
             }
 
-            .level-direktur-wadir-grid .avatar-container {
-                width: 140px;
-                height: 140px;
+            .level-wadir-grid .avatar-container {
+                width: 120px;
+                height: 120px;
             }
 
-            .avatar-default {
-                font-size: 32px;
+            .level-3-grid .avatar-container,
+            .level-4-grid .avatar-container,
+            .level-5-grid .avatar-container,
+            .level-6-grid .avatar-container,
+            .level-7-grid .avatar-container {
+                width: 80px;
+                height: 80px;
             }
 
-            .level-direktur-wadir-grid .avatar-default {
+            .level-direktur-grid .avatar-default {
                 font-size: 42px;
             }
 
-            .member-name-preview {
-                font-size: 15px;
+            .level-wadir-grid .avatar-default {
+                font-size: 38px;
             }
 
-            .level-direktur-wadir-grid .member-name-preview {
+            .level-3-grid .avatar-default,
+            .level-4-grid .avatar-default,
+            .level-5-grid .avatar-default,
+            .level-6-grid .avatar-default,
+            .level-7-grid .avatar-default {
+                font-size: 28px;
+            }
+
+            .level-direktur-grid .member-name-preview {
                 font-size: 18px;
             }
 
-            .member-position-preview {
-                font-size: 12px;
+            .level-wadir-grid .member-name-preview {
+                font-size: 16px;
             }
 
-            .level-direktur-wadir-grid .member-position-preview {
+            .level-3-grid .member-name-preview,
+            .level-4-grid .member-name-preview,
+            .level-5-grid .member-name-preview,
+            .level-6-grid .member-name-preview,
+            .level-7-grid .member-name-preview {
+                font-size: 13px;
+            }
+
+            .level-direktur-grid .member-position-preview {
                 font-size: 14px;
+            }
+
+            .level-wadir-grid .member-position-preview {
+                font-size: 13px;
+            }
+
+            .level-3-grid .member-position-preview,
+            .level-4-grid .member-position-preview,
+            .level-5-grid .member-position-preview,
+            .level-6-grid .member-position-preview,
+            .level-7-grid .member-position-preview {
+                font-size: 11px;
             }
         }
 
@@ -494,15 +616,12 @@ if ($is_pegawai_dosen) {
             <p>Staf kami berpengalaman dalam bidang masing-masing seperti kepegawaian, keuangan, organisasi, peraturan perundang-undangan dan teknologi informasi.</p>
         </div>
 
-        <!-- Level 1 & 2 - Direktur & Wakil Direktur (Berdampingan) -->
-        <?php if(!empty($level1) || !empty($level2)): ?>
+        <!-- DIREKTUR - TUNGGAL DI TENGAH -->
+        <?php if(!empty($level1)): ?>
         <div class="level-section">
-            <div class="level-title">Pimpinan</div>
-            <div class="members-grid level-direktur-wadir-grid">
-                <?php 
-                // Direktur di sebelah kiri
-                foreach($level1 as $member): 
-                ?>
+            <div class="level-title">Direktur</div>
+            <div class="members-grid level-direktur-grid">
+                <?php foreach($level1 as $member): ?>
                 <div class="member-card-preview">
                     <div class="avatar-container" style="background: <?php echo getAvatarColor(1); ?>">
                         <?php if(!empty($member['path_gambar'])): ?>
@@ -522,11 +641,16 @@ if ($is_pegawai_dosen) {
                     </div>
                 </div>
                 <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
-                <?php 
-                // Wakil Direktur di sebelah kanan
-                foreach($level2 as $member): 
-                ?>
+        <!-- WAKIL DIREKTUR - BARIS DI BAWAH DIREKTUR -->
+        <?php if(!empty($level2)): ?>
+        <div class="level-section">
+            <div class="level-title">Wakil Direktur</div>
+            <div class="members-grid level-wadir-grid">
+                <?php foreach($level2 as $member): ?>
                 <div class="member-card-preview">
                     <div class="avatar-container" style="background: <?php echo getAvatarColor(2); ?>">
                         <?php if(!empty($member['path_gambar'])): ?>
