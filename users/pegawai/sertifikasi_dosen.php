@@ -1,10 +1,29 @@
 <?php
-// STEP 1: Start session
+//STEP 1: Start session
 session_start();
 
-// STEP 2: Include database
+// STEP 2: Cek login DULU
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
+    header("Location: ../../auth/login_pegawai.php");
+    exit;
+}
+
+// STEP 3: Include helper untuk cek kelengkapan
+require_once '../../config/check_completion.php';
 require_once '../../config/database.php';
 
+// STEP 4: Cek kelengkapan data pegawai
+$check_result = checkPegawaiCompletion($conn, $_SESSION['pegawai_id']);
+
+// STEP 5: Jika data belum lengkap, redirect ke administrasi
+if (!$check_result['is_complete']) {
+    $_SESSION['flash_message'] = [
+        'type' => 'warning',
+        'message' => 'Anda harus melengkapi data administrasi kepegawaian terlebih dahulu sebelum mengakses halaman ini.'
+    ];
+    header("Location: ../../users/pegawai/administrasi.php");
+    exit;
+}
 // STEP 3: Cek login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
     header("Location: ../../auth/login_pegawai.php");

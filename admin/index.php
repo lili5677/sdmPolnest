@@ -1,3 +1,4 @@
+index.php
 <?php
 // Koneksi database
 require_once '../config/database.php';
@@ -155,6 +156,9 @@ try {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- Load Notification CSS -->
+    <link rel="stylesheet" href="api/notifications.php?get=css">
+    
     <style>
         * {
             margin: 0;
@@ -173,14 +177,31 @@ try {
             margin-left: 290px;
             transition: margin-left 0.3s ease;
         }
+        .dashboard-top {
+            margin-bottom: 30px;
+        }
+
+        /* stats tampil 1 baris rapi */
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+
+        /* rapatkan header & stats */
+        .header {
+            margin-bottom: 20px;
+        }
 
         /* ===== HEADER WITH NOTIFICATION BELL ===== */
         .header {
             margin-bottom: 30px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            position: relative;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header-left {
+            flex: 1;
         }
 
         .header-left h1 {
@@ -195,244 +216,7 @@ try {
             color: #666;
         }
 
-        /* Notification Bell */
-        .notification-bell {
-            position: relative;
-            width: 50px;
-            height: 50px;
-            background: white;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-
-        .notification-bell:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-            background: #f8f9fa;
-        }
-
-        .notification-bell i {
-            font-size: 22px;
-            color: #666;
-        }
-
-        .notification-badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ef4444;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 3px 7px;
-            border-radius: 10px;
-            min-width: 22px;
-            height: 22px;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
-        }
-
-        .notification-badge.pulse {
-            animation: pulse 1s ease-in-out;
-        }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.15); }
-        }
-
-        /* Notification Dropdown */
-        .notification-dropdown {
-            position: absolute;
-            top: 60px;
-            right: 0;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-            width: 420px;
-            max-height: 550px;
-            overflow-y: auto;
-            display: none;
-            z-index: 9999;
-        }
-
-        .notification-dropdown.show {
-            display: block;
-        }
-
-        .notification-dropdown::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .notification-dropdown::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .notification-dropdown::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 10px;
-        }
-
-        .notification-dropdown-header {
-            padding: 20px;
-            border-bottom: 1px solid #f0f0f0;
-            background: #f8f9fa;
-            border-radius: 12px 12px 0 0;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .notification-dropdown-header h3 {
-            font-size: 16px;
-            font-weight: 600;
-            color: #1a1a1a;
-            margin: 0;
-        }
-
-        .notification-empty {
-            padding: 60px 20px;
-            text-align: center;
-            color: #999;
-        }
-
-        .notification-empty i {
-            font-size: 48px;
-            color: #ddd;
-            margin-bottom: 10px;
-        }
-
-        .notification-empty p {
-            font-size: 14px;
-            margin: 0;
-        }
-
-        .notification-item {
-            display: block;
-            text-decoration: none;
-            color: inherit;
-            background: white;
-            transition: background 0.2s;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-        }
-
-        .notification-item:hover {
-            background: #f8f9fa;
-        }
-
-        .notification-item:active {
-            background: #e5e7eb;
-        }
-
-        .notification-item:last-child {
-            border-bottom: none;
-        }
-
-        /* Inner wrapper untuk flex layout */
-        .notification-item > div {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 16px 20px;
-        }
-
-        .notification-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            flex-shrink: 0;
-        }
-
-        .notif-danger .notification-icon {
-            background: #fee2e2;
-            color: #ef4444;
-        }
-
-        .notif-warning .notification-icon {
-            background: #fef3c7;
-            color: #f59e0b;
-        }
-
-        .notif-info .notification-icon {
-            background: #dbeafe;
-            color: #3b82f6;
-        }
-
-        .notif-success .notification-icon {
-            background: #d4f4dd;
-            color: #22c55e;
-        }
-
-        .notification-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .notification-content h4 {
-            font-size: 14px;
-            font-weight: 600;
-            color: #1a1a1a;
-            margin: 0 0 4px 0;
-        }
-
-        .notification-content p {
-            font-size: 13px;
-            color: #666;
-            margin: 0 0 4px 0;
-            line-height: 1.4;
-        }
-
-        .notification-content small {
-            font-size: 11px;
-            color: #999;
-        }
-
-        .notification-count {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .notif-danger .notification-count {
-            background: #ef4444;
-            color: white;
-        }
-
-        .notif-warning .notification-count {
-            background: #f59e0b;
-            color: white;
-        }
-
-        .notif-info .notification-count {
-            background: #3b82f6;
-            color: white;
-        }
-
-        .notif-success .notification-count {
-            background: #22c55e;
-            color: white;
-        }
-
-        /* Card Statistics */
+        /* ===== STATS GRID ===== */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -442,72 +226,86 @@ try {
 
         .stat-card {
             background: white;
-            border-radius: 12px;
-            padding: 20px;
+            padding: 24px;
+            border-radius: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: flex-start;
             transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
         }
 
         .stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
         }
 
         .stat-info h3 {
-            font-size: 13px;
-            color: #666;
+            font-size: 14px;
             font-weight: 500;
+            color: #666;
             margin-bottom: 8px;
         }
 
-        .stat-info .number {
+        .stat-info .stat-number {
             font-size: 32px;
             font-weight: 700;
             color: #1a1a1a;
         }
 
-        .stat-info .subtitle {
-            font-size: 12px;
-            color: #999;
-            margin-top: 4px;
-        }
-
         .stat-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 10px;
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 28px;
+            flex-shrink: 0;
         }
 
-        .icon-green { background-color: #d4f4dd; color: #22c55e; }
-        .icon-blue { background-color: #dbeafe; color: #3b82f6; }
-        .icon-yellow { background-color: #fef3c7; color: #f59e0b; }
-        .icon-red { background-color: #fee2e2; color: #ef4444; }
-        .icon-purple { background-color: #e9d5ff; color: #a855f7; }
+        .icon-blue {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
 
-        /* Content Grid - Full Width untuk Pie Chart */
+        .icon-green {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .icon-orange {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .icon-red {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        .icon-purple {
+            background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+            color: white;
+        }
+
+        /* ===== CONTENT GRID ===== */
         .content-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
+          grid-template-columns: 1fr;
         }
 
         .card {
             background: white;
-            border-radius: 12px;
-            padding: 24px;
+            border-radius: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
         }
 
         .card-header {
-            margin-bottom: 20px;
+            padding: 20px 24px;
+            border-bottom: 1px solid #f0f0f0;
         }
 
         .card-header h2 {
@@ -517,47 +315,26 @@ try {
         }
 
         .chart-container {
-            position: relative;
-            height: 300px;
+            padding: 30px;
+            height: 400px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
+        .chart-container canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
         .empty-state {
             text-align: center;
             color: #999;
-            font-size: 14px;
-            padding: 40px 20px;
         }
 
-        @media (max-width: 1024px) {
-            .main-content {
-                margin-left: 0;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .notification-dropdown {
-                width: calc(100vw - 40px);
-                right: -10px;
-            }
-        }
-        .stat-card-link {
-            text-decoration: none;
-            color: inherit;
+        .empty-state i {
             display: block;
-        }
-
-        .stat-card-link:hover .stat-card {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
-            cursor: pointer;
-            transition: 0.2s;
+            margin-bottom: 10px;
         }
 
     </style>
@@ -566,26 +343,30 @@ try {
     <?php include 'sidebar/sidebar.php'; ?>
 
     <div class="main-content">
-        <!-- HEADER WITH NOTIFICATION BELL -->
+
+    <div class="dashboard-top">
+        <!-- HEADER -->
         <div class="header">
             <div class="header-left">
                 <h1>Dashboard Admin</h1>
-                <p>Selamat datang di Sistem SDM Politeknik Negeri Nusa Utara Tarakan</p>
+                <p>Selamat datang di Sistem Manajemen SDM Polnest</p>
             </div>
-            
-            <!-- NOTIFICATION BELL -->
-            <div class="notification-bell" id="notification-bell">
-                <i class="fas fa-bell"></i>
-                <span class="notification-badge" id="notification-badge">0</span>
-                
-                <!-- DROPDOWN NOTIFIKASI -->
+
+            <div class="notification-wrapper">
+                <a href="javascript:void(0)" 
+                   class="notification-bell" 
+                   id="notification-bell">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notification-badge"></span>
+                </a>
+
                 <div class="notification-dropdown" id="notification-dropdown">
-                    <div class="notification-dropdown-header">
-                        <h3>Notifikasi & Peringatan</h3>
+                    <div class="notification-header">
+                        <h3>Notifikasi</h3>
                     </div>
-                    <div id="notification-list">
+                    <div class="notification-list" id="notification-list">
                         <div class="notification-empty">
-                            <i class="fas fa-bell-slash"></i>
+                            <i class="fas fa-spinner fa-spin"></i>
                             <p>Memuat notifikasi...</p>
                         </div>
                     </div>
@@ -593,80 +374,58 @@ try {
             </div>
         </div>
 
-<div class="stats-grid">
+        <!-- STATS -->
+        <div class="stats-grid">
+            <a href="administrasi/administrasiKepegawaian.php" class="stat-card">
+                <div class="stat-info">
+                    <h3>Total Pegawai</h3>
+                    <div class="stat-number"><?= number_format($total_pegawai) ?></div>
+                </div>
+                <div class="stat-icon icon-blue">
+                    <i class="bi bi-people-fill"></i>
+                </div>
+            </a>
 
-    <!-- Total Pegawai Aktif (opsional: mau diarahkan juga?) -->
-    <a href="administrasi/administrasiKepegawaian.php" class="stat-card-link">
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>Total Pegawai Aktif</h3>
-                <div class="number"><?= number_format($total_pegawai) ?></div>
-                <div class="subtitle">Pegawai aktif saat ini</div>
-            </div>
-            <div class="stat-icon icon-green">
-                <i class="bi bi-people-fill"></i>
-            </div>
+            <a href="administrasi/administrasiKepegawaian.php" class="stat-card">
+                <div class="stat-info">
+                    <h3>Pegawai Kontrak</h3>
+                    <div class="stat-number"><?= number_format($pegawai_kontrak) ?></div>
+                </div>
+                <div class="stat-icon icon-green">
+                    <i class="bi bi-file-earmark-text-fill"></i>
+                </div>
+            </a>
+
+            <a href="administrasi/administrasiKepegawaian.php" class="stat-card">
+                <div class="stat-info">
+                    <h3>Kontrak Akan Habis</h3>
+                    <div class="stat-number"><?= number_format($kontrak_habis) ?></div>
+                </div>
+                <div class="stat-icon icon-red">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+            </a>
+
+            <a href="manajemenrec/manajemenrec.php" class="stat-card">
+                <div class="stat-info">
+                    <h3>Lamaran Baru</h3>
+                    <div class="stat-number"><?= number_format($lamaran_baru) ?></div>
+                </div>
+                <div class="stat-icon icon-orange">
+                    <i class="bi bi-envelope-fill"></i>
+                </div>
+            </a>
+
+            <a href="sertifikasi/sertifikasi-dosen.php" class="stat-card">
+                <div class="stat-info">
+                    <h3>Sertifikasi Akan Habis</h3>
+                    <div class="stat-number"><?= number_format($sertifikasi_habis) ?></div>
+                </div>
+                <div class="stat-icon icon-purple">
+                    <i class="bi bi-award-fill"></i>
+                </div>
+            </a>
         </div>
-    </a>
-
-    <!-- Pegawai Kontrak -->
-    <a href="administrasi/administrasiKepegawaian.php" class="stat-card-link">
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>Pegawai Kontrak</h3>
-                <div class="number"><?= number_format($pegawai_kontrak) ?></div>
-                <div class="subtitle">Status kontrak aktif</div>
-            </div>
-            <div class="stat-icon icon-blue">
-                <i class="bi bi-file-text-fill"></i>
-            </div>
-        </div>
-    </a>
-
-    <!-- Kontrak Akan Habis -->
-    <a href="administrasi/administrasiKepegawaian.php" class="stat-card-link">
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>Kontrak Akan Habis</h3>
-                <div class="number"><?= number_format($kontrak_habis) ?></div>
-                <div class="subtitle">Dalam 30 hari ke depan</div>
-            </div>
-            <div class="stat-icon icon-yellow">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-            </div>
-        </div>
-    </a>
-
-    <!-- Lamaran Baru -->
-    <a href="manajemenrec/manajemenrec.php" class="stat-card-link">
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>Lamaran Baru</h3>
-                <div class="number"><?= number_format($lamaran_baru) ?></div>
-                <div class="subtitle">Menunggu verifikasi</div>
-            </div>
-            <div class="stat-icon icon-red">
-                <i class="bi bi-envelope-fill"></i>
-            </div>
-        </div>
-    </a>
-
-    <!-- Sertifikasi -->
-    <a href="sertifikasi/sertifikasi-dosen.php" class="stat-card-link">
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>Sertifikasi Kadaluarsa</h3>
-                <div class="number"><?= number_format($sertifikasi_habis) ?></div>
-                <div class="subtitle">Dalam 6 bulan ke depan</div>
-            </div>
-            <div class="stat-icon icon-purple">
-                <i class="bi bi-award-fill"></i>
-            </div>
-        </div>
-    </a>
-
-</div>
-
 
         <!-- PIE CHART STATUS PEGAWAI (Full Width) -->
         <div class="content-grid">
@@ -689,136 +448,7 @@ try {
     </div>
 
     <!-- NOTIFICATION JAVASCRIPT -->
-    <script>
-    // Toggle Dropdown
-    document.addEventListener('DOMContentLoaded', function() {
-        const bell = document.getElementById('notification-bell');
-        const dropdown = document.getElementById('notification-dropdown');
-        
-        bell.addEventListener('click', function(e) {
-            e.stopPropagation();
-            dropdown.classList.toggle('show');
-        });
-        
-        document.addEventListener('click', function(e) {
-            if (!bell.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.classList.remove('show');
-            }
-        });
-        
-        // Load notifications
-        loadNotifications();
-        
-        // Auto-refresh every 30 seconds
-        setInterval(loadNotifications, 30000);
-    });
-    
-    let lastCheck = null;
-    
-    async function loadNotifications() {
-        try {
-            const url = 'api/notifications.php' + (lastCheck ? '?last_check=' + lastCheck : '');
-            const response = await fetch(url);
-            const data = await response.json();
-            
-            if (data.success) {
-                updateBadge(data.total);
-                updateDropdown(data.notifications);
-                lastCheck = data.timestamp;
-                
-                console.log('📊 Notifikasi:', data.total, 'Baru:', data.new_count);
-            }
-        } catch (error) {
-            console.error('Error loading notifications:', error);
-        }
-    }
-    
-    function updateBadge(count) {
-        const badge = document.getElementById('notification-badge');
-        if (count > 0) {
-            badge.textContent = count > 99 ? '99+' : count;
-            badge.style.display = 'flex';
-            badge.classList.add('pulse');
-            setTimeout(() => badge.classList.remove('pulse'), 1000);
-        } else {
-            badge.style.display = 'none';
-        }
-    }
-    
-    function updateDropdown(notifications) {
-        const list = document.getElementById('notification-list');
-        
-        if (notifications.length === 0) {
-            list.innerHTML = `
-                <div class="notification-empty">
-                    <i class="fas fa-bell-slash"></i>
-                    <p>Tidak ada notifikasi</p>
-                </div>
-            `;
-            return;
-        }
-        
-        let html = '';
-        notifications.forEach(notif => {
-            const iconClass = getIconClass(notif.type);
-            const colorClass = getColorClass(notif.priority);
-            
-            html += `
-                <a href="${notif.url}" class="notification-item ${colorClass}">
-                    <div>
-                        <div class="notification-icon">
-                            <i class="fas ${iconClass}"></i>
-                        </div>
-                        <div class="notification-content">
-                            <h4>${notif.title}</h4>
-                            <p>${notif.message}</p>
-                            <small>${timeAgo(notif.created_at)}</small>
-                        </div>
-                        <div class="notification-count">${notif.count}</div>
-                    </div>
-                </a>
-            `;
-        });
-        
-        list.innerHTML = html;
-    }
-    
-    function getIconClass(type) {
-        const icons = {
-            'lamaran': 'fa-envelope',
-            'kontrak': 'fa-file-contract',
-            'studi': 'fa-graduation-cap',
-            'sertifikasi': 'fa-certificate',
-            'sertifikasi_habis': 'fa-certificate',
-            'password': 'fa-key',
-            'dokumen': 'fa-file-alt',
-            'kinerja': 'fa-chart-line'
-        };
-        return icons[type] || 'fa-bell';
-    }
-    
-    function getColorClass(priority) {
-        const colors = {
-            'danger': 'notif-danger',
-            'warning': 'notif-warning',
-            'info': 'notif-info',
-            'success': 'notif-success'
-        };
-        return colors[priority] || 'notif-info';
-    }
-    
-    function timeAgo(datetime) {
-        const now = new Date();
-        const past = new Date(datetime);
-        const diff = Math.floor((now - past) / 1000);
-        
-        if (diff < 60) return 'Baru saja';
-        if (diff < 3600) return Math.floor(diff / 60) + ' menit lalu';
-        if (diff < 86400) return Math.floor(diff / 3600) + ' jam lalu';
-        if (diff < 604800) return Math.floor(diff / 86400) + ' hari lalu';
-        return past.toLocaleDateString('id-ID');
-    }
-    </script>
+    <script src="api/notifications.php?get=js"></script>
 
     <!-- PIE CHART SCRIPT -->
     <script>

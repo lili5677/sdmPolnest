@@ -1,26 +1,70 @@
 <?php
+// File: api/notifications.php
+// Notifikasi sebagai halaman biasa (bukan API)
 
+require_once '../../config/database.php';
+
+// SECTION 1: CSS STYLES
 if (isset($_GET['get']) && $_GET['get'] === 'css') {
     header('Content-Type: text/css');
     ?>
+/* ===== NOTIFICATION BELL WRAPPER ===== */
+.notification-wrapper {
+    position: relative;
+}
+
+.notification-bell {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    background: white;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: all 0.25s ease;
+}
+
+.notification-bell i {
+    font-size: 22px;
+    color: #4b5563;
+}
+
+.notification-bell:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    background: #f9fafb;
+}
+
+.notification-bell:hover i {
+    color: #667eea;
+}
+
 /* ===== NOTIFICATION BADGE ===== */
 .notification-badge {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: #ef4444;
+    top: -6px;
+    right: -6px;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
     color: white;
-    font-size: 10px;
-    font-weight: 600;
-    padding: 3px 7px;
-    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 6px;
     min-width: 20px;
     height: 20px;
-    display: none;
+    border-radius: 999px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
-    z-index: 10;
+    border: 2px solid white;
+}
+
+
+.notification-badge.show {
+    display: flex;
 }
 
 .notification-badge.pulse {
@@ -29,7 +73,7 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
 
 @keyframes pulse {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.2); }
+    50% { transform: scale(1.15); }
 }
 
 /* ===== NOTIFICATION DROPDOWN - WRAPPER ===== */
@@ -41,21 +85,48 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.15);
     width: 390px;
+    max-width: 90vw;
     display: none;
     z-index: 9999;
     overflow: hidden;
+    border: 1px solid #e5e7eb;
 }
 
 .notification-dropdown.show {
     display: block;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== NOTIFICATION HEADER ===== */
+.notification-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fafafa;
+}
+
+.notification-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
 }
 
 /* INNER LIST - YANG SCROLL */
 .notification-list {
-    max-height: 500px;
+    max-height: 450px;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: 8px;
 }
 
 .notification-list::-webkit-scrollbar {
@@ -63,7 +134,7 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
 }
 
 .notification-list::-webkit-scrollbar-track {
-    background: transparent;
+    background: #f5f5f5;
 }
 
 .notification-list::-webkit-scrollbar-thumb {
@@ -77,11 +148,11 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
 
 .notification-list {
     scrollbar-width: thin;
-    scrollbar-color: #cbd5e0 transparent;
+    scrollbar-color: #cbd5e0 #f5f5f5;
 }
 
 .notification-empty {
-    padding: 40px 20px;
+    padding: 50px 20px;
     text-align: center;
     color: #999;
 }
@@ -89,12 +160,14 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
 .notification-empty i {
     font-size: 48px;
     color: #ddd;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+    display: block;
 }
 
 .notification-empty p {
     font-size: 14px;
     margin: 0;
+    color: #999;
 }
 
 /* ===== NOTIFICATION ITEM ===== */
@@ -103,9 +176,10 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
     text-decoration: none;
     color: inherit;
     background: white;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
     border-bottom: 1px solid #f0f0f0;
     cursor: pointer;
+    position: relative;
 }
 
 .notification-item:hover {
@@ -114,6 +188,7 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
 
 .notification-item:active {
     background: #e5e7eb;
+    transform: scale(0.99);
 }
 
 .notification-item:last-child {
@@ -121,511 +196,273 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
 }
 
 /* Inner wrapper untuk flex layout */
-.notification-item > div {
+.notification-item-inner {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
+    gap: 14px;
+    padding: 16px 20px;
 }
 
 .notification-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 20px;
     flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.notification-item:hover .notification-icon {
+    transform: scale(1.05);
 }
 
 .notif-danger .notification-icon {
-    background: #fee2e2;
-    color: #ef4444;
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
 }
 
 .notif-warning .notification-icon {
-    background: #fef3c7;
-    color: #f59e0b;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
 }
 
 .notif-info .notification-icon {
-    background: #dbeafe;
-    color: #3b82f6;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+    color: #2563eb;
 }
 
 .notif-success .notification-icon {
-    background: #d4f4dd;
-    color: #22c55e;
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    color: #059669;
 }
 
 .notification-content {
     flex: 1;
     min-width: 0;
+    padding-right: 8px;
 }
 
 .notification-content h4 {
     font-size: 14px;
-    font-weight: 200;
+    font-weight: 600;
     color: #1a1a1a;
-    margin: 0 0 4px 0;
+    margin: 0 0 6px 0;
+    line-height: 1.3;
 }
 
 .notification-content p {
-    font-size: 12px;
+    font-size: 13px;
     color: #666;
-    margin: 0 0 4px 0;
+    margin: 0 0 6px 0;
     line-height: 1.4;
 }
 
 .notification-content small {
     font-size: 11px;
     color: #999;
+    font-weight: 500;
 }
 
 .notification-count {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .notif-danger .notification-count {
-    background: #ef4444;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: white;
 }
 
 .notif-warning .notification-count {
-    background: #f59e0b;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
     color: white;
 }
 
 .notif-info .notification-count {
-    background: #3b82f6;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     color: white;
 }
 
 .notif-success .notification-count {
-    background: #22c55e;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
 }
-
-/* ===== TOAST NOTIFICATION ===== */
-.notification-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-    padding: 16px;
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    max-width: 380px;
-    z-index: 9999;
-    transform: translateX(400px);
-    opacity: 0;
-    transition: all 0.3s ease;
-}
-
-.notification-toast.show {
-    transform: translateX(0);
-    opacity: 1;
-}
-
-.toast-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    flex-shrink: 0;
-}
-
-.toast-danger .toast-icon {
-    background: #fee2e2;
-    color: #ef4444;
-}
-
-.toast-warning .toast-icon {
-    background: #fef3c7;
-    color: #f59e0b;
-}
-
-.toast-info .toast-icon {
-    background: #dbeafe;
-    color: #3b82f6;
-}
-
-.toast-success .toast-icon {
-    background: #d4f4dd;
-    color: #22c55e;
-}
-
-.toast-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.toast-content h4 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0 0 4px 0;
-}
-
-.toast-content p {
-    font-size: 13px;
-    color: #666;
-    margin: 0;
-    line-height: 1.4;
-}
-
-.toast-close {
-    background: none;
-    border: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #999;
-    cursor: pointer;
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.toast-close:hover {
-    background: #f3f4f6;
-    color: #4b5563;
-}
     <?php
-    exit;
-}
-
-// Jika dipanggil untuk get JS
-if (isset($_GET['get']) && $_GET['get'] === 'js') {
-    header('Content-Type: application/javascript');
-    ?>
-class NotificationSystem {
-    constructor(options = {}) {
-        this.apiUrl = options.apiUrl || 'api/notifications.php';
-        this.interval = options.interval || 30000;
-        this.enableSound = options.enableSound || false;
-        this.enableToast = options.enableToast || true;
-        this.lastCheck = null;
-        this.dropdown = null;
-        this.notificationList = null;
-        this.badge = null;
-        
-        this.init();
-    }
-    
-    init() {
-        this.createDropdown();
-        this.attachEventListeners();
-        this.fetchNotifications();
-        
-        if (this.interval > 0) {
-            setInterval(() => this.fetchNotifications(), this.interval);
-        }
-    }
-    
-    createDropdown() {
-        const bellIcon = document.querySelector('.notification-bell');
-        if (!bellIcon) return;
-        
-        const parent = bellIcon.parentElement;
-        parent.style.position = 'relative';
-        
-        this.badge = document.createElement('div');
-        this.badge.className = 'notification-badge';
-        parent.appendChild(this.badge);
-        
-        // Wrapper dropdown (tidak scroll)
-        this.dropdown = document.createElement('div');
-        this.dropdown.className = 'notification-dropdown';
-        
-        // Inner list (yang scroll)
-        this.notificationList = document.createElement('div');
-        this.notificationList.className = 'notification-list';
-        
-        // FIX: Stop propagation hanya untuk wheel event, biarkan click event
-        this.notificationList.addEventListener('wheel', (e) => {
-            const atTop = this.notificationList.scrollTop === 0;
-            const atBottom = this.notificationList.scrollTop + this.notificationList.clientHeight >= this.notificationList.scrollHeight - 1;
-            
-            // Hanya stop propagation jika scroll benar-benar terjadi di dalam list
-            if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
-                // Biarkan scroll propagate ke parent
-                return;
-            }
-            // Stop propagation untuk scroll di dalam list
-            e.stopPropagation();
-        }, { passive: false });
-        
-        this.dropdown.appendChild(this.notificationList);
-        parent.appendChild(this.dropdown);
-    }
-    
-    attachEventListeners() {
-        const bellIcon = document.querySelector('.notification-bell');
-        if (!bellIcon) return;
-        
-        bellIcon.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.toggleDropdown();
-        });
-        
-        // SIMPLE: Biarkan <a> tag bekerja secara native
-        // Hanya close dropdown saat link diklik
-        this.notificationList.addEventListener('click', (e) => {
-            const notifItem = e.target.closest('.notification-item');
-            if (notifItem && notifItem.getAttribute('href')) {
-                // Biarkan browser handle link navigation secara natural
-                // Hanya close dropdown
-                this.hideDropdown();
-            }
-        });
-        
-        // Close dropdown saat klik di luar
-        document.addEventListener('click', (e) => {
-            if (!this.dropdown.contains(e.target) && e.target !== bellIcon) {
-                this.hideDropdown();
-            }
-        });
-    }
-    
-    toggleDropdown() {
-        this.dropdown.classList.toggle('show');
-        if (this.dropdown.classList.contains('show')) {
-            this.fetchNotifications();
-        }
-    }
-    
-    hideDropdown() {
-        this.dropdown.classList.remove('show');
-    }
-    
-    async fetchNotifications() {
-        try {
-            const url = new URL(this.apiUrl, window.location.origin);
-            url.searchParams.append('action', 'get');
-            if (this.lastCheck) {
-                url.searchParams.append('last_check', this.lastCheck);
-            }
-            
-            const response = await fetch(url);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.updateBadge(data.total);
-                this.renderNotifications(data.notifications);
-                
-                if (data.new_count > 0 && this.lastCheck && this.enableToast) {
-                    this.showToast(data.notifications[0]);
-                }
-                
-                this.lastCheck = data.timestamp;
-            }
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        }
-    }
-    
-    updateBadge(count) {
-        if (count > 0) {
-            this.badge.textContent = count > 99 ? '99+' : count;
-            this.badge.style.display = 'flex';
-            this.badge.classList.add('pulse');
-            setTimeout(() => this.badge.classList.remove('pulse'), 1000);
-        } else {
-            this.badge.style.display = 'none';
-        }
-    }
-    
-    renderNotifications(notifications) {
-        if (!notifications || notifications.length === 0) {
-            this.notificationList.innerHTML = `
-                <div class="notification-empty">
-                    <i class="fas fa-bell-slash"></i>
-                    <p>Tidak ada notifikasi</p>
-                </div>
-            `;
-            return;
-        }
-        
-        const html = notifications.map(notif => `
-            <a href="${notif.url}" class="notification-item ${this.getColorClass(notif.priority)}">
-                <div>
-                    <div class="notification-icon">
-                        <i class="fas ${this.getIconClass(notif.type)}"></i>
-                    </div>
-                    <div class="notification-content">
-                        <h4>${notif.title}</h4>
-                        <p>${notif.message}</p>
-                        <small>${this.timeAgo(notif.created_at)}</small>
-                    </div>
-                    <div class="notification-count">
-                        ${notif.count}
-                    </div>
-                </div>
-            </a>
-        `).join('');
-        
-        this.notificationList.innerHTML = html;
-    }
-    
-    showToast(notif) {
-        const toast = document.createElement('div');
-        toast.className = `notification-toast toast-${notif.priority}`;
-        toast.innerHTML = `
-            <div class="toast-icon">
-                <i class="fas ${this.getIconClass(notif.type)}"></i>
-            </div>
-            <div class="toast-content">
-                <h4>${notif.title}</h4>
-                <p>${notif.message}</p>
-            </div>
-            <button class="toast-close" onclick="this.parentElement.remove()">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        
-        document.body.appendChild(toast);
-        setTimeout(() => toast.classList.add('show'), 100);
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 300);
-        }, 5000);
-    }
-    
-    getIconClass(type) {
-        const icons = {
-            'lamaran': 'fa-envelope',
-            'verifikasi_pegawai': 'fa-user-check',
-            'kontrak': 'fa-file-contract',
-            'kontrak_habis': 'fa-file-contract',
-            'studi': 'fa-graduation-cap',
-            'pengajuan_studi': 'fa-graduation-cap',
-            'sertifikasi': 'fa-certificate',
-            'sertifikasi_dosen': 'fa-certificate',
-            'sertifikasi_habis': 'fa-certificate',
-            'password': 'fa-key',
-            'dokumen': 'fa-file-alt',
-            'kinerja': 'fa-chart-line'
-        };
-        return icons[type] || 'fa-bell';
-    }
-    
-    getColorClass(priority) {
-        const colors = {
-            'danger': 'notif-danger',
-            'warning': 'notif-warning',
-            'info': 'notif-info',
-            'success': 'notif-success'
-        };
-        return colors[priority] || 'notif-info';
-    }
-    
-    timeAgo(datetime) {
-        const now = new Date();
-        const past = new Date(datetime);
-        const diff = Math.floor((now - past) / 1000);
-        
-        if (diff < 60) return 'Baru saja';
-        if (diff < 3600) return Math.floor(diff / 60) + ' menit lalu';
-        if (diff < 86400) return Math.floor(diff / 3600) + ' jam lalu';
-        if (diff < 604800) return Math.floor(diff / 86400) + ' hari lalu';
-        return past.toLocaleDateString('id-ID');
-    }
-}
-
-// Auto-initialize
-document.addEventListener('DOMContentLoaded', function() {
-    window.notificationSystem = new NotificationSystem({
-        apiUrl: 'api/notifications.php',
-        interval: 30000,
-        enableSound: false,
-        enableToast: true
-    });
-});
-    <?php
-    exit;
-}
-
-// ===== API ENDPOINT =====
-require_once '../../config/database.php';
-
-header('Content-Type: application/json');
-header('Cache-Control: no-cache');
-
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Unauthorized'
-    ]);
     exit();
 }
 
-try {
-    $action = $_GET['action'] ?? 'get';
-    $last_check = $_GET['last_check'] ?? null;
+// SECTION 2: JAVASCRIPT
+if (isset($_GET['get']) && $_GET['get'] === 'js') {
+    header('Content-Type: application/javascript');
+    ?>
+// Toggle Dropdown
+document.addEventListener('DOMContentLoaded', function() {
+    const bell = document.getElementById('notification-bell');
+    const dropdown = document.getElementById('notification-dropdown');
     
-    if ($action === 'get') {
+    bell.addEventListener('click', function(e) {
+        e.stopPropagation();
+        dropdown.classList.toggle('show');
+    });
+    
+    document.addEventListener('click', function(e) {
+        if (!bell.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.remove('show');
+        }
+    });
+    
+    // Load notifications on page load
+    loadNotifications();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadNotifications, 30000);
+});
+
+let lastCheck = null;
+
+async function loadNotifications() {
+    try {
+        const url = 'api/notifications.php?action=load' + (lastCheck ? '&last_check=' + lastCheck : '');
+        const response = await fetch(url);
+        const html = await response.text();
+        
+        // Parse HTML response
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Update badge
+        const badgeData = doc.querySelector('[data-badge]');
+        if (badgeData) {
+            const count = parseInt(badgeData.getAttribute('data-badge'));
+            updateBadge(count);
+        }
+        
+        // Update dropdown list
+        const listContent = doc.querySelector('[data-list]');
+        if (listContent) {
+            document.getElementById('notification-list').innerHTML = listContent.innerHTML;
+        }
+        
+        // Update timestamp
+        const timestamp = doc.querySelector('[data-timestamp]');
+        if (timestamp) {
+            lastCheck = timestamp.getAttribute('data-timestamp');
+        }
+        
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+    }
+}
+
+function updateBadge(count) {
+    const badge = document.getElementById('notification-badge');
+    if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.classList.add('show');
+        badge.classList.add('pulse');
+        setTimeout(() => badge.classList.remove('pulse'), 1000);
+    } else {
+        badge.classList.remove('show');
+    }
+}
+
+function getIconClass(type) {
+    const icons = {
+        'lamaran': 'fa-envelope',
+        'kontrak': 'fa-file-contract',
+        'studi': 'fa-graduation-cap',
+        'sertifikasi': 'fa-certificate',
+        'sertifikasi_habis': 'fa-certificate',
+        'password': 'fa-key',
+        'dokumen': 'fa-file-alt',
+        'kinerja': 'fa-chart-line'
+    };
+    return icons[type] || 'fa-bell';
+}
+
+function getColorClass(priority) {
+    const colors = {
+        'danger': 'notif-danger',
+        'warning': 'notif-warning',
+        'info': 'notif-info',
+        'success': 'notif-success'
+    };
+    return colors[priority] || 'notif-info';
+}
+
+function timeAgo(datetime) {
+    const now = new Date();
+    const past = new Date(datetime);
+    const diff = Math.floor((now - past) / 1000);
+    
+    if (diff < 60) return 'Baru saja';
+    if (diff < 3600) return Math.floor(diff / 60) + ' menit lalu';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' jam lalu';
+    if (diff < 604800) return Math.floor(diff / 86400) + ' hari lalu';
+    return past.toLocaleDateString('id-ID');
+}
+    <?php
+    exit();
+}
+
+// SECTION 3: LOAD NOTIFICATIONS (HALAMAN BIASA - RENDER HTML)
+if (isset($_GET['action']) && $_GET['action'] === 'load') {
+    try {
+        $last_check = isset($_GET['last_check']) ? $_GET['last_check'] : null;
+        
+        // Array untuk menampung notifikasi
+        $notifications = [];
         $total_notifikasi = 0;
         $notifikasi_baru = 0;
-        $notifications = [];
-   
         $notif_types_from_table = [];
         
-        // STEP 1: Ambil notifikasi dari tabel (yang sudah di-generate)
-        $query_from_table = "
-            SELECT 
-                jenis_notifikasi,
-                judul,
-                deskripsi,
-                jumlah_item,
-                created_at
-            FROM notifikasi_admin
-            WHERE is_read = 0
-            ORDER BY created_at DESC
-        ";
-        
-        $stmt = $conn->query($query_from_table);
+        // STEP 1: Ambil dari tabel notifikasi_admin (hasil stored procedure)
+        $query_table = "SELECT * FROM notifikasi_admin WHERE is_read = 0 ORDER BY created_at DESC";
+        $stmt = $conn->query($query_table);
         $table_notifs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Mapping jenis_notifikasi ke type dan URL
+        // Mapping jenis notifikasi ke tipe dan URL
         $type_mapping = [
             'verifikasi_pegawai' => [
-                'type' => 'verifikasi_pegawai',
+                'type' => 'lamaran',
                 'priority' => 'warning',
                 'url' => '/sdmPolnest/admin/manajemenrec/manajemenrec.php'
             ],
+            'kontrak_habis' => [
+                'type' => 'kontrak',
+                'priority' => 'danger',
+                'url' => '/sdmPolnest/admin/administrasi/administrasiKepegawaian.php'
+            ],
             'pengajuan_studi' => [
-                'type' => 'pengajuan_studi',
+                'type' => 'studi',
                 'priority' => 'info',
                 'url' => '/sdmPolnest/admin/pengembanganSdm/indexpengembangan-sdm.php'
             ],
             'sertifikasi_dosen' => [
-                'type' => 'sertifikasi_dosen',
+                'type' => 'sertifikasi',
                 'priority' => 'info',
                 'url' => '/sdmPolnest/admin/sertifikasi/sertifikasi-dosen.php'
             ],
-            'kontrak_habis' => [
-                'type' => 'kontrak_habis',
-                'priority' => 'danger',
+            'dokumen_pegawai' => [
+                'type' => 'dokumen',
+                'priority' => 'warning',
                 'url' => '/sdmPolnest/admin/administrasi/administrasiKepegawaian.php'
+            ],
+            'penilaian_kinerja' => [
+                'type' => 'kinerja',
+                'priority' => 'info',
+                'url' => '/sdmPolnest/admin/penilaian/penilaianKinerja.php'
             ]
         ];
         
@@ -643,11 +480,11 @@ try {
                     'message' => $row['deskripsi'],
                     'created_at' => $row['created_at'],
                     'url' => $mapping['url'],
-                    'source' => 'table' // Marker untuk tracking
+                    'source' => 'table'
                 ];
                 
                 $total_notifikasi += (int)$row['jumlah_item'];
-                $notif_types_from_table[] = $jenis; // Track yang sudah ada
+                $notif_types_from_table[] = $jenis;
                 
                 if ($last_check && strtotime($row['created_at']) > strtotime($last_check)) {
                     $notifikasi_baru += (int)$row['jumlah_item'];
@@ -655,32 +492,34 @@ try {
             }
         }
         
-        // STEP 2: Query real-time untuk notifikasi yang TIDAK ada di tabel
-        // Ini sebagai fallback jika stored procedure belum dijalankan
+        // STEP 2: Query real-time untuk notifikasi yang TIDAK ada di tabel (fallback)
         
-        // 1. LAMARAN BARU (jika belum ada di tabel)
+        // 1. LAMARAN BARU
         if (!in_array('verifikasi_pegawai', $notif_types_from_table)) {
             $query_lamaran = "
                 SELECT 
-                    'lamaran' as type,
-                    'warning' as priority,
                     COUNT(*) as count,
-                    'Lamaran Menunggu Verifikasi' as title,
-                    CONCAT(COUNT(*), ' lamaran baru perlu diverifikasi') as message,
-                    MAX(l.tanggal_daftar) as created_at,
-                    '/sdmPolnest/admin/manajemenrec/manajemenrec.php' as url
+                    MAX(l.tanggal_daftar) as created_at
                 FROM lamaran l
                 WHERE l.status_lamaran IN ('dikirim', 'seleksi_administrasi')
                 HAVING COUNT(*) > 0
             ";
             $stmt = $conn->query($query_lamaran);
-            $notif = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($notif) {
-                $notif['source'] = 'realtime';
-                $notifications[] = $notif;
-                $total_notifikasi += $notif['count'];
-                if ($last_check && strtotime($notif['created_at']) > strtotime($last_check)) {
-                    $notifikasi_baru += $notif['count'];
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $notifications[] = [
+                    'type' => 'lamaran',
+                    'priority' => 'warning',
+                    'count' => (int)$result['count'],
+                    'title' => 'Lamaran Menunggu Verifikasi',
+                    'message' => $result['count'] . ' lamaran baru perlu diverifikasi',
+                    'created_at' => $result['created_at'],
+                    'url' => '/sdmPolnest/admin/manajemenrec/manajemenrec.php',
+                    'source' => 'realtime'
+                ];
+                $total_notifikasi += (int)$result['count'];
+                if ($last_check && strtotime($result['created_at']) > strtotime($last_check)) {
+                    $notifikasi_baru += (int)$result['count'];
                 }
             }
         }
@@ -689,13 +528,8 @@ try {
         if (!in_array('kontrak_habis', $notif_types_from_table)) {
             $query_kontrak = "
                 SELECT 
-                    'kontrak' as type,
-                    'danger' as priority,
                     COUNT(DISTINCT kontrak_info.pegawai_id) as count,
-                    'Kontrak Akan Berakhir' as title,
-                    CONCAT(COUNT(DISTINCT kontrak_info.pegawai_id), ' kontrak akan habis dalam 30 hari') as message,
-                    MAX(kontrak_info.updated_at) as created_at,
-                    '/sdmPolnest/admin/administrasi/administrasiKepegawaian.php' as url
+                    MAX(kontrak_info.updated_at) as created_at
                 FROM (
                     SELECT 
                         sk.pegawai_id,
@@ -712,78 +546,87 @@ try {
                 HAVING COUNT(DISTINCT kontrak_info.pegawai_id) > 0
             ";
             $stmt = $conn->query($query_kontrak);
-            $notif = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($notif) {
-                $notif['source'] = 'realtime';
-                $notifications[] = $notif;
-                $total_notifikasi += $notif['count'];
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $notifications[] = [
+                    'type' => 'kontrak',
+                    'priority' => 'danger',
+                    'count' => (int)$result['count'],
+                    'title' => 'Kontrak Akan Berakhir',
+                    'message' => $result['count'] . ' kontrak akan habis dalam 30 hari',
+                    'created_at' => $result['created_at'],
+                    'url' => '/sdmPolnest/admin/administrasiKepegawaian/administrasiKepegawaian.php',
+                    'source' => 'realtime'
+                ];
+                $total_notifikasi += (int)$result['count'];
             }
         }
         
-        // 3. PENGAJUAN STUDI LANJUT 
+        // 3. PENGAJUAN STUDI LANJUT
         if (!in_array('pengajuan_studi', $notif_types_from_table)) {
             $query_studi = "
                 SELECT 
-                    'studi' as type,
-                    'info' as priority,
                     COUNT(*) as count,
-                    'Pengajuan Studi Lanjut' as title,
-                    CONCAT(COUNT(*), ' pengajuan studi perlu disetujui') as message,
-                    MAX(created_at) as created_at,
-                    '/sdmPolnest/admin/pengembanganSdm/indexpengembangan-sdm.php' as url
+                    MAX(created_at) as created_at
                 FROM pengajuan_studi
                 WHERE status_pengajuan IN ('diajukan', 'ditinjau')
                 HAVING COUNT(*) > 0
             ";
             $stmt = $conn->query($query_studi);
-            $notif = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($notif) {
-                $notif['source'] = 'realtime';
-                $notifications[] = $notif;
-                $total_notifikasi += $notif['count'];
-                if ($last_check && strtotime($notif['created_at']) > strtotime($last_check)) {
-                    $notifikasi_baru += $notif['count'];
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $notifications[] = [
+                    'type' => 'studi',
+                    'priority' => 'info',
+                    'count' => (int)$result['count'],
+                    'title' => 'Pengajuan Studi Lanjut',
+                    'message' => $result['count'] . ' pengajuan studi perlu disetujui',
+                    'created_at' => $result['created_at'],
+                    'url' => '/sdmPolnest/admin/pengembanganSdm/indexpengembangan-sdm.php',
+                    'source' => 'realtime'
+                ];
+                $total_notifikasi += (int)$result['count'];
+                if ($last_check && strtotime($result['created_at']) > strtotime($last_check)) {
+                    $notifikasi_baru += (int)$result['count'];
                 }
             }
         }
         
-        // 4. SERTIFIKASI PENDING VALIDASI 
+        // 4. SERTIFIKASI PENDING VALIDASI
         if (!in_array('sertifikasi_dosen', $notif_types_from_table)) {
             $query_sertif = "
                 SELECT 
-                    'sertifikasi' as type,
-                    'info' as priority,
                     COUNT(*) as count,
-                    'Validasi Sertifikasi Dosen' as title,
-                    CONCAT(COUNT(*), ' sertifikasi perlu divalidasi') as message,
-                    MAX(created_at) as created_at,
-                    '/sdmPolnest/admin/sertifikasi/sertifikasi-dosen.php' as url
+                    MAX(created_at) as created_at
                 FROM sertifikasi_dosen
                 WHERE status_validasi = 'pending'
                 HAVING COUNT(*) > 0
             ";
             $stmt = $conn->query($query_sertif);
-            $notif = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($notif) {
-                $notif['source'] = 'realtime';
-                $notifications[] = $notif;
-                $total_notifikasi += $notif['count'];
-                if ($last_check && strtotime($notif['created_at']) > strtotime($last_check)) {
-                    $notifikasi_baru += $notif['count'];
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result) {
+                $notifications[] = [
+                    'type' => 'sertifikasi',
+                    'priority' => 'info',
+                    'count' => (int)$result['count'],
+                    'title' => 'Validasi Sertifikasi Dosen',
+                    'message' => $result['count'] . ' sertifikasi perlu divalidasi',
+                    'created_at' => $result['created_at'],
+                    'url' => '/sdmPolnest/admin/sertifikasi/sertifikasi-dosen.php',
+                    'source' => 'realtime'
+                ];
+                $total_notifikasi += (int)$result['count'];
+                if ($last_check && strtotime($result['created_at']) > strtotime($last_check)) {
+                    $notifikasi_baru += (int)$result['count'];
                 }
             }
         }
         
-        // 5. SERTIFIKASI AKAN HABIS 
+        // 5. SERTIFIKASI AKAN HABIS (selalu real-time)
         $query_sertif_habis = "
             SELECT 
-                'sertifikasi_habis' as type,
-                'warning' as priority,
                 COUNT(*) as count,
-                'Sertifikasi Akan Habis' as title,
-                CONCAT(COUNT(*), ' sertifikasi akan habis dalam 6 bulan') as message,
-                MAX(s.created_at) as created_at,
-                '/sdmPolnest/admin/sertifikasi/sertifikasi-dosen.php' as url
+                MAX(s.created_at) as created_at
             FROM sertifikasi_dosen s
             INNER JOIN pegawai p ON s.pegawai_id = p.pegawai_id
             LEFT JOIN (
@@ -803,73 +646,134 @@ try {
             HAVING COUNT(*) > 0
         ";
         $stmt = $conn->query($query_sertif_habis);
-        $notif = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($notif) {
-            $notif['source'] = 'realtime';
-            $notifications[] = $notif;
-            $total_notifikasi += $notif['count'];
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($result) {
+            $notifications[] = [
+                'type' => 'sertifikasi_habis',
+                'priority' => 'warning',
+                'count' => (int)$result['count'],
+                'title' => 'Sertifikasi Akan Habis',
+                'message' => $result['count'] . ' sertifikasi akan habis dalam 6 bulan',
+                'created_at' => $result['created_at'],
+                'url' => '/sdmPolnest/admin/sertifikasi/sertifikasi-dosen.php',
+                'source' => 'realtime'
+            ];
+            $total_notifikasi += (int)$result['count'];
         }
         
-        // 6. RESET PASSWORD REQUEST 
+        // 6. RESET PASSWORD REQUEST (selalu real-time)
         $query_reset = "
             SELECT 
-                'password' as type,
-                'info' as priority,
                 COUNT(*) as count,
-                'Request Reset Password' as title,
-                CONCAT(COUNT(*), ' permintaan reset password aktif') as message,
-                MAX(updated_at) as created_at,
-                '/sdmPolnest/admin/index.php' as url
+                MAX(updated_at) as created_at
             FROM users
             WHERE reset_token IS NOT NULL 
             AND reset_token_expires > NOW()
             HAVING COUNT(*) > 0
         ";
         $stmt = $conn->query($query_reset);
-        $notif = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($notif) {
-            $notif['source'] = 'realtime';
-            $notifications[] = $notif;
-            $total_notifikasi += $notif['count'];
-            if ($last_check && strtotime($notif['created_at']) > strtotime($last_check)) {
-                $notifikasi_baru += $notif['count'];
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($result) {
+            $notifications[] = [
+                'type' => 'password',
+                'priority' => 'info',
+                'count' => (int)$result['count'],
+                'title' => 'Request Reset Password',
+                'message' => $result['count'] . ' permintaan reset password aktif',
+                'created_at' => $result['created_at'],
+                'url' => '/sdmPolnest/admin/index.php',
+                'source' => 'realtime'
+            ];
+            $total_notifikasi += (int)$result['count'];
+            if ($last_check && strtotime($result['created_at']) > strtotime($last_check)) {
+                $notifikasi_baru += (int)$result['count'];
             }
         }
         
         // Sort berdasarkan prioritas
         usort($notifications, function($a, $b) {
-            $priority_order = ['danger' => 1, 'warning' => 2, 'info' => 3, 'success' => 4];
-            $a_priority = $priority_order[$a['priority']] ?? 5;
-            $b_priority = $priority_order[$b['priority']] ?? 5;
-            
-            if ($a_priority === $b_priority) {
-                return strtotime($b['created_at']) - strtotime($a['created_at']);
-            }
-            return $a_priority - $b_priority;
+            return strtotime($b['created_at']) - strtotime($a['created_at']);
         });
+
         
-        echo json_encode([
-            'success' => true,
-            'total' => $total_notifikasi,
-            'new_count' => $notifikasi_baru,
-            'notifications' => $notifications,
-            'timestamp' => date('Y-m-d H:i:s'),
-            'debug' => [
-                'from_table' => count($table_notifs),
-                'from_realtime' => count($notifications) - count($table_notifs)
-            ]
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Invalid action'
-        ]);
+        // Helper function untuk icon
+        function getIconClass($type) {
+            $icons = [
+                'lamaran' => 'fa-envelope',
+                'kontrak' => 'fa-file-contract',
+                'studi' => 'fa-graduation-cap',
+                'sertifikasi' => 'fa-certificate',
+                'sertifikasi_habis' => 'fa-certificate',
+                'password' => 'fa-key',
+                'dokumen' => 'fa-file-alt',
+                'kinerja' => 'fa-chart-line'
+            ];
+            return $icons[$type] ?? 'fa-bell';
+        }
+        
+        // Helper function untuk warna
+        function getColorClass($priority) {
+            $colors = [
+                'danger' => 'notif-danger',
+                'warning' => 'notif-warning',
+                'info' => 'notif-info',
+                'success' => 'notif-success'
+            ];
+            return $colors[$priority] ?? 'notif-info';
+        }
+        
+        // Helper function untuk time ago
+        function timeAgo($datetime) {
+            $now = new DateTime();
+            $past = new DateTime($datetime);
+            $diff = $now->getTimestamp() - $past->getTimestamp();
+            
+            if ($diff < 60) return 'Baru saja';
+            if ($diff < 3600) return floor($diff / 60) . ' menit lalu';
+            if ($diff < 86400) return floor($diff / 3600) . ' jam lalu';
+            if ($diff < 604800) return floor($diff / 86400) . ' hari lalu';
+            return $past->format('d M Y');
+        }
+        
+        // RENDER HTML
+        ?>
+        <!-- Hidden data attributes untuk JavaScript -->
+        <div data-badge="<?php echo $total_notifikasi; ?>" style="display:none;"></div>
+        <div data-timestamp="<?php echo date('Y-m-d H:i:s'); ?>" style="display:none;"></div>
+        
+        <!-- Notification List -->
+        <div data-list>
+            <?php if (empty($notifications)): ?>
+                <div class="notification-empty">
+                    <i class="fas fa-bell-slash"></i>
+                    <p>Tidak ada notifikasi</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($notifications as $notif): ?>
+                    <a href="<?php echo htmlspecialchars($notif['url']); ?>" class="notification-item <?php echo getColorClass($notif['priority']); ?>">
+                        <div class="notification-item-inner">
+                            <div class="notification-icon">
+                                <i class="fas <?php echo getIconClass($notif['type']); ?>"></i>
+                            </div>
+                            <div class="notification-content">
+                                <h4><?php echo htmlspecialchars($notif['title']); ?></h4>
+                                <p><?php echo htmlspecialchars($notif['message']); ?></p>
+                                <small><i class="far fa-clock"></i> <?php echo timeAgo($notif['created_at']); ?></small>
+                            </div>
+                            <div class="notification-count"><?php echo $notif['count']; ?></div>
+                        </div>
+                    </a>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+        <?php
+        
+    } catch(PDOException $e) {
+        echo '<div class="notification-empty">';
+        echo '<i class="fas fa-exclamation-triangle"></i>';
+        echo '<p>Error memuat notifikasi</p>';
+        echo '</div>';
     }
-    
-} catch(PDOException $e) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Database error: ' . $e->getMessage()
-    ]);
+    exit();
 }
 ?>

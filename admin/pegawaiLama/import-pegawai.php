@@ -133,18 +133,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             // ===== AMBIL DATA WAJIB =====
             $nama_lengkap = preg_replace('/\s+/', ' ', trim($data[0]));
             $nama_lengkap = preg_replace('/[\x00-\x1F\x7F]/u', '', $nama_lengkap);
-
+            
             $email = trim($data[1]);
             $email = preg_replace('/\s+/', '', $email);
             $email = strtolower($email);
             $email = filter_var($email, FILTER_SANITIZE_EMAIL);
             $email = preg_replace('/[\x00-\x1F\x7F]/u', '', $email);
-
+            
             $jenis_pegawai = trim($data[2]);
             $jenis_pegawai = preg_replace('/\s+/', '', $jenis_pegawai);
             $jenis_pegawai = strtolower($jenis_pegawai);
             $jenis_pegawai = preg_replace('/[\x00-\x1F\x7F]/u', '', $jenis_pegawai);
-
+            
             // ===== AMBIL DATA STATUS KEPEGAWAIAN (OPSIONAL) =====
             $jabatan = isset($data[3]) ? trim($data[3]) : null;
             $jenis_kepegawaian = isset($data[4]) ? strtolower(trim($data[4])) : 'tetap';
@@ -153,37 +153,110 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             $tanggal_mulai_kerja = isset($data[7]) ? trim($data[7]) : null;
             $masa_kontrak_mulai = isset($data[8]) ? trim($data[8]) : null;
             $masa_kontrak_selesai = isset($data[9]) ? trim($data[9]) : null;
-
-            // ===== TAMBAHAN: AMBIL NIK DARI CSV (OPSIONAL) =====
-            $nik = isset($data[10]) ? trim($data[10]) : null;
-
-            // Validasi NIK jika diisi
-            if (!empty($nik)) {
-                // Pastikan NIK hanya berisi angka
-                if (!preg_match('/^\d+$/', $nik)) {
-                    $error_messages[] = "Baris $row_number: NIK harus berisi angka saja";
-                    $error_count++;
-                    continue;
-                }
-                
-                // Pastikan NIK tepat 16 digit
-                if (strlen($nik) !== 16) {
-                    $error_messages[] = "Baris $row_number: NIK harus 16 digit (saat ini: " . strlen($nik) . " digit)";
-                    $error_count++;
-                    continue;
-                }
-                
-                // Cek apakah NIK sudah ada di database
-                $check_nik = "SELECT COUNT(*) FROM pegawai WHERE nik = ?";
-                $stmt_check_nik = $conn->prepare($check_nik);
-                $stmt_check_nik->execute([$nik]);
-                
-                if ($stmt_check_nik->fetchColumn() > 0) {
-                    $error_messages[] = "Baris $row_number: NIK sudah terdaftar ($nik)";
+            
+            // Validasi data wajib kosong
+            if (empty($nama_lengkap)) {
+                $error_messages[] = "Baris $row_number: Nama lengkap kosong";
+                $error_count++;
+                continue;
+            }
+            
+            if (empty($email)) {
+                $error_messages[] = "Baris $row_number: Email kosong";
+                $error_count++;
+                continue;
+            }
+            
+            if (empty($jenis_pegawai)) {
+                $error_messages[] = "Baris $row_number: Jenis pegawai kosong";
+                $error_count++;
+                continue;
+            }
+            
+            // Validasi email format
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $error_messages[] = "Baris $row_number: Format email tidak valid ('$email')";
+                $error_count++;
+                continue;
+            }
+            
+            // Normalisasi jenis pegawai
+            $jenis_mapping = [
+                'staf' => 'staff',
+                'staff' => 'staff',
+                'dosen' => 'dosen',
+                'tendik' => 'tendik',
+                'tenagakependidikan' => 'tendik',
+                'tenaga_kependidikan' => 'tendik',
+            ];
+            
+            if (isset($jenis_mapping[$jenis_pegawai])) {
+                $jenis_pegawai = $jenis_mapping[$jenis_pegawai];
+            }
+            
+            // Validasi jenis pegawai
+            $allowed_jenis = ['dosen', 'staff', 'tendik'];
+            if (!in_array($jenis_pegawai, $allowed_jenis)) {
+                $error_messages[] = "Baris $row_number: Jenis pegawai tidak valid ('$jenis_pegawai'). Harus: dosen, staff/staf, atau tendik";
+                $error_count++;
+                continue;
+            }
+            
+            // Validasi jenis kepegawaian
+            if (!in_array($jenis_kepegawaian, ['kontrak', 'tetap'])) {
+                $error_messages[] = "Baris $row_number: Jenis kepegawaian tidak valid ('$jenis_kepegawaian'). Harus: kontrak atau tetap";
+                $error_count++;
+                continue;
+            }
+            
+            // Validasi status aktif
+            if (!in_array($status_aktif, ['aktif', 'tidak_aktif'])) {
+                $error_messages[] = "Baris $row_number: Status aktif tidak valid ('$status_aktif'). Harus: aktif atau tidak_aktif";
+                $error_count++;
+                continue;
+            }
+            
+            // Validasi format tanggal
+            if (!empty($tanggal_mulai_kerja) && !DateTime::createFromFormat('Y-m-d', $tanggal_mulai_kerja)) {
+                $error_messages[] = "Baris $row_number: Format tanggal mulai kerja tidak valid ('$tanggal_mulai_kerja'). Format harus: YYYY-MM-DD";
+                $error_count++;
+                continue;
+            }
+            
+            if (!empty($masa_kontrak_mulai) && !DateTime::createFromFormat('Y-m-d', $masa_kontrak_mulai)) {
+                $error_messages[] = "Baris $row_number: Format masa kontrak mulai tidak valid ('$masa_kontrak_mulai'). Format harus: YYYY-MM-DD";
+                $error_count++;
+                continue;
+            }
+            
+            if (!empty($masa_kontrak_selesai) && !DateTime::createFromFormat('Y-m-d', $masa_kontrak_selesai)) {
+                $error_messages[] = "Baris $row_number: Format masa kontrak selesai tidak valid ('$masa_kontrak_selesai'). Format harus: YYYY-MM-DD";
+                $error_count++;
+                continue;
+            }
+            
+            // Validasi khusus untuk kontrak
+            if ($jenis_kepegawaian === 'kontrak') {
+                if (empty($masa_kontrak_mulai) || empty($masa_kontrak_selesai)) {
+                    $error_messages[] = "Baris $row_number: Jenis kepegawaian 'kontrak' harus memiliki masa kontrak mulai dan selesai";
                     $error_count++;
                     continue;
                 }
             }
+            
+            // Cek apakah email sudah ada
+            $check_email = "SELECT COUNT(*) FROM users WHERE email = ?";
+            $stmt_check = $conn->prepare($check_email);
+            $stmt_check->execute([$email]);
+            
+            if ($stmt_check->fetchColumn() > 0) {
+                $error_messages[] = "Baris $row_number: Email sudah terdaftar ($email)";
+                $error_count++;
+                continue;
+            }
+            
+            // Generate NIK otomatis
+            $nik = generateUniqueNIK($conn);
             
             // Generate token unik
             $token = generateUniqueToken($conn);
@@ -212,37 +285,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                 
                 // Insert ke tabel status_kepegawaian
                 // PERBAIKAN: Gunakan INSERT ... ON DUPLICATE KEY UPDATE untuk handle unique constraint
-                if (!empty($jabatan) || !empty($unit_kerja) || !empty($tanggal_mulai_kerja) || 
-                    !empty($masa_kontrak_mulai) || !empty($masa_kontrak_selesai)) {
-                    
-                    $query_status = "INSERT INTO status_kepegawaian 
-                                    (pegawai_id, jabatan, jenis_kepegawaian, masa_kontrak_mulai, 
-                                     masa_kontrak_selesai, status_aktif, unit_kerja, tanggal_mulai_kerja, created_by) 
-                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                    ON DUPLICATE KEY UPDATE
-                                    jabatan = VALUES(jabatan),
-                                    jenis_kepegawaian = VALUES(jenis_kepegawaian),
-                                    masa_kontrak_mulai = VALUES(masa_kontrak_mulai),
-                                    masa_kontrak_selesai = VALUES(masa_kontrak_selesai),
-                                    status_aktif = VALUES(status_aktif),
-                                    unit_kerja = VALUES(unit_kerja),
-                                    tanggal_mulai_kerja = VALUES(tanggal_mulai_kerja),
-                                    created_by = VALUES(created_by),
-                                    updated_at = CURRENT_TIMESTAMP";
-                    
-                    $stmt_status = $conn->prepare($query_status);
-                    $stmt_status->execute([
-                        $pegawai_id,
-                        $jabatan,
-                        $jenis_kepegawaian,
-                        !empty($masa_kontrak_mulai) ? $masa_kontrak_mulai : null,
-                        !empty($masa_kontrak_selesai) ? $masa_kontrak_selesai : null,
-                        $status_aktif,
-                        $unit_kerja,
-                        !empty($tanggal_mulai_kerja) ? $tanggal_mulai_kerja : null,
-                        $_SESSION['user_id']
-                    ]);
-                }
+                // Insert ke tabel status_kepegawaian
+                // SELALU insert status_kepegawaian dengan nilai default
+                $query_status = "INSERT INTO status_kepegawaian 
+                                (pegawai_id, jabatan, jenis_kepegawaian, masa_kontrak_mulai, 
+                                masa_kontrak_selesai, status_aktif, unit_kerja, tanggal_mulai_kerja, created_by) 
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                ON DUPLICATE KEY UPDATE
+                                jabatan = VALUES(jabatan),
+                                jenis_kepegawaian = VALUES(jenis_kepegawaian),
+                                masa_kontrak_mulai = VALUES(masa_kontrak_mulai),
+                                masa_kontrak_selesai = VALUES(masa_kontrak_selesai),
+                                status_aktif = VALUES(status_aktif),
+                                unit_kerja = VALUES(unit_kerja),
+                                tanggal_mulai_kerja = VALUES(tanggal_mulai_kerja),
+                                created_by = VALUES(created_by),
+                                updated_at = CURRENT_TIMESTAMP";
+
+                $stmt_status = $conn->prepare($query_status);
+                $stmt_status->execute([
+                    $pegawai_id,
+                    $jabatan,  // bisa NULL
+                    $jenis_kepegawaian,  // sudah ada default 'tetap'
+                    !empty($masa_kontrak_mulai) ? $masa_kontrak_mulai : null,
+                    !empty($masa_kontrak_selesai) ? $masa_kontrak_selesai : null,
+                    $status_aktif,  // sudah ada default 'aktif'
+                    $unit_kerja,  // bisa NULL
+                    !empty($tanggal_mulai_kerja) ? $tanggal_mulai_kerja : null,
+                    $_SESSION['user_id']
+                ]);
                 
                 $success_count++;
                 
