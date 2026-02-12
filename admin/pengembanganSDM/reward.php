@@ -13,9 +13,6 @@ $stmt_rewards = $conn->prepare($query_rewards);
 $stmt_rewards->execute();
 $reward_data = $stmt_rewards->fetchAll(PDO::FETCH_ASSOC);
 
-// Debug: Cek data yang diambil
-// error_log("Reward data: " . print_r($reward_data, true));
-
 $edit_mode = false;
 $edit_data = null;
 
@@ -30,12 +27,10 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
 ?>
 
 <style>
-    /* ===== CONTAINER ===== */
     .reward-container {
         width: 100%;
     }
 
-    /* ===== HEADER ===== */
     .section-header {
         display: flex;
         justify-content: space-between;
@@ -69,7 +64,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
     }
 
-    /* ===== FORM ===== */
     .form-container {
         background: white;
         border-radius: 12px;
@@ -208,7 +202,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         background: #475569;
     }
 
-    /* ===== TABLE ===== */
     .table-container {
         background: white;
         border-radius: 12px;
@@ -309,7 +302,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         margin: 0;
     }
 
-    /* Modal */
     .modal-detail {
         display: none;
         position: fixed;
@@ -337,7 +329,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     }
 
-    /* Scrollbar Styling */
     .modal-content-detail::-webkit-scrollbar {
         width: 8px;
     }
@@ -412,6 +403,259 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         flex: 1;
         font-size: 14px;
         line-height: 1.6;
+    }
+    
+    
+    @media (max-width: 968px) {
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+        }
+        
+        .btn-primary {
+            width: 100%;
+            justify-content: center;
+            padding: 10px 20px;
+            font-size: 13px;
+        }
+        
+        .form-container {
+            padding: 20px 16px;
+        }
+        
+        .form-title {
+            font-size: 16px;
+        }
+        
+        .form-grid {
+            grid-template-columns: 1fr !important;
+            gap: 16px;
+        }
+        
+        .form-group label {
+            font-size: 13px;
+        }
+        
+        .form-control, .form-select, .form-textarea {
+            font-size: 14px;
+            padding: 10px 12px;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .btn-submit, .btn-cancel {
+            width: 100%;
+            justify-content: center;
+            padding: 10px 20px;
+        }
+        
+        .table-container {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
+            display: block !important;
+        }
+        
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        
+        .table-container::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+        
+        .data-table {
+            min-width: 800px !important;
+            width: 100%;
+        }
+        
+        .data-table thead th {
+            padding: 12px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .data-table tbody td {
+            padding: 12px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .btn-action {
+            padding: 6px 10px;
+            font-size: 12px;
+            margin-right: 4px;
+        }
+        
+        /* Modal */
+        .modal-content-detail {
+            width: 95%;
+            max-width: 100%;
+            margin: 10px;
+        }
+        
+        .modal-header-detail {
+            padding: 16px;
+        }
+        
+        .modal-header-detail h3 {
+            font-size: 16px;
+        }
+        
+        .modal-body {
+            padding: 16px;
+        }
+        
+        .detail-row {
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 0;
+        }
+        
+        .detail-label {
+            font-size: 12px;
+        }
+        
+        .detail-value {
+            font-size: 13px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .section-title {
+            font-size: 16px;
+        }
+        
+        .btn-primary {
+            font-size: 12px;
+            padding: 8px 16px;
+        }
+        
+        .form-container {
+            padding: 16px 12px;
+            border-radius: 8px;
+        }
+        
+        .form-title {
+            font-size: 15px;
+        }
+        
+        .form-group label {
+            font-size: 12px;
+        }
+        
+        .form-control, .form-select, .form-textarea {
+            font-size: 13px;
+            padding: 8px 10px;
+        }
+        
+        .btn-submit, .btn-cancel {
+            font-size: 12px;
+            padding: 8px 16px;
+        }
+        
+        .data-table {
+            min-width: 700px !important;
+        }
+        
+        .data-table thead th {
+            padding: 10px 8px;
+            font-size: 11px;
+        }
+        
+        .data-table tbody td {
+            padding: 10px 8px;
+            font-size: 12px;
+        }
+        
+        .btn-action {
+            padding: 5px 8px;
+            font-size: 11px;
+            margin-right: 3px;
+        }
+        
+        .btn-action i {
+            font-size: 12px;
+        }
+        
+        .modal-content-detail {
+            margin: 5px;
+            border-radius: 8px;
+        }
+        
+        .modal-header-detail {
+            padding: 12px;
+        }
+        
+        .modal-header-detail h3 {
+            font-size: 15px;
+        }
+        
+        .modal-body {
+            padding: 12px;
+        }
+        
+        .detail-row {
+            padding: 10px 0;
+        }
+        
+        .detail-label {
+            font-size: 11px;
+        }
+        
+        .detail-value {
+            font-size: 12px;
+        }
+
+        .empty-state {
+            padding: 40px 15px;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+        }
+        
+        .empty-state p {
+            font-size: 14px;
+        }
+    }
+    
+    @media (max-width: 375px) {
+        .section-title {
+            font-size: 15px;
+        }
+        
+        .form-container {
+            padding: 14px 10px;
+        }
+        
+        .data-table {
+            min-width: 650px !important;
+        }
+        
+        .data-table thead th,
+        .data-table tbody td {
+            padding: 8px 6px;
+            font-size: 11px;
+        }
+        
+        .btn-action {
+            padding: 4px 6px;
+            font-size: 10px;
+        }
     }
 </style>
 
@@ -589,8 +833,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         </form>
     </div>
 
-                            
-    <!-- Tabel Data -->
     <div class="table-container">
         <?php if (count($reward_data) > 0): ?>
         <table class="data-table">
@@ -645,7 +887,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     </div>
 </div>
 
-<!-- Modal Detail -->
 <div class="modal-detail" id="modalDetail">
     <div class="modal-content-detail">
         <div class="modal-header-detail">
@@ -659,7 +900,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
 </div>
 
 <script>
-    // Toggle Form
     function toggleFormReward() {
         const form = document.getElementById('formReward');
         const btnText = document.getElementById('btnText');
@@ -674,7 +914,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         }
     }
 
-    // Cancel Form - MENGGUNAKAN SWEETALERT
+    // Cancel Form 
     function cancelForm() {
         Swal.fire({
             title: 'Batalkan Pengisian?',
@@ -887,7 +1127,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         document.getElementById('modalDetail').classList.add('show');
     }
 
-    // Validasi File Upload - MENGGUNAKAN SWEETALERT
     document.getElementById("rewardForm").addEventListener("submit", function(e) {
         const fileInput = document.querySelector("input[name='file_bukti']");
         
@@ -908,7 +1147,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         }
     });
 
-    // Close Modal
     function closeModal() {
         document.getElementById('modalDetail').classList.remove('show');
     }
@@ -918,7 +1156,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         window.location.href = 'pengembangan-sdm.php?tab=reward&edit=1&id=' + id;
     }
 
-    // Delete Reward - MENGGUNAKAN SWEETALERT
+    // Delete Reward 
     function deleteReward(id, judul) {
         Swal.fire({
             title: 'Hapus Reward?',
@@ -933,7 +1171,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
             focusCancel: true
         }).then((result) => {
             if (result.isConfirmed) {
-                // Tampilkan loading
                 Swal.fire({
                     title: 'Menghapus...',
                     text: 'Mohon tunggu sebentar',
@@ -943,14 +1180,11 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
                         Swal.showLoading();
                     }
                 });
-                
-                // Redirect ke halaman hapus
                 window.location.href = 'prosesreward.php?action=hapus&id=' + id;
             }
         });
     }
 
-    // Auto show form jika edit mode
     <?php if ($edit_mode): ?>
     window.addEventListener('DOMContentLoaded', function() {
         document.getElementById('btnText').textContent = 'Tutup Form';
@@ -958,14 +1192,12 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     });
     <?php endif; ?>
 
-    // Close modal when clicking outside
     document.getElementById('modalDetail')?.addEventListener('click', function(e) {
         if (e.target === this) {
             closeModal();
         }
     });
 
-    // ===== PREVIEW FILE UPLOAD =====
    function previewFile(input) {
     const previewArea = document.getElementById('previewArea');
     const previewContent = document.getElementById('previewContent');

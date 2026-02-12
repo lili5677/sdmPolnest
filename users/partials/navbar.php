@@ -32,6 +32,9 @@ if ($is_pegawai_dosen && isset($_SESSION['pegawai_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= isset($page_title) ? $page_title : 'Politeknik NEST' ?></title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">

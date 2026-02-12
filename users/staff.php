@@ -1,8 +1,7 @@
 <?php
-// Koneksi Database
 require_once '../config/database.php';
 
-// Fungsi untuk mengambil data berdasarkan level
+// mengambil data berdasarkan level
 function getDataByLevel($conn, $level) {
     $query = "SELECT 
                 so.struktur_id,
@@ -24,21 +23,17 @@ function getDataByLevel($conn, $level) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// **FUNGSI: Perbaiki path gambar**
+// path gambar
 function fixImagePath($dbPath) {
     if (empty($dbPath)) {
         return '';
     }
     
-    // Hapus ../ dari path database
     $cleanPath = str_replace('../../', '', $dbPath);
-    
-    // Buat path absolut dari root
-    // staff.php di /users/, maka naik 1 level ke root
     return '../' . $cleanPath;
 }
 
-// Ambil data untuk setiap level
+//level struktur
 $level1 = getDataByLevel($conn, 1); // Direktur
 $level2 = getDataByLevel($conn, 2); // Wakil Direktur
 $level3 = getDataByLevel($conn, 3); // Kaprodi
@@ -47,16 +42,16 @@ $level5 = getDataByLevel($conn, 5); // Laboran
 $level6 = getDataByLevel($conn, 6); // Tendik
 $level7 = getDataByLevel($conn, 7); // Staff
 
-// Fungsi untuk mendapatkan warna avatar berdasarkan level
+// warna avatar berdasarkan level
 function getAvatarColor($level) {
     switch($level) {
-        case 1: return '#105666'; // Direktur
-        case 2: return '#E59D2C'; // Wakil Direktur
-        case 3: return '#E38792'; // Kaprodi
-        case 4: return '#F3D58D'; // Kepala Unit
-        case 5: return '#105666'; // Laboran
-        case 6: return '#E59D2C'; // Tendik
-        case 7: return '#E38792'; // Staff
+        case 1: return '#105666'; 
+        case 2: return '#E59D2C'; 
+        case 3: return '#E38792'; 
+        case 4: return '#F3D58D'; 
+        case 5: return '#105666'; 
+        case 6: return '#E59D2C'; 
+        case 7: return '#E38792'; 
         default: return '#6b7280';
     }
 }
@@ -72,22 +67,8 @@ function getInitials($nama) {
 
 $page_title = 'Staff - Politeknik NEST';
 
-// **LOGIKA PEMILIHAN NAVBAR**
-// Cek session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
-}
-
-// Cek status login dan role user
-$is_logged_in = isset($_SESSION['user_id']) && isset($_SESSION['logged_in']);
-$user_type = $is_logged_in ? ($_SESSION['user_type'] ?? '') : '';
-$is_pegawai_dosen = ($user_type == 'pegawai' || $user_type == 'dosen');
-
-// Pilih navbar berdasarkan status
-if ($is_pegawai_dosen) {
-    include 'partials/navbar.php';
-} else {
-    include 'partials/navbar_req.php';
 }
 ?>
 <!DOCTYPE html>
@@ -121,7 +102,6 @@ if ($is_pegawai_dosen) {
             padding: 40px 30px 80px;
         }
 
-        /* Header */
         .preview-header {
             text-align: center;
             margin-bottom: 60px;
@@ -145,7 +125,6 @@ if ($is_pegawai_dosen) {
             font-weight: 400;
         }
 
-        /* Section Level */
         .level-section {
             margin-bottom: 50px;
         }
@@ -160,21 +139,18 @@ if ($is_pegawai_dosen) {
             text-align: center;
         }
 
-        /* Member Grid */
         .members-grid {
             display: grid;
             gap: 24px;
             margin-bottom: 30px;
         }
 
-        /* Layout khusus untuk Direktur - TUNGGAL DI TENGAH */
         .level-direktur-grid {
             grid-template-columns: 1fr;
             max-width: 380px;
             margin: 0 auto 40px;
         }
 
-        /* Layout khusus untuk Wakil Direktur - BARIS DI BAWAH DIREKTUR */
         .level-wadir-grid {
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             max-width: 1000px;
@@ -182,7 +158,6 @@ if ($is_pegawai_dosen) {
             gap: 28px;
         }
 
-        /* Layout untuk level 3-7 - 5-6 CARD PER BARIS */
         .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             max-width: 1400px;
@@ -190,7 +165,6 @@ if ($is_pegawai_dosen) {
             gap: 20px;
         }
 
-        /* Member Card */
         .member-card-preview {
             background: white;
             border-radius: 20px;
@@ -247,12 +221,10 @@ if ($is_pegawai_dosen) {
             opacity: 1;
         }
 
-        /* Direktur lebih besar */
         .level-direktur-grid .member-card-preview {
             padding: 40px 32px;
         }
 
-        /* Wakil Direktur ukuran sedang */
         .level-wadir-grid .member-card-preview {
             padding: 36px 28px;
         }
@@ -263,7 +235,6 @@ if ($is_pegawai_dosen) {
             border-color: #e2e8f0;
         }
 
-        /* Avatar Container */
         .avatar-container {
             width: 140px;
             height: 140px;
@@ -275,7 +246,6 @@ if ($is_pegawai_dosen) {
             border: 4px solid white;
         }
 
-        /* Direktur avatar lebih besar */
         .level-direktur-grid .avatar-container {
             width: 180px;
             height: 180px;
@@ -284,7 +254,6 @@ if ($is_pegawai_dosen) {
             border-width: 5px;
         }
 
-        /* Wakil Direktur avatar sedang */
         .level-wadir-grid .avatar-container {
             width: 160px;
             height: 160px;
@@ -293,7 +262,6 @@ if ($is_pegawai_dosen) {
             border-width: 4px;
         }
 
-        /* Level 3-7 avatar lebih kecil */
         .level-3-grid .avatar-container,
         .level-4-grid .avatar-container,
         .level-5-grid .avatar-container,
@@ -343,7 +311,6 @@ if ($is_pegawai_dosen) {
             font-size: 34px;
         }
 
-        /* Member Info */
         .member-info-preview {
             padding: 0;
         }
@@ -401,7 +368,6 @@ if ($is_pegawai_dosen) {
             font-size: 12px;
         }
 
-        /* Empty State */
         .empty-section {
             text-align: center;
             padding: 80px 30px;
@@ -430,7 +396,6 @@ if ($is_pegawai_dosen) {
             font-size: 15px;
         }
 
-        /* Responsive */
         @media (max-width: 1200px) {
             .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
                 grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -591,7 +556,6 @@ if ($is_pegawai_dosen) {
             }
         }
 
-        /* Print Styles */
         @media print {
             body {
                 background: white;
@@ -609,14 +573,15 @@ if ($is_pegawai_dosen) {
     </style>
 </head>
 <body>
+    <?php include 'partials/navbar.php'; ?>
+
     <div class="preview-container">
-        <!-- Header -->
         <div class="preview-header">
             <h1>Staf Berpengalaman</h1>
             <p>Staf kami berpengalaman dalam bidang masing-masing seperti kepegawaian, keuangan, organisasi, peraturan perundang-undangan dan teknologi informasi.</p>
         </div>
 
-        <!-- DIREKTUR - TUNGGAL DI TENGAH -->
+        <!-- level direktur -->
         <?php if(!empty($level1)): ?>
         <div class="level-section">
             <div class="level-title">Direktur</div>
@@ -645,7 +610,7 @@ if ($is_pegawai_dosen) {
         </div>
         <?php endif; ?>
 
-        <!-- WAKIL DIREKTUR - BARIS DI BAWAH DIREKTUR -->
+        <!-- level wakil direktur -->
         <?php if(!empty($level2)): ?>
         <div class="level-section">
             <div class="level-title">Wakil Direktur</div>
@@ -674,7 +639,7 @@ if ($is_pegawai_dosen) {
         </div>
         <?php endif; ?>
 
-        <!-- Level 3 - Kepala Program Studi -->
+        <!-- level Kepala Prodi -->
         <?php if(!empty($level3)): ?>
         <div class="level-section">
             <div class="level-title">Kepala Program Studi</div>
@@ -703,7 +668,7 @@ if ($is_pegawai_dosen) {
         </div>
         <?php endif; ?>
 
-        <!-- Level 4 - Kepala Unit -->
+        <!-- Level Kepala Unit -->
         <?php if(!empty($level4)): ?>
         <div class="level-section">
             <div class="level-title">Kepala Unit</div>
@@ -732,7 +697,7 @@ if ($is_pegawai_dosen) {
         </div>
         <?php endif; ?>
 
-        <!-- Level 5 - Laboran -->
+        <!-- Level Laboran -->
         <?php if(!empty($level5)): ?>
         <div class="level-section">
             <div class="level-title">Laboran</div>
@@ -761,7 +726,7 @@ if ($is_pegawai_dosen) {
         </div>
         <?php endif; ?>
 
-        <!-- Level 6 - Tenaga Kependidikan -->
+        <!-- Level 6 tendik -->
         <?php if(!empty($level6)): ?>
         <div class="level-section">
             <div class="level-title">Tenaga Kependidikan</div>
@@ -790,7 +755,7 @@ if ($is_pegawai_dosen) {
         </div>
         <?php endif; ?>
 
-        <!-- Level 7 - Staff -->
+        <!-- Level Staff -->
         <?php if(!empty($level7)): ?>
         <div class="level-section">
             <div class="level-title">Staff</div>
@@ -819,7 +784,6 @@ if ($is_pegawai_dosen) {
         </div>
         <?php endif; ?>
 
-        <!-- Empty State jika tidak ada data sama sekali -->
         <?php if(empty($level1) && empty($level2) && empty($level3) && empty($level4) && empty($level5) && empty($level6) && empty($level7)): ?>
         <div class="empty-section">
             <i class="fas fa-users-slash"></i>
