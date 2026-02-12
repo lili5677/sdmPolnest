@@ -13,7 +13,6 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
 
 $tahapFilter = isset($_GET['tahap']) ? $_GET['tahap'] : 'semua';
 
-// STATISTIK
 try {
     $queryStats = "
         SELECT 
@@ -30,7 +29,6 @@ try {
     die("Error: " . $e->getMessage());
 }
 
-// WHERE CLAUSE BASED ON FILTER
 $whereClause = "";
 switch ($tahapFilter) {
     case 'seleksi_admin':
@@ -50,7 +48,6 @@ switch ($tahapFilter) {
         break;
 }
 
-// GET DATA LAMARAN
 try {
     $queryLamaran = "
         SELECT 
@@ -130,6 +127,7 @@ function getTahapSekarang($row) {
 }
 
 $page_title = 'Manajemen Recruitment';
+$current_page = 'manajemen_recruitment';
 include '../sidebar/sidebar.php';
 ?>
 
@@ -138,6 +136,9 @@ include '../sidebar/sidebar.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title><?= $page_title ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
@@ -150,7 +151,7 @@ include '../sidebar/sidebar.php';
         }
         body {
             background: #f5f7fa;
-        }
+        } 
         .main-content {
             margin-left: 290px;
             padding: 30px 40px;
@@ -167,7 +168,6 @@ include '../sidebar/sidebar.php';
             font-size: 14px;
         }
         
-        /* STATS */
         .stats-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -209,8 +209,7 @@ include '../sidebar/sidebar.php';
             font-weight: 700;
             color: #1a1a1a;
         }
-        
-        /* PROGRESS */
+
         .progress-section {
             background: white;
             border-radius: 16px;
@@ -266,7 +265,6 @@ include '../sidebar/sidebar.php';
             font-weight: 600;
         }
         
-        /* TABLE */
         .table-section {
             background: white;
             border-radius: 16px;
@@ -288,8 +286,16 @@ include '../sidebar/sidebar.php';
             align-items: center;
             gap: 10px;
         }
+
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+        }
+        
         .data-table {
             width: 100%;
+            margin-bottom: 0;
         }
         .data-table thead {
             background: #f9fafb;
@@ -301,6 +307,7 @@ include '../sidebar/sidebar.php';
             color: #6b7280;
             text-transform: uppercase;
             border: none;
+            white-space: nowrap;
         }
         .data-table tbody td {
             padding: 20px 28px;
@@ -308,12 +315,12 @@ include '../sidebar/sidebar.php';
             color: #374151;
             border-bottom: 1px solid #f3f4f6;
             vertical-align: middle;
+            white-space: nowrap;
         }
         .data-table tbody tr:hover {
             background: #f9fafb;
         }
         
-        /* ACTION BUTTONS */
         .action-buttons {
             display: flex;
             gap: 6px;
@@ -372,8 +379,7 @@ include '../sidebar/sidebar.php';
             background: #f59e0b;
             color: white;
         }
-        
-        /* EMPTY STATE */
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -387,10 +393,319 @@ include '../sidebar/sidebar.php';
         @media (max-width: 968px) {
             .main-content {
                 margin-left: 80px;
-                padding: 24px;
+                padding: 20px 16px;
             }
+            
+            .page-header h1 {
+                font-size: 24px;
+                margin-bottom: 6px;
+            }
+            
+            .page-header p {
+                font-size: 13px;
+            }
+            
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+            
+            .stat-card {
+                padding: 16px;
+                gap: 12px;
+            }
+            
+            .stat-card .icon-wrapper {
+                width: 40px;
+                height: 40px;
+                font-size: 18px;
+            }
+            
+            .stat-card .stat-label {
+                font-size: 11px;
+            }
+            
+            .stat-card .stat-value {
+                font-size: 22px;
+            }
+            
+            .alert.alert-info {
+                flex-direction: column !important;
+                padding: 16px !important;
+                gap: 12px !important;
+            }
+            
+            .alert.alert-info > div:first-child {
+                width: 100% !important;
+                align-items: flex-start !important;
+            }
+            
+            .alert.alert-info h5 {
+                font-size: 15px !important;
+            }
+            
+            .alert.alert-info p {
+                font-size: 12px !important;
+            }
+            
+            .alert.alert-info .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .progress-section {
+                padding: 20px 16px;
+                margin-bottom: 20px;
+            }
+            
+            .progress-section h2 {
+                font-size: 16px;
+                margin-bottom: 16px;
+            }
+            
+            .progress-container {
+                margin: 20px 0;
+                gap: 8px;
+                overflow-x: auto;
+                padding-bottom: 10px;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+            }
+            
+            .progress-container::-webkit-scrollbar {
+                height: 4px;
+            }
+            
+            .progress-container::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+            
+            .progress-container::-webkit-scrollbar-thumb {
+                background: #ec4899;
+                border-radius: 10px;
+            }
+            
+            .progress-step {
+                min-width: 80px;
+            }
+            
+            .progress-icon {
+                width: 44px;
+                height: 44px;
+                font-size: 18px;
+                margin-bottom: 8px;
+            }
+            
+            .progress-label {
+                font-size: 11px;
+                padding: 0 4px;
+            }
+            
+            .table-section {
+                border-radius: 12px;
+            }
+            
+            .table-header {
+                padding: 16px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            
+            .table-title {
+                font-size: 16px;
+            }
+            
+            .table-responsive {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                display: block !important;
+                width: 100% !important;
+            }
+            
+            .table-responsive::-webkit-scrollbar {
+                height: 8px;
+            }
+            
+            .table-responsive::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+            
+            .table-responsive::-webkit-scrollbar-thumb {
+                background: #ec4899;
+                border-radius: 10px;
+            }
+            
+            .table-responsive::-webkit-scrollbar-thumb:hover {
+                background: #db2777;
+            }
+            
+            .data-table {
+                min-width: 900px !important;
+                width: 100%;
+                display: table !important;
+            }
+            
+            .data-table thead th {
+                padding: 12px 16px;
+                font-size: 11px;
+            }
+            
+            .data-table tbody td {
+                padding: 14px 16px;
+                font-size: 13px;
+            }
+            
+            .action-buttons {
+                gap: 4px;
+                flex-wrap: nowrap;
+            }
+            
+            .action-btn {
+                padding: 5px 10px;
+                font-size: 11px;
+                white-space: nowrap;
+            }
+            
+            .action-btn i {
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-content {
+                margin-left: 70px;
+                padding: 16px 12px;
+            }
+            
+            .page-header h1 {
+                font-size: 20px;
+            }
+            
+            .page-header p {
+                font-size: 12px;
+            }
+            
+            .stats-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .stat-card {
+                padding: 14px;
+            }
+            
+            .stat-card .icon-wrapper {
+                width: 36px;
+                height: 36px;
+                font-size: 16px;
+            }
+            
+            .stat-card .stat-value {
+                font-size: 20px;
+            }
+            
+            .alert.alert-info {
+                padding: 14px !important;
+            }
+            
+            .alert.alert-info h5 {
+                font-size: 14px !important;
+            }
+            
+            .alert.alert-info p {
+                font-size: 11px !important;
+            }
+            
+            .progress-section {
+                padding: 16px 12px;
+            }
+            
+            .progress-section h2 {
+                font-size: 15px;
+            }
+            
+            .progress-step {
+                min-width: 70px;
+            }
+            
+            .progress-icon {
+                width: 38px;
+                height: 38px;
+                font-size: 16px;
+            }
+            
+            .progress-label {
+                font-size: 10px;
+            }
+            
+            .table-header {
+                padding: 12px;
+            }
+            
+            .table-title {
+                font-size: 14px;
+            }
+            
+            .table-responsive {
+                overflow-x: auto !important;
+            }
+            
+            .data-table {
+                min-width: 800px !important;
+            }
+            
+            .data-table thead th {
+                padding: 10px 12px;
+                font-size: 10px;
+            }
+            
+            .data-table tbody td {
+                padding: 12px;
+                font-size: 12px;
+            }
+            
+            .action-btn {
+                padding: 4px 8px;
+                font-size: 10px;
+            }
+            
+            .action-btn i {
+                font-size: 11px;
+            }
+
+            .badge {
+                font-size: 10px !important;
+                padding: 4px 8px !important;
+            }
+        }
+        
+        @media (max-width: 375px) {
+            .main-content {
+                padding: 12px 8px;
+            }
+            
+            .page-header h1 {
+                font-size: 18px;
+            }
+            
+            .stat-card {
+                padding: 12px;
+            }
+            
+            .progress-section {
+                padding: 14px 10px;
+            }
+            
+            .table-header {
+                padding: 10px;
+            }
+            
+            .alert.alert-info {
+                padding: 12px !important;
             }
         }
     </style>
@@ -398,13 +713,11 @@ include '../sidebar/sidebar.php';
 <body>
 
 <div class="main-content">
-    <!-- HEADER -->
     <div class="page-header">
         <h1>Manajemen Recruitment</h1>
         <p>Kelola proses seleksi dan penerimaan pegawai baru</p>
     </div>
 
-    <!-- STATS -->
     <div class="stats-row">
         <div class="stat-card">
             <div class="icon-wrapper">
@@ -444,7 +757,6 @@ include '../sidebar/sidebar.php';
         </div>
     </div>
 
-    <!-- TEMPLATE SURAT CARD -->
     <div class="card mb-4" style="background: linear-gradient(135deg, rgb(132, 151, 234) 0%, #1245b5 100%); border-radius: 16px; box-shadow: 0 4px 12px rgba(102,126,234,0.3);">
         <div class="card-body p-4">
             <div class="d-flex align-items-center justify-content-between text-white">
@@ -464,7 +776,6 @@ include '../sidebar/sidebar.php';
         </div>
     </div>
 
-    <!-- PROGRESS -->
     <div class="progress-section">
         <div class="progress-container">
             <a href="?tahap=semua" class="progress-step <?= $tahapFilter == 'semua' ? 'active' : '' ?>">
@@ -494,7 +805,6 @@ include '../sidebar/sidebar.php';
         </div>
     </div>
 
-    <!-- TABLE -->
     <div class="table-section">
         <div class="table-header">
             <div class="table-title">
@@ -526,7 +836,6 @@ include '../sidebar/sidebar.php';
                         <td><?= getStatusBadge($row['status_lamaran']) ?></td>
                         <td>
                             <div class="action-buttons">
-                                <!-- LIHAT DETAIL - TANPA target="_blank" -->
                                 <a href="detail_pelamar.php?id=<?= $row['lamaran_id'] ?>" class="action-btn view" title="Lihat Detail">
                                     <i class="bi bi-eye"></i> Lihat
                                 </a>
@@ -534,7 +843,6 @@ include '../sidebar/sidebar.php';
                                 <?php 
                                 $status = $row['status_lamaran'];
                                 
-                                // SELEKSI ADMINISTRASI
                                 if (in_array($status, ['dikirim', 'seleksi_administrasi'])): ?>
                                     <button class="action-btn approve" onclick="loloskanAdmin(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Loloskan
@@ -543,7 +851,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // PENGISIAN FORM - VERIFIKASI
+                                <?php 
                                 elseif ($status == 'form_lanjutan'): ?>
                                     <button class="action-btn approve" onclick="loloskanForm(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Verifikasi
@@ -552,7 +860,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // PENGISIAN FORM - LOLOS (JADWALKAN PSIKOTES)
+                                <?php 
                                 elseif ($status == 'lolos_form'): ?>
                                     <button class="action-btn schedule" onclick="jadwalkanPsikotes(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-calendar-check"></i> Jadwalkan Psikotes
@@ -561,7 +869,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // PSIKOTES - HASIL
+                                <?php 
                                 elseif ($status == 'psikotes'): ?>
                                     <button class="action-btn approve" onclick="loloskanPsikotes(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Lolos
@@ -570,7 +878,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // LOLOS PSIKOTES - JADWALKAN INTERVIEW
+                                <?php 
                                 elseif ($status == 'lolos_psikotes'): ?>
                                     <button class="action-btn schedule" onclick="jadwalkanInterview(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-calendar-check"></i> Jadwalkan Interview
@@ -579,7 +887,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // INTERVIEW - HASIL AKHIR
+                                <?php
                                 elseif ($status == 'interview'): ?>
                                     <button class="action-btn approve" onclick="terimaLamaran(<?= $row['lamaran_id'] ?>, '<?= htmlspecialchars($row['nama_lengkap'], ENT_QUOTES) ?>')">
                                         <i class="bi bi-check-circle"></i> Terima
@@ -588,7 +896,7 @@ include '../sidebar/sidebar.php';
                                         <i class="bi bi-x-circle"></i> Tolak
                                     </button>
                                     
-                                <?php // HASIL - KIRIM SURAT
+                                <?php 
                                 elseif ($status == 'diterima'): 
                                     if (!empty($row['surat_resmi_path'])): ?>
                                         <span class="badge bg-success">
@@ -636,7 +944,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL JADWAL PSIKOTES -->
+<!--JADWAL PSIKOTES -->
 <div class="modal fade" id="modalPsikotes" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -681,7 +989,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL JADWAL INTERVIEW -->
+<!-- JADWAL INTERVIEW -->
 <div class="modal fade" id="modalInterview" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -730,7 +1038,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL KIRIM SURAT DITERIMA -->
+<!-- KIRIM SURAT DITERIMA -->
 <div class="modal fade" id="modalSuratDiterima" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -785,7 +1093,7 @@ include '../sidebar/sidebar.php';
     </div>
 </div>
 
-<!-- MODAL KIRIM SURAT DITOLAK -->
+<!-- KIRIM SURAT DITOLAK -->
 <div class="modal fade" id="modalSuratDitolak" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -844,7 +1152,6 @@ include '../sidebar/sidebar.php';
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
 
 <script>
-// ACTIONS
 function loloskanAdmin(lamaranId, nama) {
     Swal.fire({
         title: 'Konfirmasi Loloskan',
@@ -979,7 +1286,6 @@ function updateStatus(lamaranId, status, catatan = '') {
     });
 }
 
-// JADWAL PSIKOTES
 function jadwalkanPsikotes(lamaranId, nama) {
     document.getElementById('psikoLamaranId').value = lamaranId;
     document.getElementById('psikoNama').textContent = nama;
@@ -1041,7 +1347,7 @@ function submitJadwalPsikotes() {
     });
 }
 
-// JADWAL INTERVIEW
+// jadwal interview
 function jadwalkanInterview(lamaranId, nama) {
     document.getElementById('interviewLamaranId').value = lamaranId;
     document.getElementById('interviewNama').textContent = nama;
@@ -1052,7 +1358,7 @@ function jadwalkanInterview(lamaranId, nama) {
     modal.show();
 }
 
-// KIRIM SURAT DITERIMA
+// kirim surat diterima
 function kirimSuratDiterima(lamaranId, nama, posisi) {
     document.getElementById('diterimaLamaranId').value = lamaranId;
     document.getElementById('diterimaName').textContent = nama;
@@ -1082,7 +1388,6 @@ function submitSuratDiterima() {
         return;
     }
 
-    // Validate file type
     const file = fileInput.files[0];
     const allowedTypes = ['application/pdf'];
     if (!allowedTypes.includes(file.type)) {
@@ -1095,7 +1400,7 @@ function submitSuratDiterima() {
     }
 
     // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 5 * 1024 * 1024; 
     if (file.size > maxSize) {
         Swal.fire({
             title: 'Gagal!',
@@ -1148,7 +1453,7 @@ function submitSuratDiterima() {
     });
 }
 
-// KIRIM SURAT DITOLAK
+// kirim surat ditolak lamaran
 function kirimSuratDitolak(lamaranId, nama, posisi) {
     document.getElementById('ditolakLamaranId').value = lamaranId;
     document.getElementById('ditolakName').textContent = nama;
@@ -1178,7 +1483,6 @@ function submitSuratDitolak() {
         return;
     }
 
-    // Validate file type
     const file = fileInput.files[0];
     const allowedTypes = ['application/pdf'];
     if (!allowedTypes.includes(file.type)) {
@@ -1191,7 +1495,7 @@ function submitSuratDitolak() {
     }
 
     // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 5 * 1024 * 1024; 
     if (file.size > maxSize) {
         Swal.fire({
             title: 'Gagal!',

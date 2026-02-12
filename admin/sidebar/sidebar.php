@@ -19,7 +19,6 @@
             overflow-x: hidden;
         }
 
-        /*  SIDEBAR */
         .sidebar {
             width: 290px;
             height: 100vh; 
@@ -84,7 +83,6 @@
             display: none !important;
         }
 
-        /*  KONTEN UTAMA  */
         .main-content {
             margin-left: 280px;
             padding: 32px;
@@ -93,7 +91,6 @@
             background: #f8fafc;
         }
 
-        /* TABLET & MOBILE */
         @media (max-width: 968px) {
             .main-content {
                 margin-left: 80px; 
@@ -105,7 +102,6 @@
             }
         }
 
-        /* MOBILE KECIL */
         @media (max-width: 480px) {
             .main-content {
                 margin-left: 70px;
@@ -281,7 +277,6 @@
             text-overflow: ellipsis;
         }
 
-        /* Admin Profile Section */
         .admin-profile {
             padding: 20px 24px;
             border-top: 1px solid rgba(255,255,255,0.1);
@@ -379,7 +374,6 @@
             overflow: hidden;
         }
 
-        /* Mobile Overlay */
         .sidebar-overlay {
             display: none;
             position: fixed;
@@ -398,8 +392,6 @@
             opacity: 1;
             pointer-events: auto;
         }
-
-        /*  RESPONSIVE - TABLET & MOBILE */
         
         @media (max-width: 968px) {
             .sidebar {
@@ -555,8 +547,6 @@
                 display: block;
             }
         }
-
-        /* RESPONSIVE - MOBILE SMALL */
         
         @media (max-width: 480px) {
             .sidebar {
@@ -612,7 +602,6 @@
             }
         }
 
-        /* Animation */
         @keyframes slideIn {
             from {
                 opacity: 0;
@@ -636,7 +625,6 @@
         .menu-item:nth-child(6) { animation-delay: 0.3s; }
         .menu-item:nth-child(7) { animation-delay: 0.35s; }
 
-        /* Custom Style untuk SweetAlert2 Logout */
         .logout-popup {
             font-family: 'Poppins', sans-serif !important;
         }
@@ -681,28 +669,20 @@
 
         <div class="sidebar-menu">
             <?php 
-                // ============================================
-                // TAMBAHAN
-                // ============================================
                 
-                // Deteksi halaman dan direktori saat ini
                 $halaman_sekarang = basename($_SERVER['PHP_SELF']);
                 $current_dir = basename(dirname($_SERVER['PHP_SELF']));
                 
-                // Fungsi helper untuk check active state
                 function isActive($files, $dirs = []) {
                     global $halaman_sekarang, $current_dir;
-                    
-                    // Konversi ke array jika single value
+
                     $files = (array)$files;
                     $dirs = (array)$dirs;
                     
-                    // Check file
                     if (in_array($halaman_sekarang, $files)) {
                         return true;
                     }
                     
-                    // Check directory
                     if (!empty($dirs) && in_array($current_dir, $dirs)) {
                         return true;
                     }
@@ -710,7 +690,6 @@
                     return false;
                 }
 
-                // Base URL
                 $base_url = '/sdmPolnest/admin';
             ?>
             <div class="menu-section">
@@ -728,7 +707,7 @@
                     <span>Manajemen Loker</span>
                 </a>
                <a href="<?php echo $base_url; ?>/manajemenrec/manajemenrec.php" 
-                   class="menu-item <?php echo isActive('manajemenrec.php', 'detail_pelamar.php', 'generate_token_pegawai.php', 'jadwalkan_interview', 'jadwalkan_psikotes.php', 'template_surat.php', 'update_status_lamaran.php', 'upload_surat_resmi.php') ? 'active' : ''; ?>" 
+                   class="menu-item <?php echo isActive(['manajemenrec.php', 'detail_pelamar.php', 'generate_token_pegawai.php', 'jadwalkan_interview.php', 'jadwalkan_psikotes.php', 'template_surat.php', 'update_status_lamaran.php', 'upload_surat_resmi.php'], 'manajemenrec') ? 'active' : ''; ?>" 
                    title="Manajemen Recruitment">
                     <i class="fas fa-user-tie"></i>
                     <span>Manajemen Recruitment</span>
@@ -755,7 +734,6 @@
                     <i class="fas fa-certificate"></i>
                     <span>Sertifikasi Dosen</span>
                 </a>
-                <!-- PERBAIKAN UTAMA ADA DI SINI -->
                 <a href="<?php echo $base_url; ?>/penilaian/penilaianKinerja.php" 
                    class="menu-item <?php echo isActive(['penilaianKinerja.php', 'template.php', 'form.php', 'detail.php'], 'penilaian') ? 'active' : ''; ?>" 
                    title="Penilaian Kinerja">
@@ -771,7 +749,6 @@
             </div>
         </div>
 
-        <!-- Profil Admin & Logout -->
         <div class="admin-profile">
             <div class="profile-info">
                 <div class="profile-avatar">
@@ -793,7 +770,6 @@
         let sidebarExpanded = false;
 
     function toggleSidebar(event) {
-        // Hanya berfungsi di device kecil (mobile/tablet)
         if (window.innerWidth <= 968) {
             
             if (event.target.closest('a') || event.target.closest('button')) {
@@ -849,7 +825,6 @@
             }
         }).then((result) => {
             if (result.isConfirmed) {
-                // Tampilkan loading
                 Swal.fire({
                     title: 'Keluar...',
                     text: 'Sedang memproses logout',
@@ -861,7 +836,6 @@
                     }
                 });
                 
-                // Redirect ke halaman logout
                 setTimeout(() => {
                     window.location.href = '/sdmPolnest/auth/logout_admin.php';
                 }, 800);
@@ -870,10 +844,8 @@
     }
     
 
-    // Tambahkan event listener hanya untuk area kosong sidebar
     const sidebar = document.getElementById('sidebar');
     sidebar.addEventListener('click', function(event) {
-        // Hanya toggle jika klik di area kosong (bukan menu/button/link)
         if (event.target === sidebar || 
             event.target.classList.contains('sidebar-menu') ||
             event.target.classList.contains('sidebar-header')) {
@@ -881,7 +853,6 @@
         }
     });
 
-    // Tutup sidebar saat window di-resize ke desktop
     window.addEventListener('resize', function() {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -894,7 +865,6 @@
         }
     });
 
-    // Tutup sidebar saat klik menu item di mobile
     document.querySelectorAll('.menu-item').forEach(item => {
         item.addEventListener('click', function() {
             if (window.innerWidth <= 968) {
