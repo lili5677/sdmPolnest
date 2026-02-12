@@ -151,7 +151,8 @@ include '../sidebar/sidebar.php';
         }
         body {
             background: #f5f7fa;
-        } 
+        }
+        }
         .main-content {
             margin-left: 290px;
             padding: 30px 40px;
@@ -286,7 +287,8 @@ include '../sidebar/sidebar.php';
             align-items: center;
             gap: 10px;
         }
-
+        
+        /* Table Responsive Wrapper */
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
@@ -390,6 +392,10 @@ include '../sidebar/sidebar.php';
             margin-bottom: 16px;
         }
         
+        /* ============================================ */
+        /* RESPONSIVE DESIGN - TABLET & MOBILE */
+        /* ============================================ */
+        
         @media (max-width: 968px) {
             .main-content {
                 margin-left: 80px;
@@ -405,6 +411,7 @@ include '../sidebar/sidebar.php';
                 font-size: 13px;
             }
             
+            /* Stats Cards - 2 Kolom */
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 12px;
@@ -430,30 +437,49 @@ include '../sidebar/sidebar.php';
                 font-size: 22px;
             }
             
-            .alert.alert-info {
-                flex-direction: column !important;
+            /* Template Surat Card */
+            .card.mb-4 {
+                margin-bottom: 20px !important;
+            }
+            
+            .card.mb-4 .card-body {
                 padding: 16px !important;
-                gap: 12px !important;
             }
             
-            .alert.alert-info > div:first-child {
+            .card.mb-4 .d-flex {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+            
+            .card.mb-4 .d-flex > div:first-child {
                 width: 100% !important;
-                align-items: flex-start !important;
             }
             
-            .alert.alert-info h5 {
+            .card.mb-4 .d-flex > div > div:first-child {
+                width: 48px !important;
+                height: 48px !important;
+                font-size: 24px !important;
+            }
+            
+            .card.mb-4 h5 {
                 font-size: 15px !important;
+                margin-bottom: 4px !important;
             }
             
-            .alert.alert-info p {
+            .card.mb-4 p {
                 font-size: 12px !important;
             }
             
-            .alert.alert-info .btn {
-                width: 100%;
-                justify-content: center;
+            .card.mb-4 .btn {
+                width: 100% !important;
+                padding: 10px 16px !important;
+                font-size: 13px !important;
+                justify-content: center !important;
+                display: flex !important;
+                align-items: center !important;
             }
             
+            /* Progress Section */
             .progress-section {
                 padding: 20px 16px;
                 margin-bottom: 20px;
@@ -503,6 +529,7 @@ include '../sidebar/sidebar.php';
                 padding: 0 4px;
             }
             
+            /* Table Section */
             .table-section {
                 border-radius: 12px;
             }
@@ -518,6 +545,7 @@ include '../sidebar/sidebar.php';
                 font-size: 16px;
             }
             
+            /* Table - Horizontal Scroll with Scrollbar */
             .table-responsive {
                 overflow-x: auto !important;
                 -webkit-overflow-scrolling: touch;
@@ -574,7 +602,8 @@ include '../sidebar/sidebar.php';
                 font-size: 12px;
             }
         }
-
+        
+        /* MOBILE SMALL */
         @media (max-width: 480px) {
             .main-content {
                 margin-left: 70px;
@@ -589,6 +618,7 @@ include '../sidebar/sidebar.php';
                 font-size: 12px;
             }
             
+            /* Stats - 1 Kolom di Mobile Kecil */
             .stats-row {
                 grid-template-columns: 1fr;
                 gap: 10px;
@@ -608,18 +638,35 @@ include '../sidebar/sidebar.php';
                 font-size: 20px;
             }
             
-            .alert.alert-info {
+            /* Template Card */
+            .card.mb-4 .card-body {
                 padding: 14px !important;
             }
             
-            .alert.alert-info h5 {
+            .card.mb-4 .d-flex > div > div:first-child {
+                width: 44px !important;
+                height: 44px !important;
+                font-size: 22px !important;
+            }
+            
+            .card.mb-4 h5 {
                 font-size: 14px !important;
             }
             
-            .alert.alert-info p {
+            .card.mb-4 p {
                 font-size: 11px !important;
             }
             
+            .card.mb-4 .btn {
+                padding: 8px 14px !important;
+                font-size: 12px !important;
+            }
+            
+            .card.mb-4 .btn i {
+                font-size: 13px !important;
+            }
+            
+            /* Progress Section */
             .progress-section {
                 padding: 16px 12px;
             }
@@ -642,6 +689,7 @@ include '../sidebar/sidebar.php';
                 font-size: 10px;
             }
             
+            /* Table */
             .table-header {
                 padding: 12px;
             }
@@ -676,13 +724,15 @@ include '../sidebar/sidebar.php';
             .action-btn i {
                 font-size: 11px;
             }
-
+            
+            /* Badges */
             .badge {
                 font-size: 10px !important;
                 padding: 4px 8px !important;
             }
         }
         
+        /* Extra Small (< 375px) */
         @media (max-width: 375px) {
             .main-content {
                 padding: 12px 8px;
@@ -706,6 +756,29 @@ include '../sidebar/sidebar.php';
             
             .alert.alert-info {
                 padding: 12px !important;
+            }
+            
+            .card.mb-4 .card-body {
+                padding: 12px !important;
+            }
+            
+            .card.mb-4 .d-flex > div > div:first-child {
+                width: 40px !important;
+                height: 40px !important;
+                font-size: 20px !important;
+            }
+            
+            .card.mb-4 h5 {
+                font-size: 13px !important;
+            }
+            
+            .card.mb-4 p {
+                font-size: 10px !important;
+            }
+            
+            .card.mb-4 .btn {
+                padding: 8px 12px !important;
+                font-size: 11px !important;
             }
         }
     </style>
@@ -1347,7 +1420,7 @@ function submitJadwalPsikotes() {
     });
 }
 
-// jadwal interview
+// JADWAL INTERVIEW
 function jadwalkanInterview(lamaranId, nama) {
     document.getElementById('interviewLamaranId').value = lamaranId;
     document.getElementById('interviewNama').textContent = nama;
@@ -1358,7 +1431,7 @@ function jadwalkanInterview(lamaranId, nama) {
     modal.show();
 }
 
-// kirim surat diterima
+// KIRIM SURAT DITERIMA
 function kirimSuratDiterima(lamaranId, nama, posisi) {
     document.getElementById('diterimaLamaranId').value = lamaranId;
     document.getElementById('diterimaName').textContent = nama;
@@ -1453,7 +1526,7 @@ function submitSuratDiterima() {
     });
 }
 
-// kirim surat ditolak lamaran
+// KIRIM SURAT DITOLAK
 function kirimSuratDitolak(lamaranId, nama, posisi) {
     document.getElementById('ditolakLamaranId').value = lamaranId;
     document.getElementById('ditolakName').textContent = nama;
@@ -1591,7 +1664,7 @@ function submitJadwalInterview() {
     })
     .catch(error => {
         bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
-        Swal.fire({
+        Swal.fire({A
             title: 'Error!',
             text: 'Terjadi kesalahan: ' + error,
             icon: 'error'
