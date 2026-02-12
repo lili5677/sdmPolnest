@@ -79,32 +79,76 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             }
         }
         
-        // GET PEGAWAI LIST
-        elseif($action == 'get_pegawai_list') {
-            $query = "SELECT 
-                        p.pegawai_id,
-                        p.nama_lengkap,
-                        p.email,
-                        p.jenis_pegawai,
-                        sk.jabatan,
-                        sk.unit_kerja
-                    FROM pegawai p
-                    LEFT JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
-                    WHERE sk.status_aktif = 'aktif'
-                    AND p.pegawai_id NOT IN (
-                        SELECT pegawai_id FROM struktur_organisasi
-                    )
-                    ORDER BY p.nama_lengkap ASC";
+        // GET PEGAWAI LIST - HANYA YANG DATA KEPEGAWAIANNYA LENGKAP
+        // GET PEGAWAI LIST - HANYA YANG DATA KEPEGAWAIANNYA LENGKAP + PTKP
+elseif($action == 'get_pegawai_list') {
+    $query = "SELECT 
+                p.pegawai_id,
+                p.nama_lengkap,
+                p.email,
+                p.jenis_pegawai,
+                sk.jabatan,
+                sk.unit_kerja,
+                sk.jenis_kepegawaian,
+                sk.tanggal_mulai_kerja,
+                sk.status_aktif,
+                sk.ptkp,
+                sk.masa_kontrak_mulai,
+                sk.masa_kontrak_selesai
+            FROM pegawai p
+            INNER JOIN (
+                SELECT sk1.*
+                FROM status_kepegawaian sk1
+                INNER JOIN (
+                    SELECT pegawai_id, MAX(created_at) as max_created
+                    FROM status_kepegawaian
+                    GROUP BY pegawai_id
+                ) sk2 
+                ON sk1.pegawai_id = sk2.pegawai_id 
+                AND sk1.created_at = sk2.max_created
+            ) sk ON p.pegawai_id = sk.pegawai_id
             
-            $stmt = $conn->prepare($query);
-            $stmt->execute();
+            -- ✅ FILTER: Status Aktif
+            WHERE sk.status_aktif = 'aktif'
             
-            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            -- ✅ FILTER: Field Wajib Umum
+            AND sk.jabatan IS NOT NULL 
+            AND sk.jabatan != ''
+            AND sk.jenis_kepegawaian IS NOT NULL
+            AND sk.unit_kerja IS NOT NULL
+            AND sk.unit_kerja != ''
+            AND sk.tanggal_mulai_kerja IS NOT NULL
             
-            $response['success'] = true;
-            $response['message'] = 'Data pegawai berhasil diambil';
-            $response['data'] = $data;
-        }
+            -- ✅ FILTER: PTKP WAJIB TERISI
+            AND sk.ptkp IS NOT NULL
+            AND sk.ptkp != ''
+            
+            -- ✅ FILTER: Khusus Pegawai Kontrak
+            AND (
+                LOWER(sk.jenis_kepegawaian) = 'tetap'
+                OR (
+                    LOWER(sk.jenis_kepegawaian) = 'kontrak'
+                    AND sk.masa_kontrak_mulai IS NOT NULL
+                    AND sk.masa_kontrak_selesai IS NOT NULL
+                )
+            )
+            
+            -- ✅ EXCLUDE: Pegawai yang sudah ada di struktur
+            AND p.pegawai_id NOT IN (
+                SELECT pegawai_id FROM struktur_organisasi
+            )
+            
+            ORDER BY p.nama_lengkap ASC";
+    
+    $stmt = $conn->prepare($query);
+    $stmt->execute();
+    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $response['success'] = true;
+    $response['message'] = 'Data pegawai berhasil diambil';
+    $response['data'] = $data;
+}
+
         
         // GET PARENT LIST
         elseif($action == 'get_parent_list') {
@@ -366,8 +410,8 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         }
 
         // GET ALL PEGAWAI - DIPERBAIKI UNTUK MENGAMBIL DATA TERBARU + PTKP
+        // GET ALL PEGAWAI - DIPERBAIKI UNTUK MENGAMBIL DATA TERBARU + PTKP
         elseif($action == 'get_all_pegawai') {
-            // PERBAIKAN: Gunakan subquery untuk mengambil status_kepegawaian terbaru + PTKP
             $query = "SELECT 
                         p.pegawai_id,
                         p.nama_lengkap,
@@ -381,6 +425,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                         sk.ptkp,
                         sk.masa_kontrak_mulai,
                         sk.masa_kontrak_selesai,
+                        sk.tanggal_mulai_kerja,
                         DATEDIFF(sk.masa_kontrak_selesai, CURDATE()) as sisa_hari_kontrak
                     FROM pegawai p
                     LEFT JOIN (
@@ -391,7 +436,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                             FROM status_kepegawaian
                             GROUP BY pegawai_id
                         ) sk2 ON sk1.pegawai_id = sk2.pegawai_id 
-                             AND sk1.created_at = sk2.max_created
+                            AND sk1.created_at = sk2.max_created
                     ) sk ON p.pegawai_id = sk.pegawai_id
                     ORDER BY p.nama_lengkap ASC";
             
@@ -449,6 +494,18 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
         }
 
         .page-header {
+            background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
+            padding: 28px 32px;
+            border-radius: 15px;
+            color: white;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(21, 101, 192, 0.3);
+        }
+
+        .page-header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+        .page-header p  { font-size: 14px; opacity: 0.88; }
+        
+        /* .page-header {
             margin-bottom: 30px;
         }
 
@@ -463,7 +520,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             color: #6b7280;
             font-size: 15px;
             margin: 0;
-        }
+        } */
 
         /* Custom Tabs */
         .custom-tabs {
@@ -674,7 +731,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                             <select class="form-select" id="pegawai_id" name="pegawai_id" required>
                                 <option value="">-- Pilih Pegawai --</option>
                             </select>
-                            <small class="text-muted">Hanya pegawai aktif yang belum terdaftar yang ditampilkan</small>
+                            <small class="text-muted" id="pegawai-info-text">Hanya pegawai aktif dengan data kepegawaian lengkap yang ditampilkan</small>
                         </div>
 
                         <div class="mb-3">
@@ -700,16 +757,6 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
                                 <option value="7">Level 7 - Staff</option>
                             </select>
                         </div>
-
-                        <!-- <div class="mb-3">
-                            <label for="parent_id" class="form-label">
-                                <i class="fas fa-sitemap me-1"></i> Atasan Langsung (Opsional)
-                            </label>
-                            <select class="form-select" id="parent_id" name="parent_id">
-                                <option value="">-- Tidak ada atasan --</option>
-                            </select>
-                            <small class="text-muted">Pilih atasan langsung jika ada</small>
-                        </div> -->
 
                         <div class="mb-3">
                             <label for="foto" class="form-label">

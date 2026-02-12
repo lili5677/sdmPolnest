@@ -41,9 +41,26 @@ if(!$pegawai) {
 if($_SERVER['REQUEST_METHOD'] == 'POST') {
     $errors = [];
     
-    // VALIDASI HANYA UNTUK DATA KEPEGAWAIAN
+    // ===== VALIDASI SEMUA FIELD WAJIB =====
+
+    if(empty(trim($_POST['jabatan'] ?? ''))) {
+        $errors[] = 'Jabatan wajib diisi';
+    }
+
+    if(empty(trim($_POST['unit_kerja'] ?? ''))) {
+        $errors[] = 'Unit kerja wajib diisi';
+    }
+    
     if(empty($_POST['jenis_kepegawaian'])) {
         $errors[] = 'Jenis kepegawaian wajib diisi';
+    }
+
+    if(empty($_POST['status_aktif'])) {
+        $errors[] = 'Status wajib diisi';
+    }
+
+    if(empty($_POST['ptkp'])) {
+        $errors[] = 'PTKP (status pajak) wajib diisi';
     }
     
     if(empty($_POST['tanggal_mulai_kerja'])) {
@@ -51,12 +68,18 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
     
     // Validasi khusus kontrak
-    if($_POST['jenis_kepegawaian'] == 'kontrak') {
+    if(($_POST['jenis_kepegawaian'] ?? '') == 'kontrak') {
         if(empty($_POST['masa_kontrak_mulai'])) {
             $errors[] = 'Masa kontrak mulai wajib diisi untuk pegawai kontrak';
         }
         if(empty($_POST['masa_kontrak_selesai'])) {
             $errors[] = 'Masa kontrak selesai wajib diisi untuk pegawai kontrak';
+        }
+        // Validasi logika tanggal kontrak
+        if(!empty($_POST['masa_kontrak_mulai']) && !empty($_POST['masa_kontrak_selesai'])) {
+            if($_POST['masa_kontrak_selesai'] <= $_POST['masa_kontrak_mulai']) {
+                $errors[] = 'Masa kontrak selesai harus setelah masa kontrak mulai';
+            }
         }
     }
     
@@ -67,11 +90,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             return (empty($value)) ? null : $value;
         }
         
-        $jabatan = emptyToNull($_POST['jabatan']);
-        $unit_kerja = emptyToNull($_POST['unit_kerja']);
-        $ptkp = emptyToNull($_POST['ptkp']);
-        
-        $masa_kontrak_mulai = emptyToNull($_POST['masa_kontrak_mulai']);
+        $jabatan           = emptyToNull(trim($_POST['jabatan']));
+        $unit_kerja        = emptyToNull(trim($_POST['unit_kerja']));
+        $ptkp              = emptyToNull($_POST['ptkp']);
+        $masa_kontrak_mulai   = emptyToNull($_POST['masa_kontrak_mulai']);
         $masa_kontrak_selesai = emptyToNull($_POST['masa_kontrak_selesai']);
 
         $conn->beginTransaction();
@@ -120,7 +142,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             $statusStmt->execute();
             
-             // Ambil jenis_pegawai dari database
+            // Ambil jenis_pegawai dari database
             $getJenis = $conn->prepare("SELECT jenis_pegawai FROM pegawai WHERE pegawai_id = ?");
             $getJenis->execute([$id]);
             $jenis_pegawai = $getJenis->fetchColumn();
@@ -264,6 +286,12 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
             border-color: #e5e7eb;
         }
 
+        /* Highlight field yang belum terisi saat submit */
+        .form-control.is-invalid, .form-select.is-invalid {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
         .readonly-info {
             background: #fef3c7;
             border-left: 4px solid #f59e0b;
@@ -370,7 +398,7 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
             </div>
             <?php endif; ?>
 
-            <form method="POST" action="">
+            <form method="POST" action="" id="formEditPegawai" novalidate>
                 <!-- Data Pribadi (READ ONLY) -->
                 <div class="form-section">
                     <div class="form-section-title">
@@ -461,17 +489,31 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                 <div class="form-section">
                     <div class="form-section-title">
                         <i class="fas fa-briefcase"></i>
-                        Data Kepegawaian <span style="font-size: 12px; color: #16a34a; font-weight: normal;"></span>
+                        Data Kepegawaian
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="jabatan" class="form-label">Jabatan</label>
-                            <input type="text" class="form-control" id="jabatan" name="jabatan" value="<?= htmlspecialchars($data['jabatan'] ?? '') ?>">
+                            <label for="jabatan" class="form-label">
+                                Jabatan <span class="required">*</span>
+                            </label>
+                            <input type="text" class="form-control <?= (isset($errors) && !empty($errors) && empty(trim($_POST['jabatan'] ?? ''))) ? 'is-invalid' : '' ?>" 
+                                id="jabatan" name="jabatan" 
+                                value="<?= htmlspecialchars($data['jabatan'] ?? '') ?>"
+                                placeholder="Contoh: Staff Administrasi"
+                                required>
+                            <div class="invalid-feedback">Jabatan wajib diisi.</div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="unit_kerja" class="form-label">Unit Kerja</label>
-                            <input type="text" class="form-control" id="unit_kerja" name="unit_kerja" value="<?= htmlspecialchars($data['unit_kerja'] ?? '') ?>">
+                            <label for="unit_kerja" class="form-label">
+                                Unit Kerja <span class="required">*</span>
+                            </label>
+                            <input type="text" class="form-control <?= (isset($errors) && !empty($errors) && empty(trim($_POST['unit_kerja'] ?? ''))) ? 'is-invalid' : '' ?>" 
+                                id="unit_kerja" name="unit_kerja" 
+                                value="<?= htmlspecialchars($data['unit_kerja'] ?? '') ?>"
+                                placeholder="Contoh: Bagian Keuangan"
+                                required>
+                            <div class="invalid-feedback">Unit kerja wajib diisi.</div>
                         </div>
                     </div>
 
@@ -480,11 +522,14 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                             <label for="jenis_kepegawaian" class="form-label">
                                 Jenis Kepegawaian <span class="required">*</span>
                             </label>
-                            <select class="form-select" id="jenis_kepegawaian" name="jenis_kepegawaian" required onchange="toggleKontrakFields()">
+                            <select class="form-select <?= (isset($errors) && !empty($errors) && empty($_POST['jenis_kepegawaian'] ?? '')) ? 'is-invalid' : '' ?>" 
+                                id="jenis_kepegawaian" name="jenis_kepegawaian" 
+                                required onchange="toggleKontrakFields()">
                                 <option value="">-- Pilih --</option>
                                 <option value="tetap" <?= ($data['jenis_kepegawaian'] ?? '') == 'tetap' ? 'selected' : '' ?>>Tetap</option>
                                 <option value="kontrak" <?= ($data['jenis_kepegawaian'] ?? '') == 'kontrak' ? 'selected' : '' ?>>Kontrak</option>
                             </select>
+                            <div class="invalid-feedback">Jenis kepegawaian wajib dipilih.</div>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="status_aktif" class="form-label">
@@ -500,9 +545,10 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="ptkp" class="form-label">
-                                PTKP (Status Pajak)
+                                PTKP (Status Pajak) <span class="required">*</span>
                             </label>
-                            <select class="form-select" id="ptkp" name="ptkp">
+                            <select class="form-select <?= (isset($errors) && !empty($errors) && empty($_POST['ptkp'] ?? '')) ? 'is-invalid' : '' ?>" 
+                                id="ptkp" name="ptkp" required>
                                 <option value="">-- Pilih PTKP --</option>
                                 <option value="TK0" <?= ($data['ptkp'] ?? '') == 'TK0' ? 'selected' : '' ?>>TK/0 - Tidak Kawin (tanpa tanggungan)</option>
                                 <option value="TK1" <?= ($data['ptkp'] ?? '') == 'TK1' ? 'selected' : '' ?>>TK/1 - Tidak Kawin (1 tanggungan)</option>
@@ -513,12 +559,18 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                                 <option value="K2" <?= ($data['ptkp'] ?? '') == 'K2' ? 'selected' : '' ?>>K/2 - Kawin (2 tanggungan)</option>
                                 <option value="K3" <?= ($data['ptkp'] ?? '') == 'K3' ? 'selected' : '' ?>>K/3 - Kawin (3 tanggungan)</option>
                             </select>
+                            <div class="invalid-feedback">PTKP wajib dipilih.</div>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="tanggal_mulai_kerja" class="form-label">
                                 Tanggal Mulai Kerja <span class="required">*</span>
                             </label>
-                            <input type="date" class="form-control" id="tanggal_mulai_kerja" name="tanggal_mulai_kerja" value="<?= $data['tanggal_mulai_kerja'] ?? '' ?>" required>
+                            <input type="date" 
+                                class="form-control <?= (isset($errors) && !empty($errors) && empty($_POST['tanggal_mulai_kerja'] ?? '')) ? 'is-invalid' : '' ?>" 
+                                id="tanggal_mulai_kerja" name="tanggal_mulai_kerja" 
+                                value="<?= htmlspecialchars($data['tanggal_mulai_kerja'] ?? '') ?>" 
+                                required>
+                            <div class="invalid-feedback">Tanggal mulai kerja wajib diisi.</div>
                         </div>
                     </div>
 
@@ -529,13 +581,21 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                                 <label for="masa_kontrak_mulai" class="form-label">
                                     Masa Kontrak Mulai <span class="required">*</span>
                                 </label>
-                                <input type="date" class="form-control kontrak-required" id="masa_kontrak_mulai" name="masa_kontrak_mulai" value="<?= $data['masa_kontrak_mulai'] ?? '' ?>">
+                                <input type="date" 
+                                    class="form-control kontrak-required <?= (isset($errors) && !empty($errors) && ($data['jenis_kepegawaian'] ?? '') == 'kontrak' && empty($_POST['masa_kontrak_mulai'] ?? '')) ? 'is-invalid' : '' ?>" 
+                                    id="masa_kontrak_mulai" name="masa_kontrak_mulai" 
+                                    value="<?= htmlspecialchars($data['masa_kontrak_mulai'] ?? '') ?>">
+                                <div class="invalid-feedback">Masa kontrak mulai wajib diisi.</div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="masa_kontrak_selesai" class="form-label">
                                     Masa Kontrak Selesai <span class="required">*</span>
                                 </label>
-                                <input type="date" class="form-control kontrak-required" id="masa_kontrak_selesai" name="masa_kontrak_selesai" value="<?= $data['masa_kontrak_selesai'] ?? '' ?>">
+                                <input type="date" 
+                                    class="form-control kontrak-required <?= (isset($errors) && !empty($errors) && ($data['jenis_kepegawaian'] ?? '') == 'kontrak' && empty($_POST['masa_kontrak_selesai'] ?? '')) ? 'is-invalid' : '' ?>" 
+                                    id="masa_kontrak_selesai" name="masa_kontrak_selesai" 
+                                    value="<?= htmlspecialchars($data['masa_kontrak_selesai'] ?? '') ?>">
+                                <div class="invalid-feedback">Masa kontrak selesai wajib diisi.</div>
                             </div>
                         </div>
                     </div>
@@ -546,7 +606,7 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                     <a href="administrasiKepegawaian.php?tab=data-pegawai" class="btn btn-outline-custom">
                         <i class="fas fa-times me-1"></i> Batal
                     </a>
-                    <button type="submit" class="btn btn-primary-custom">
+                    <button type="submit" class="btn btn-primary-custom" id="btnSimpan">
                         <i class="fas fa-save me-1"></i> Simpan Perubahan
                     </button>
                 </div>
@@ -557,23 +617,84 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // Toggle field kontrak
         function toggleKontrakFields() {
             const jenisKepegawaian = document.getElementById('jenis_kepegawaian').value;
-            const kontrakFields = document.getElementById('kontrakFields');
-            const kontrakInputs = document.querySelectorAll('.kontrak-required');
+            const kontrakFields    = document.getElementById('kontrakFields');
+            const kontrakInputs    = document.querySelectorAll('.kontrak-required');
             
-            if(jenisKepegawaian === 'kontrak') {
+            if (jenisKepegawaian === 'kontrak') {
                 kontrakFields.style.display = 'block';
-                kontrakInputs.forEach(input => {
-                    input.setAttribute('required', 'required');
-                });
+                kontrakInputs.forEach(input => input.setAttribute('required', 'required'));
             } else {
                 kontrakFields.style.display = 'none';
                 kontrakInputs.forEach(input => {
                     input.removeAttribute('required');
+                    input.value = ''; // kosongkan nilai jika bukan kontrak
+                    input.classList.remove('is-invalid');
                 });
             }
         }
+
+        // Validasi client-side sebelum submit
+        document.getElementById('formEditPegawai').addEventListener('submit', function(e) {
+            let isValid = true;
+            const fields = this.querySelectorAll('[required]');
+
+            fields.forEach(function(field) {
+                // Lewati field yang tersembunyi (kontrak fields saat bukan kontrak)
+                if (field.closest('#kontrakFields') && field.closest('#kontrakFields').style.display === 'none') {
+                    return;
+                }
+
+                if (field.value.trim() === '' || field.value === '') {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                    field.classList.add('is-valid');
+                }
+            });
+
+            // Validasi logika tanggal kontrak
+            const jenisKepegawaian = document.getElementById('jenis_kepegawaian').value;
+            if (jenisKepegawaian === 'kontrak') {
+                const mulai   = document.getElementById('masa_kontrak_mulai').value;
+                const selesai = document.getElementById('masa_kontrak_selesai').value;
+                if (mulai && selesai && selesai <= mulai) {
+                    document.getElementById('masa_kontrak_selesai').classList.add('is-invalid');
+                    document.getElementById('masa_kontrak_selesai').nextElementSibling.textContent 
+                        = 'Masa kontrak selesai harus setelah masa kontrak mulai.';
+                    isValid = false;
+                }
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+                // Scroll ke error pertama
+                const firstInvalid = document.querySelector('.is-invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus();
+                }
+            }
+        });
+
+        // Hapus class is-invalid saat user mulai mengisi
+        document.querySelectorAll('.form-control, .form-select').forEach(function(el) {
+            el.addEventListener('input', function() {
+                if (this.value.trim() !== '') {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+            el.addEventListener('change', function() {
+                if (this.value.trim() !== '') {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+        });
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {

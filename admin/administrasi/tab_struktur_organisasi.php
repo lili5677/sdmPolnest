@@ -35,6 +35,48 @@
         margin: 0;
     }
 
+    /* Info Alert - Biru Simple */
+    .info-alert {
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 1px solid #93c5fd;
+        border-radius: 10px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+    }
+
+    .info-alert .icon-container {
+        background: #2563eb;
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .info-alert .content {
+        flex: 1;
+    }
+
+    .info-alert .content p {
+        font-size: 13px;
+        color: #1e40af;
+        margin: 0;
+        line-height: 1.6;
+    }
+
+    .info-alert .content p strong {
+        color: #1e3a8a;
+        font-weight: 700;
+    }
+
     /* Level Tabs */
     .level-tabs {
         display: flex;
@@ -264,65 +306,6 @@
         color: #2563eb;
     }
 
-    /* ===== PERBAIKAN Z-INDEX UNTUK MODAL ===== */
-    .modal-backdrop {
-        z-index: 9998 !important;
-    }
-
-    .modal {
-        z-index: 9999 !important;
-    }
-
-    #modalAnggota {
-        z-index: 9999 !important;
-    }
-
-    #modalAnggota .modal-dialog {
-        z-index: 10000 !important;
-    }
-
-    #modalAnggota .modal-content {
-        border-radius: 12px;
-        border: none;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        position: relative;
-        z-index: 10001 !important;
-    }
-
-    .modal-header {
-        background: #f9fafb;
-        border-radius: 12px 12px 0 0;
-        padding: 20px 30px;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    .modal-header .modal-title {
-        font-weight: 600;
-        font-size: 20px;
-    }
-
-    .modal-body {
-        padding: 30px;
-    }
-
-    .form-label {
-        font-weight: 500;
-        color: #374151;
-        margin-bottom: 8px;
-    }
-
-    .form-control, .form-select {
-        border-radius: 8px;
-        border: 1px solid #d1d5db;
-        padding: 8px 12px;
-        font-size: 12px;
-    }
-
-    .form-control:focus, .form-select:focus {
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-    }
-
     /* Pagination Struktur */
     .pagination-container {
         display: flex;
@@ -468,6 +451,15 @@
             align-items: center;
             text-align: center;
         }
+
+        .info-alert {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .info-alert .icon-container {
+            margin: 0 auto;
+        }
     }
 
     @media (max-width: 480px) {
@@ -508,28 +500,40 @@
         </div>
     </div>
 
+    <!-- Info Alert -->
+    <div class="info-alert">
+        <div class="icon-container">
+            <i class="fas fa-info-circle"></i>
+        </div>
+        <div class="content">
+            <p>
+                <strong>Syarat Masuk Struktur Organisasi:</strong> Pegawai harus berstatus <strong>Aktif</strong> dan memiliki data kepegawaian yang lengkap 
+            </p>
+        </div>
+    </div>
+
     <!-- Level Tabs -->
     <div class="level-tabs">
         <button class="level-tab active" onclick="gantiLevel(1)" data-level="1">
-            <i class=""></i> Level 1 - Direktur
+            Level 1 - Direktur
         </button>
         <button class="level-tab" onclick="gantiLevel(2)" data-level="2">
-            <i class=""></i> Level 2 - Wakil Direktur
+            Level 2 - Wakil Direktur
         </button>
         <button class="level-tab" onclick="gantiLevel(3)" data-level="3">
-            <i class=""></i> Level 3 - Kaprodi
+            Level 3 - Kaprodi
         </button>
         <button class="level-tab" onclick="gantiLevel(4)" data-level="4">
-            <i class=""></i> Level 4 - Kepala Unit
+            Level 4 - Kepala Unit
         </button>
         <button class="level-tab" onclick="gantiLevel(5)" data-level="5">
-            <i class=""></i> Level 5 - Laboran
+            Level 5 - Laboran
         </button>
         <button class="level-tab" onclick="gantiLevel(6)" data-level="6">
-            <i class=""></i> Level 6 - Tendik
+            Level 6 - Tendik
         </button>
         <button class="level-tab" onclick="gantiLevel(7)" data-level="7">
-            <i class=""></i> Level 7 - Staff
+            Level 7 - Staff
         </button>
     </div>
 
@@ -548,30 +552,81 @@
     // ===== VARIABEL GLOBAL STRUKTUR =====
     let currentLevel = 1;
     let modalAnggota;
-    let allDataStruktur = [];        // semua data untuk level aktif
+    let allDataStruktur = [];
     let currentPageStruktur = 1;
     const PAGE_SIZE_STRUKTUR = 10;
+    let strukturInitialized = false;
 
-    // ===== INISIALISASI =====
-    document.addEventListener('DOMContentLoaded', function() {
-        modalAnggota = new bootstrap.Modal(document.getElementById('modalAnggota'));
+    // ===== INISIALISASI STRUKTUR - HANYA SAAT TAB AKTIF =====
+    function initializeStrukturOrganisasi() {
+        if (strukturInitialized) return;
+        
+        const modalElement = document.getElementById('modalAnggota');
+        if (!modalElement) {
+            console.warn('Modal element not found, skipping initialization');
+            return;
+        }
+        
+        modalAnggota = new bootstrap.Modal(modalElement);
         loadAnggotaByLevel(1);
         loadPegawaiList();
         loadParentList();
+        setupModalEventListeners();
+        
+        strukturInitialized = true;
+    }
 
+    // ===== SETUP MODAL EVENT LISTENERS =====
+    function setupModalEventListeners() {
+        const modalElement = document.getElementById('modalAnggota');
+        if (!modalElement) return;
+
+        modalElement.addEventListener('hidden.bs.modal', function() {
+            const pegawaiSelect = document.getElementById('pegawai_id');
+            const fotoInput = document.getElementById('foto');
+            const previewDiv = document.getElementById('current-foto-preview');
+            
+            if (pegawaiSelect) pegawaiSelect.disabled = false;
+            if (fotoInput) fotoInput.value = '';
+            if (previewDiv) previewDiv.style.display = 'none';
+        });
+
+        modalElement.addEventListener('show.bs.modal', function(e) {
+            setTimeout(() => {
+                const backdrop = document.querySelector('.modal-backdrop');
+                if(backdrop) backdrop.style.zIndex = '9998';
+                const modal = document.getElementById('modalAnggota');
+                if(modal) modal.style.zIndex = '9999';
+            }, 10);
+        });
+
+        modalElement.addEventListener('shown.bs.modal', function(e) {
+            const backdrop = document.querySelector('.modal-backdrop');
+            if(backdrop) backdrop.style.zIndex = '9998';
+            const modal = document.getElementById('modalAnggota');
+            if(modal) modal.style.zIndex = '9999';
+        });
+    }
+
+    // Event listener untuk tab Struktur Organisasi
+    const strukturTab = document.getElementById('struktur-tab');
+    if(strukturTab) {
+        strukturTab.addEventListener('shown.bs.tab', function() {
+            initializeStrukturOrganisasi();
+        });
+    }
+
+    // Auto-initialize jika hash mengarah ke struktur
+    document.addEventListener('DOMContentLoaded', function() {
         if (window.location.hash === '#struktur-organisasi') {
-            const strukturTab = document.querySelector('#struktur-tab');
-            if (strukturTab) {
-                const tab = new bootstrap.Tab(strukturTab);
-                tab.show();
-            }
+            initializeStrukturOrganisasi();
         }
     });
 
     // ===== GANTI LEVEL =====
     function gantiLevel(level) {
         currentLevel = level;
-        currentPageStruktur = 1; // reset halaman saat ganti level
+        currentPageStruktur = 1;
 
         document.querySelectorAll('.level-tab').forEach(tab => {
             tab.classList.remove('active');
@@ -586,6 +641,7 @@
     // ===== LOAD DATA PER LEVEL =====
     async function loadAnggotaByLevel(level) {
         const container = document.getElementById('level-content-container');
+        if (!container) return;
 
         container.innerHTML = `
             <div class="spinner-container">
@@ -623,6 +679,8 @@
     // ===== RENDER CARDS + PAGINATION =====
     function renderCardsStruktur() {
         const container = document.getElementById('level-content-container');
+        if (!container) return;
+        
         const totalPages = Math.ceil(allDataStruktur.length / PAGE_SIZE_STRUKTUR);
 
         if (allDataStruktur.length === 0) {
@@ -674,7 +732,6 @@
             `;
         });
 
-        // Pagination info + controls — pagination hanya muncul kalau > 10
         html += `<div class="pagination-container">`;
         html += `<div class="pagination-info">
                     Menampilkan <strong>${startIndex + 1}–${Math.min(endIndex, allDataStruktur.length)}</strong> 
@@ -697,6 +754,8 @@
     // ===== RENDER TOMBOL PAGINATION (Struktur) =====
     function renderPaginationButtonsStruktur(containerId, currentPage, totalPages) {
         const container = document.getElementById(containerId);
+        if (!container) return;
+        
         let html = '';
 
         html += `<button class="btn-page-arrow" ${currentPage === 1 ? 'disabled' : ''} onclick="goToPageStruktur(${currentPage - 1})">
@@ -729,7 +788,6 @@
         }
 
         pages.push(1);
-
         if (current > 3) pages.push('...');
 
         const start = Math.max(2, current - 1);
@@ -737,7 +795,6 @@
         for (let i = start; i <= end; i++) pages.push(i);
 
         if (current < total - 2) pages.push('...');
-
         pages.push(total);
 
         return pages;
@@ -755,6 +812,8 @@
     // ===== DISPLAY EMPTY STATE =====
     function displayEmptyState() {
         const container = document.getElementById('level-content-container');
+        if (!container) return;
+        
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-users-slash"></i>
@@ -773,27 +832,75 @@
         return name.substring(0, 2).toUpperCase();
     }
 
-    // ===== LOAD PEGAWAI LIST =====
+    // ===== LOAD PEGAWAI LIST (DENGAN FILTER LENGKAP + PTKP) =====
     async function loadPegawaiList() {
         try {
             const response = await fetch('?action=get_pegawai_list');
             const result = await response.json();
 
             const select = document.getElementById('pegawai_id');
+            if (!select) return;
+
             select.innerHTML = '<option value="">-- Pilih Pegawai --</option>';
 
-            if(result.success && result.data.length > 0) {
-                result.data.forEach(pegawai => {
-                    const option = document.createElement('option');
-                    option.value = pegawai.pegawai_id;
-                    option.textContent = `${pegawai.nama_lengkap} - ${pegawai.jabatan || 'Pegawai'}`;
-                    select.appendChild(option);
-                });
-            } else {
-                select.innerHTML = '<option value="">-- Semua pegawai sudah terdaftar --</option>';
+            if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
+                select.innerHTML = '<option value="">-- Tidak ada pegawai tersedia --</option>';
+                return;
             }
-        } catch(error) {
+
+            // 🔥 FILTER LENGKAP - Semua field wajib terisi termasuk PTKP
+            const eligiblePegawai = result.data.filter(p => {
+                // 1. Validasi field umum wajib
+                const jabatanValid = p.jabatan && p.jabatan.trim() !== '';
+                const jenisValid = p.jenis_kepegawaian && p.jenis_kepegawaian.trim() !== '';
+                const unitValid = p.unit_kerja && p.unit_kerja.trim() !== '';
+                const tanggalValid = p.tanggal_mulai_kerja && p.tanggal_mulai_kerja !== null;
+                
+                // 🔥 PTKP WAJIB TERISI & TIDAK BOLEH KOSONG
+                const ptkpValid = p.ptkp && p.ptkp.toString().trim() !== '';
+
+                // Status harus aktif
+                const statusValid = p.status_aktif && 
+                    p.status_aktif.toString().trim().toLowerCase() === 'aktif';
+
+                // 2. Validasi khusus untuk pegawai kontrak
+                let kontrakValid = true;
+                if (p.jenis_kepegawaian?.toLowerCase() === 'kontrak') {
+                    kontrakValid = 
+                        p.masa_kontrak_mulai && 
+                        p.masa_kontrak_selesai;
+                }
+
+                // 3. Return TRUE hanya jika SEMUA validasi lolos
+                return (
+                    jabatanValid &&
+                    jenisValid &&
+                    unitValid &&
+                    tanggalValid &&
+                    ptkpValid &&      // 🔥 WAJIB
+                    statusValid &&
+                    kontrakValid
+                );
+            });
+
+            if (eligiblePegawai.length === 0) {
+                select.innerHTML = '<option value="">-- Tidak ada pegawai memenuhi syarat --</option>';
+                return;
+            }
+
+            eligiblePegawai.forEach(pegawai => {
+                const option = document.createElement('option');
+                option.value = pegawai.pegawai_id;
+                option.textContent = `${pegawai.nama_lengkap} - ${pegawai.jabatan}`;
+                select.appendChild(option);
+            });
+
+        } catch (error) {
             console.error('Error loading pegawai:', error);
+            const select = document.getElementById('pegawai_id');
+            if (select) {
+                select.innerHTML = '<option value="">-- Error memuat data --</option>';
+            }
         }
     }
 
@@ -804,6 +911,8 @@
             const result = await response.json();
 
             const select = document.getElementById('parent_id');
+            if (!select) return;
+            
             select.innerHTML = '<option value="">-- Tidak ada atasan --</option>';
 
             if(result.success && result.data.length > 0) {
@@ -821,20 +930,25 @@
 
     // ===== TAMPILKAN FORM TAMBAH =====
     function tampilkanFormTambah() {
-        document.getElementById('formAnggota').reset();
+        const form = document.getElementById('formAnggota');
+        if (!form) return;
+        
+        form.reset();
         document.getElementById('mode').value = 'add';
         document.getElementById('struktur_id').value = '';
         document.getElementById('modalTitleText').textContent = 'Tambah Anggota Baru';
         document.getElementById('level_struktur').value = currentLevel;
-        document.getElementById('pegawai_id').disabled = false;
         
-        // Sembunyikan preview foto
-        document.getElementById('current-foto-preview').style.display = 'none';
+        const pegawaiSelect = document.getElementById('pegawai_id');
+        if (pegawaiSelect) pegawaiSelect.disabled = false;
+        
+        const previewDiv = document.getElementById('current-foto-preview');
+        if (previewDiv) previewDiv.style.display = 'none';
 
         loadPegawaiList();
         loadParentList();
 
-        modalAnggota.show();
+        if (modalAnggota) modalAnggota.show();
     }
 
     // ===== EDIT ANGGOTA =====
@@ -858,20 +972,22 @@
                     document.getElementById('parent_id').value = data.parent_id;
                 }
 
-                // Tampilkan preview foto jika ada
-                if(data.path_gambar) {
-                    document.getElementById('current-foto-preview').style.display = 'block';
-                    document.getElementById('preview-img').src = data.path_gambar;
-                } else {
-                    document.getElementById('current-foto-preview').style.display = 'none';
+                const previewDiv = document.getElementById('current-foto-preview');
+                const previewImg = document.getElementById('preview-img');
+                if(data.path_gambar && previewDiv && previewImg) {
+                    previewDiv.style.display = 'block';
+                    previewImg.src = data.path_gambar;
+                } else if (previewDiv) {
+                    previewDiv.style.display = 'none';
                 }
                 
-                // Reset input file
-                document.getElementById('foto').value = '';
+                const fotoInput = document.getElementById('foto');
+                if (fotoInput) fotoInput.value = '';
 
-                document.getElementById('pegawai_id').disabled = true;
+                const pegawaiSelect = document.getElementById('pegawai_id');
+                if (pegawaiSelect) pegawaiSelect.disabled = true;
 
-                modalAnggota.show();
+                if (modalAnggota) modalAnggota.show();
             }
         } catch(error) {
             console.error('Error:', error);
@@ -887,6 +1003,7 @@
     // ===== SIMPAN ANGGOTA =====
     async function simpanAnggota() {
         const form = document.getElementById('formAnggota');
+        if (!form) return;
 
         if(!form.checkValidity()) {
             form.reportValidity();
@@ -895,8 +1012,6 @@
 
         const mode = document.getElementById('mode').value;
         const formData = new FormData(form);
-        
-        // PENTING: Kirim action sebagai query parameter, bukan di FormData
         const action = mode === 'edit' ? 'update' : 'add';
 
         try {
@@ -908,8 +1023,7 @@
             const result = await response.json();
 
             if(result.success) {
-                // Tutup modal dulu sebelum tampilkan notifikasi
-                modalAnggota.hide();
+                if (modalAnggota) modalAnggota.hide();
                 
                 Swal.fire({
                     icon: 'success',
@@ -921,7 +1035,9 @@
 
                 loadAnggotaByLevel(currentLevel);
                 loadPegawaiList();
-                document.getElementById('pegawai_id').disabled = false;
+                
+                const pegawaiSelect = document.getElementById('pegawai_id');
+                if (pegawaiSelect) pegawaiSelect.disabled = false;
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -994,29 +1110,4 @@
     function tampilkanPreview() {
         window.location.href = 'preview.php';
     }
-
-    // ===== EVENT LISTENERS MODAL =====
-    document.getElementById('modalAnggota').addEventListener('hidden.bs.modal', function() {
-        document.getElementById('pegawai_id').disabled = false;
-        document.getElementById('foto').value = ''; // Reset input file
-        document.getElementById('current-foto-preview').style.display = 'none'; // Sembunyikan preview
-    });
-
-    document.getElementById('modalAnggota').addEventListener('show.bs.modal', function(e) {
-        setTimeout(() => {
-            const backdrop = document.querySelector('.modal-backdrop');
-            if(backdrop) backdrop.style.zIndex = '9998';
-
-            const modal = document.getElementById('modalAnggota');
-            if(modal) modal.style.zIndex = '9999';
-        }, 10);
-    });
-
-    document.getElementById('modalAnggota').addEventListener('shown.bs.modal', function(e) {
-        const backdrop = document.querySelector('.modal-backdrop');
-        if(backdrop) backdrop.style.zIndex = '9998';
-
-        const modal = document.getElementById('modalAnggota');
-        if(modal) modal.style.zIndex = '9999';
-    });
 </script>
