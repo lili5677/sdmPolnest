@@ -1,13 +1,11 @@
 <?php
 require_once '../../config/database.php';
 
-// Check if user is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     header('Location: ' . BASE_URL . 'auth/login_pelamar.php');
     exit();
 }
 
-// Get pelamar_id (NOT lamaran_id - pelamar table doesn't have lamaran_id)
 $user_id = $_SESSION['user_id'];
 $query = "SELECT pelamar_id, nama_lengkap FROM pelamar WHERE user_id = ?";
 $stmt = $conn->prepare($query);
@@ -20,7 +18,6 @@ if (!$pelamar) {
 
 $pelamar_id = $pelamar['pelamar_id'];
 
-// Get lowongan_id from URL (if coming from apply button)
 $lowongan_id = isset($_GET['lowongan_id']) ? (int)$_GET['lowongan_id'] : 0;
 
 $current_step = isset($_GET['step']) ? $_GET['step'] : 1;
@@ -73,7 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
         } elseif ($step == 2) {
             // Pendidikan
-            // Delete existing
             $stmt = $conn->prepare("DELETE FROM pendidikan_pelamar WHERE pelamar_id = ?");
             $stmt->execute([$pelamar_id]);
             
@@ -166,13 +162,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (!isset($_FILES[$field]) || $_FILES[$field]['error'] != 0) {
                     $missing_files[] = $field;
                 } else {
-                    // Validate file extension - ONLY PDF
+                    // Validate file extension
                     $file_ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
                     if ($file_ext !== 'pdf') {
-                        $invalid_format[] = $jenis . ' (harus PDF, Anda upload: ' . strtoupper($file_ext) . ')';
+                        $invalid_format[] = $jenis . ' (File harus PDF, file yang Anda upload: ' . strtoupper($file_ext) . ')';
                     }
                     
-                    // Validate MIME type - ONLY PDF
+                    // Validate MIME type
                     $finfo = finfo_open(FILEINFO_MIME_TYPE);
                     $mime_type = finfo_file($finfo, $_FILES[$field]['tmp_name']);
                     finfo_close($finfo);
@@ -190,14 +186,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             // If there are invalid formats, show error
             if (!empty($invalid_format)) {
-                throw new Exception('File harus dalam format PDF! File yang tidak valid: ' . implode(', ', $invalid_format));
+                throw new Exception('File harus dalam format PDF! File tidak valid: ' . implode(', ', $invalid_format));
             }
             
-            // All files present and valid, proceed with upload
             $uploaded_files = [];
             foreach ($files as $field => $jenis) {
                 $file = $_FILES[$field];
-                $file_size = round($file['size'] / 1024); // KB
+                $file_size = round($file['size'] / 1024); 
                 
                 // Check max 5MB
                 if ($file_size > 5120) {
@@ -266,7 +261,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             // Redirect based on whether lowongan_id exists
             if ($post_lowongan_id > 0) {
-                // Direct apply - show success alert then go to tracking
                 $_SESSION['lamaran_success'] = true;
                 $_SESSION['success_message'] = $file_too_large ? 
                     'Lamaran berhasil dikirim! Namun beberapa file melebihi batas 5 MB.' : 
@@ -274,7 +268,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
                 header('Location: ?step=complete&lowongan_id=' . $post_lowongan_id);
             } else {
-                // CV completion only - show lowongan selection
                 $_SESSION['cv_completed'] = true;
                 $_SESSION['cv_message'] = $file_too_large ? 
                     'CV berhasil dilengkapi! Namun beberapa file melebihi batas 5 MB.' : 
@@ -340,6 +333,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formulir Lamaran Kerja - Politeknik Nest</title>
     
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -622,7 +616,6 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Go to select lowongan
                     window.location.href = '<?php echo BASE_URL; ?>users/pelamar/pilih-lowongan.php';
                 }
             });
@@ -743,6 +736,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
         
         <!-- Forms -->
         <?php if ($current_step == 1): ?>
+
         <!-- Step 1: Data Diri -->
         <form method="POST" class="form-card">
             <input type="hidden" name="step" value="1">
@@ -812,6 +806,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
         </form>
         
         <?php elseif ($current_step == 2): ?>
+
         <!-- Step 2: Pendidikan -->
         <form method="POST" class="form-card">
             <input type="hidden" name="step" value="2">
@@ -841,11 +836,11 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Program Studi</label>
+                            <label class="form-label">Bidang Studi</label>
                             <input type="text" name="program_studi[]" class="form-control" required>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Nama Universitas</label>
+                            <label class="form-label">Nama Institusi Pendidikan</label>
                             <input type="text" name="nama_universitas[]" class="form-control" required>
                         </div>
                         <div class="col-md-6">
@@ -898,6 +893,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
         </form>
         
         <?php elseif ($current_step == 3): ?>
+
         <!-- Step 3: Pengalaman -->
         <form method="POST" class="form-card">
             <input type="hidden" name="step" value="3">
@@ -951,6 +947,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
         </form>
         
         <?php elseif ($current_step == 4): ?>
+
         <!-- Step 4: Dokumen -->
         <form method="POST" enctype="multipart/form-data" class="form-card" onsubmit="return validatePDFFiles()">
             <input type="hidden" name="step" value="4">
@@ -1028,7 +1025,7 @@ elseif (isset($_GET['step']) && $_GET['step'] == 'complete' && isset($_SESSION['
                 const file = input.files[0];
                 const fileName = file.name.toLowerCase();
                 const fileSize = file.size;
-                const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+                const maxSize = 5 * 1024 * 1024; 
                 
                 // Check file extension
                 if (!fileName.endsWith('.pdf')) {

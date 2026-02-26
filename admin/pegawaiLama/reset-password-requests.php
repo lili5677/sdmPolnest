@@ -46,7 +46,7 @@ try {
     error_log("Cleanup error: " . $e->getMessage());
 }
 
-/* APPROVE REQUEST & GENERATE TOKEN */
+// generate token
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_request'])) {
     
     $request_id = (int)$_POST['request_id'];
@@ -215,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['revoke_token'])) {
     exit();
 }
 
-/* GET PENDING REQUESTS - INCLUDE PELAMAR */
+/*  PENDING REQUESTS + PELAMAR */
 $stmt = $conn->query("
     SELECT r.*, 
            COALESCE(p.nama_lengkap, pel.nama_lengkap) as nama_lengkap,
@@ -230,7 +230,7 @@ $stmt = $conn->query("
 ");
 $pending_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* GET APPROVED REQUESTS - INCLUDE PELAMAR */
+/* GET APPROVED REQUESTS + PELAMAR */
 $stmt = $conn->query("
     SELECT r.*, 
            COALESCE(p.nama_lengkap, pel.nama_lengkap) as nama_lengkap,
@@ -251,7 +251,7 @@ $stmt = $conn->query("
 ");
 $approved_requests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* GET RECENT HISTORY - INCLUDE PELAMAR */
+/* GET RECENT HISTORY + PELAMAR */
 $stmt = $conn->query("
     SELECT r.*, 
            COALESCE(p.nama_lengkap, pel.nama_lengkap) as nama_lengkap,
@@ -269,7 +269,7 @@ $stmt = $conn->query("
 ");
 $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* STATISTICS */
+/* statistik */
 $stats_pending = $conn->query("
     SELECT COUNT(*) as total FROM password_reset_requests WHERE status = 'pending'
 ")->fetch()['total'];
@@ -296,6 +296,8 @@ $page_title = 'Kelola Reset Password - Admin';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <style>
         :root {
             --primary-blue: #1e40af;
@@ -332,23 +334,6 @@ $page_title = 'Kelola Reset Password - Admin';
 
         .page-header h2 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
         .page-header p  { font-size: 14px; opacity: 0.88; }
-        /* .page-header {
-            color: #1e293b;
-            margin: 0px 0px 30px;
-        }
-
-        .page-header h2 {
-            margin: 0px 0px 8px;
-            font-weight: 700;
-            font-size: 28px;
-        }
-
-        .page-header p {
-            margin: 5px 0 0 0;
-            font-size: 15px;
-            font-weight: 400;
-            color: #64748b;
-        } */
 
         .card {
             border: none;
@@ -1119,7 +1104,7 @@ $page_title = 'Kelola Reset Password - Admin';
         </div>
     </div>
 
-    <!-- Confirmation Modal -->
+    <!-- modal konfirmasi -->
     <div class="custom-confirm-overlay" id="customConfirm">
         <div class="custom-confirm-box">
             <div class="custom-confirm-header">
@@ -1148,7 +1133,7 @@ $page_title = 'Kelola Reset Password - Admin';
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
 
-        // CUSTOM CONFIRMATION DIALOG
+        // dialog konfirm
         function showCustomConfirm(options) {
             return new Promise((resolve) => {
                 const overlay = document.getElementById('customConfirm');

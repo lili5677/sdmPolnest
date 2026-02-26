@@ -1,32 +1,12 @@
 <?php
-/**
- * FORM LANJUTAN - Multi-Step Form (REVISED VERSION v2.2)
- * File: users/pelamar/form_lanjutan.php
- * 
- * Form data diri lanjutan setelah lolos administrasi
- * 4-step form dengan SweetAlert dan integrasi database
- * 
- * CHANGELOG v2.2:
- * - UPDATED: Bagian SKCK dengan upload file PDF
- * - ADDED: Validasi file PDF dengan max size 5MB
- * - CHANGED: Tabel catatan_kepolisian menjadi surat_skck
- * - ADDED: Field path_file, nama_file, ukuran_file untuk SKCK
- * 
- * CHANGELOG v2.1:
- * - FIXED: Download template surat pernyataan menggunakan JavaScript
- * - FIXED: Error "Download tidak aman diblokir" di browser
- * - IMPROVED: Notifikasi toast saat download dimulai
- */
 
 require_once '../../config/database.php';
 
-// Check if user is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     header('Location: ' . BASE_URL . 'auth/login_pelamar.php');
     exit();
 }
 
-// Get lamaran_id from URL
 if (!isset($_GET['lamaran_id'])) {
     header('Location: ' . BASE_URL . 'users/pelamar/tracking_lamaran.php');
     exit();
@@ -49,7 +29,7 @@ if (!$lamaran) {
     die('Lamaran tidak ditemukan atau Anda tidak memiliki akses untuk mengisi form ini.');
 }
 
-// Handle AJAX form submission
+// Form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_submit'])) {
     header('Content-Type: application/json');
     
@@ -81,11 +61,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_submit'])) {
             $keluarga_id = $stmt->fetchColumn();
         }
         
-        // 2. Saudara Kandung - Delete existing first
+        // 2. Saudara Kandung 
         $stmt = $conn->prepare("DELETE FROM saudara_kandung WHERE keluarga_id = ?");
         $stmt->execute([$keluarga_id]);
         
-        // Insert new saudara kandung
+            // Insert new saudara kandung
         if (!empty($_POST['nama_saudara']) && !empty($_POST['nama_saudara'][0])) {
             $stmt = $conn->prepare("INSERT INTO saudara_kandung (keluarga_id, nama_saudara, pekerjaan_saudara) VALUES (?, ?, ?)");
             foreach ($_POST['nama_saudara'] as $i => $nama) {
@@ -142,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_submit'])) {
             $_POST['surat_keterangan_kerja']
         ]);
         
-        // 5b. Upload Surat Keterangan Kerja ke tabel pengalaman_pelamar (jika ada)
+            // Upload Surat Keterangan Kerja ke tabel pengalaman_pelamar (jika ada)
         if ($_POST['surat_keterangan_kerja'] == 'ya' && isset($_FILES['file_skk']) && $_FILES['file_skk']['error'] == 0) {
             $upload_dir = '../../uploads/surat_keterangan_kerja/';
             if (!file_exists($upload_dir)) {
@@ -169,12 +149,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_submit'])) {
                 throw new Exception('Gagal upload surat keterangan kerja');
             }
             
-            // Get pelamar_id from lamaran
+                // Get pelamar_id from lamaran
             $stmt_pelamar = $conn->prepare("SELECT pelamar_id FROM lamaran WHERE lamaran_id = ?");
             $stmt_pelamar->execute([$lamaran_id]);
             $pelamar_id = $stmt_pelamar->fetchColumn();
             
-            // Update pengalaman_pelamar dengan file SKK
+                // Update pengalaman_pelamar dengan file SKK
             $stmt = $conn->prepare("
                 UPDATE pengalaman_pelamar 
                 SET skk_path = ?, 
@@ -196,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajax_submit'])) {
         $skck_nama = null;
         $skck_size = null;
         
-        // Upload file SKCK jika dipilih "ya"
+            // Upload file SKCK jika dipilih "ya"
         if ($_POST['punya_skck'] == 'ya' && isset($_FILES['file_skck']) && $_FILES['file_skck']['error'] == 0) {
             $upload_dir = '../../uploads/skck/';
             if (!file_exists($upload_dir)) {
@@ -351,6 +331,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $page_title ?></title>
     
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -390,7 +371,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
             margin-bottom: 40px;
         }
         
-        /* PROGRESS STEPPER */
+        /* Progress Stepper */
         .progress-stepper {
             display: flex;
             justify-content: space-between;
@@ -455,7 +436,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
             color: #2c3e50;
         }
         
-        /* FORM CARD */
+        /* Form Card */
         .form-card {
             background: white;
             border-radius: 20px;
@@ -526,7 +507,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
             margin: 30px 0;
         }
         
-        /* BUTTONS */
+        /* Button */
         .button-group {
             display: flex;
             justify-content: space-between;
@@ -1194,11 +1175,11 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
             }
         }
         
-        // Validate SKCK File (NEW FUNCTION)
+        // Validate SKCK File
         function validateSKCKFile(input) {
             if (input.files && input.files[0]) {
                 const file = input.files[0];
-                const fileSize = file.size / 1024 / 1024; // MB
+                const fileSize = file.size / 1024 / 1024; 
                 const fileExt = file.name.split('.').pop().toLowerCase();
                 
                 // Check if PDF
@@ -1287,7 +1268,7 @@ $page_title = 'Formulir Lanjutan - Politeknik Nest';
             
             if (input.files && input.files[0]) {
                 const file = input.files[0];
-                const fileSize = (file.size / 1024 / 1024).toFixed(2); // MB
+                const fileSize = (file.size / 1024 / 1024).toFixed(2);
                 
                 // Check max 5MB
                 if (fileSize > 5) {

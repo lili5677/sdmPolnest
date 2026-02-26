@@ -1,9 +1,5 @@
 <?php
 session_start();
-// if (!isset($_SESSION['admin_logged_in'])) {
-//     header('Location: ../login.php');
-//     exit();
-// }
 
 require_once '../../config/database.php';
 
@@ -15,7 +11,7 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 $pengajuan_id = (int)$_GET['id'];
 
 try {
-    // Update status pengajuan menjadi ditinjau
+    // Update status pengajuan 
     $query = "UPDATE pengajuan_studi 
               SET status_pengajuan = 'ditinjau',
                   updated_at = CURRENT_TIMESTAMP

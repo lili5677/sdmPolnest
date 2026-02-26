@@ -8,10 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
 }
 
 require_once '../../config/database.php';
-
-// =====================================================
-// HANDLER: TAMBAH PELATIHAN
-// =====================================================
+// tambah pelatihan
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'tambah') {
     try {
         $judul_pelatihan = $_POST['judul_pelatihan'];
@@ -115,9 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// =====================================================
-// HANDLER: EDIT PELATIHAN
-// =====================================================
+// edit pelatihan
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'edit') {
     try {
         $pelatihan_id = (int)$_POST['pelatihan_id'];
@@ -239,9 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// =====================================================
-// HANDLER: HAPUS PELATIHAN
-// =====================================================
+// hapus pelatihan
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'hapus') {
     try {
         $pelatihan_id = (int)$_POST['pelatihan_id'];

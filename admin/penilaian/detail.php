@@ -73,7 +73,6 @@ foreach ($detail_list as $d) {
     }
 }
 
-// Handle mark as viewed dari halaman ini
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_viewed'])) {
     $stmt_update = $conn->prepare("
         UPDATE penilaian_kinerja 
@@ -92,7 +91,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_viewed'])) {
 $success_message = $_SESSION['success_message'] ?? null;
 unset($_SESSION['success_message']);
 
-// Warna badge untuk nilai
 $nilai_config = [
     'Sangat Baik' => ['bg' => '#10b981', 'text' => 'white', 'icon' => 'emoji-smile'],
     'Baik'        => ['bg' => '#3b82f6', 'text' => 'white', 'icon' => 'hand-thumbs-up'],
@@ -115,6 +113,8 @@ $statistik_config = [
     <title>Detail Penilaian Kinerja - Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+     <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -131,7 +131,6 @@ $statistik_config = [
             min-height: 100vh;
         }
 
-        /* Page Header */
         .page-header {
             background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
             padding: 28px 32px;
@@ -158,24 +157,6 @@ $statistik_config = [
             opacity: 0.9;
             font-weight: 400;
         }
-
-        /* Header biasa */
-         /* .page-header {
-            margin-bottom: 30px;
-        }
-
-        .page-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 8px;
-        }
-
-        .page-header p {
-            color: #6b7280;
-            font-size: 15px;
-            margin: 0;
-        } */
 
         /* Alert */
         .alert {
@@ -254,7 +235,7 @@ $statistik_config = [
             letter-spacing: -0.025em;
         }
 
-        /* Profile Card - UPDATED */
+        /* Profile Card */
         .profile-card {
             background: linear-gradient(135deg, #e8f4f8 0%, #d8eaf2 100%);
             border: 1px solid #b8d8e6;
@@ -477,7 +458,6 @@ $statistik_config = [
 
     <div class="main-content">
 
-        <!-- Page Header -->
         <div class="page-header">
             <div>
                 <h1><i class=""></i> Detail Penilaian Kinerja</h1>
@@ -507,13 +487,12 @@ $statistik_config = [
             </div>
         <?php endif; ?>
 
-        <!-- Profile Card - Info Pegawai - UPDATED -->
+        <!-- Profile Card  -->
         <div class="profile-card">
             <div class="profile-card-title">
                 <i class=""></i> Informasi Pegawai
             </div>
             
-            <!-- Grid 2 Kolom -->
             <div class="profile-info-grid">
                 <!-- Kolom Kiri -->
                 <div class="profile-info-column">
@@ -532,14 +511,6 @@ $statistik_config = [
                         <div class="info-value"><?php echo htmlspecialchars($penilaian['unit_kerja'] ?? '-'); ?></div>
                     </div>
                     
-                    <!-- <div class="info-row">
-                        <div class="info-label">Jenis Pegawai</div>
-                        <div class="info-value">
-                            <span class="jenis-badge jenis-<?php echo strtolower($penilaian['jenis_pegawai']); ?>">
-                                <?php echo ucfirst($penilaian['jenis_pegawai']); ?>
-                            </span>
-                        </div>
-                    </div> -->
                 </div>
                 
                 <!-- Kolom Kanan -->

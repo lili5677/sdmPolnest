@@ -25,7 +25,7 @@ if (!in_array($activeTab, $validTabs)) {
     $activeTab = 'pengajuan';
 }
 
-// Query untuk data pengajuan
+// data pengajuan
 $query_pengajuan = "SELECT 
     ps.*,
     p.nama_lengkap,
@@ -52,6 +52,8 @@ $data_pengajuan = $stmt_pengajuan->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+    <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <style>
         * {
             margin: 0;
@@ -727,7 +729,7 @@ $data_pengajuan = $stmt_pengajuan->fetchAll(PDO::FETCH_ASSOC);
                                 <?php 
                                 $no = 1;
                                 foreach ($data_pengajuan as $row): 
-                                    // Badge status
+                                    
                                     $badge_class = 'badge-diajukan';
                                     $badge_icon = 'fa-paper-plane';
                                     switch($row['status_pengajuan']) {
@@ -829,10 +831,9 @@ $data_pengajuan = $stmt_pengajuan->fetchAll(PDO::FETCH_ASSOC);
     
     <script>
         $(document).ready(function() {
-            // Initialize DataTable
+            //  DataTable
             $('#tablePengajuan').DataTable({
                 language: {
-                    // ✅ Hapus URL, pakai konfigurasi manual
                     search: "",
                     searchPlaceholder: "Cari data...",
                     lengthMenu: "Tampilkan _MENU_ data",

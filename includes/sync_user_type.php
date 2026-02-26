@@ -1,8 +1,4 @@
 <?php
-/**
- * Fungsi untuk sinkronisasi user_type berdasarkan jenis_pegawai
- * Safety layer tambahan selain database trigger
- */
 
 function sinkronisasiUserType($conn, $user_id, $jenis_pegawai) {
     // Mapping jenis_pegawai ke user_type

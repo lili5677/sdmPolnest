@@ -79,8 +79,7 @@ if(isset($_GET['action']) || isset($_POST['action'])) {
             }
         }
         
-        // GET PEGAWAI LIST - HANYA YANG DATA KEPEGAWAIANNYA LENGKAP
-        // GET PEGAWAI LIST - HANYA YANG DATA KEPEGAWAIANNYA LENGKAP + PTKP
+        // GET PEGAWAI LIST
 elseif($action == 'get_pegawai_list') {
     $query = "SELECT 
                 p.pegawai_id,
@@ -108,10 +107,10 @@ elseif($action == 'get_pegawai_list') {
                 AND sk1.created_at = sk2.max_created
             ) sk ON p.pegawai_id = sk.pegawai_id
             
-            -- ✅ FILTER: Status Aktif
+            -- FILTER: Status Aktif
             WHERE sk.status_aktif = 'aktif'
             
-            -- ✅ FILTER: Field Wajib Umum
+            -- FILTER: Field Wajib Umum
             AND sk.jabatan IS NOT NULL 
             AND sk.jabatan != ''
             AND sk.jenis_kepegawaian IS NOT NULL
@@ -119,11 +118,11 @@ elseif($action == 'get_pegawai_list') {
             AND sk.unit_kerja != ''
             AND sk.tanggal_mulai_kerja IS NOT NULL
             
-            -- ✅ FILTER: PTKP WAJIB TERISI
+            -- FILTER: PTKP 
             AND sk.ptkp IS NOT NULL
             AND sk.ptkp != ''
             
-            -- ✅ FILTER: Khusus Pegawai Kontrak
+            -- FILTER: Khusus Pegawai Kontrak
             AND (
                 LOWER(sk.jenis_kepegawaian) = 'tetap'
                 OR (
@@ -133,7 +132,7 @@ elseif($action == 'get_pegawai_list') {
                 )
             )
             
-            -- ✅ EXCLUDE: Pegawai yang sudah ada di struktur
+            --  Pegawai yang sudah ada di struktur
             AND p.pegawai_id NOT IN (
                 SELECT pegawai_id FROM struktur_organisasi
             )
@@ -175,7 +174,7 @@ elseif($action == 'get_pegawai_list') {
         
         // ADD NEW ANGGOTA
         elseif($action == 'add' && $_SERVER['REQUEST_METHOD'] == 'POST') {
-            // Handle foto upload jika ada
+
             $foto_path = null;
             
             if(isset($_FILES['foto']) && $_FILES['foto']['error'] == UPLOAD_ERR_OK) {
@@ -267,7 +266,6 @@ elseif($action == 'get_pegawai_list') {
                 exit;
             }
             
-            // Ambil pegawai_id dari database (karena field disabled di form)
             $get_pegawai = "SELECT pegawai_id FROM struktur_organisasi WHERE struktur_id = :id";
             $get_stmt = $conn->prepare($get_pegawai);
             $get_stmt->bindParam(':id', $struktur_id);
@@ -284,7 +282,7 @@ elseif($action == 'get_pegawai_list') {
             
             if(isset($_FILES['foto']) && $_FILES['foto']['error'] == UPLOAD_ERR_OK) {
                 $allowed_types = ['image/jpeg', 'image/jpg', 'image/png'];
-                $max_size = 5 * 1024 * 1024; // 5MB dalam bytes
+                $max_size = 5 * 1024 * 1024;
                 
                 if(!in_array($_FILES['foto']['type'], $allowed_types)) {
                     $response['message'] = 'Format foto harus JPG, JPEG, atau PNG';
@@ -409,8 +407,7 @@ elseif($action == 'get_pegawai_list') {
             }
         }
 
-        // GET ALL PEGAWAI - DIPERBAIKI UNTUK MENGAMBIL DATA TERBARU + PTKP
-        // GET ALL PEGAWAI - DIPERBAIKI UNTUK MENGAMBIL DATA TERBARU + PTKP
+        // GET ALL PEGAWAI
         elseif($action == 'get_all_pegawai') {
             $query = "SELECT 
                         p.pegawai_id,
@@ -466,6 +463,7 @@ elseif($action == 'get_pegawai_list') {
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administrasi Kepegawaian</title>
@@ -504,25 +502,7 @@ elseif($action == 'get_pegawai_list') {
 
         .page-header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
         .page-header p  { font-size: 14px; opacity: 0.88; }
-        
-        /* .page-header {
-            margin-bottom: 30px;
-        }
 
-        .page-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 8px;
-        }
-
-        .page-header p {
-            color: #6b7280;
-            font-size: 15px;
-            margin: 0;
-        } */
-
-        /* Custom Tabs */
         .custom-tabs {
             border-bottom: 2px solid #e5e7eb;
             margin-bottom: 30px;
@@ -554,10 +534,7 @@ elseif($action == 'get_pegawai_list') {
             margin-right: 8px;
         }
 
-        /* ===== PERBAIKAN Z-INDEX UNTUK MODAL ===== */
-        /* PENTING: CSS ini harus ada di file utama agar modal muncul dengan benar */
-        
-        /* Modal Backdrop (background blur) */
+        /* Modal Backdrop*/
         .modal-backdrop {
             z-index: 9998 !important;
             background-color: rgba(0, 0, 0, 0.5) !important;
@@ -579,7 +556,7 @@ elseif($action == 'get_pegawai_list') {
             z-index: 10001 !important;
         }
 
-        /* Spesifik untuk modalAnggota */
+        /* Spesifik modalAnggota */
         #modalAnggota {
             z-index: 9999 !important;
         }
@@ -665,7 +642,7 @@ elseif($action == 'get_pegawai_list') {
 </head>
 <body>
     <?php 
-        // Set halaman saat ini untuk sidebar active state
+
         $halaman_sekarang = basename($_SERVER['PHP_SELF']);
         include '../sidebar/sidebar.php';  
     ?>

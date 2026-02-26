@@ -10,7 +10,6 @@ if($id <= 0) {
 }
 
 // Get data pegawai
-// Get data pegawai
 $query = "SELECT 
             p.*,
             sk.jabatan,
@@ -35,7 +34,7 @@ if(!$pegawai) {
     exit;
 }
 
-//Set default values jika NULL (untuk pegawai baru dari import)
+//Set default values jika NULL
 if(empty($pegawai['status_aktif'])) {
     $pegawai['status_aktif'] = 'aktif';
 }
@@ -127,7 +126,7 @@ if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detail Pegawai - <?= htmlspecialchars($pegawai['nama_lengkap']) ?></title>
-    
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -411,7 +410,7 @@ if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] 
                 </div>
                 
                 <?php 
-                // Daftar dokumen yang diperlukan (sesuai dengan sistem user)
+                // Daftar dokumen yang diperlukan 
                 $requiredDokumen = [
                     'cv' => 'Curriculum Vitae (CV)',
                     'ktp' => 'KTP (Kartu Tanda Penduduk)',
@@ -423,7 +422,7 @@ if($pegawai['jenis_kepegawaian'] == 'kontrak' && $pegawai['masa_kontrak_mulai'] 
                     'surat_bebas_napza' => 'Surat Keterangan Bebas Napza'
                 ];
                 
-                // Buat array dokumen berdasarkan jenis untuk akses cepat
+                // array dokumen berdasarkan jenis
                 $dokumenByJenis = [];
                 foreach($dokumenList as $dok) {
                     $dokumenByJenis[$dok['jenis_dokumen']] = $dok;

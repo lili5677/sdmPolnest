@@ -139,19 +139,23 @@ include '../sidebar/sidebar.php';
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title><?= $page_title ?></title>
+    <title><?= $page_title ?> - SDM Polnest</title>
+
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css" rel="stylesheet">
-    
+ 
+
+
     <style>
         * {
             font-family: 'Poppins', sans-serif;
         }
         body {
             background: #f5f7fa;
-        }
         }
         .main-content {
             margin-left: 290px;
@@ -392,10 +396,7 @@ include '../sidebar/sidebar.php';
             margin-bottom: 16px;
         }
         
-        /* ============================================ */
-        /* RESPONSIVE DESIGN - TABLET & MOBILE */
-        /* ============================================ */
-        
+        /* RESPONSIVE CSS - Sesuai dengan sidebar.php */
         @media (max-width: 968px) {
             .main-content {
                 margin-left: 80px;
@@ -411,7 +412,6 @@ include '../sidebar/sidebar.php';
                 font-size: 13px;
             }
             
-            /* Stats Cards - 2 Kolom */
             .stats-row {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 12px;
@@ -545,7 +545,7 @@ include '../sidebar/sidebar.php';
                 font-size: 16px;
             }
             
-            /* Table - Horizontal Scroll with Scrollbar */
+            /* Tabel Responsive */
             .table-responsive {
                 overflow-x: auto !important;
                 -webkit-overflow-scrolling: touch;
@@ -603,7 +603,6 @@ include '../sidebar/sidebar.php';
             }
         }
         
-        /* MOBILE SMALL */
         @media (max-width: 480px) {
             .main-content {
                 margin-left: 70px;
@@ -617,8 +616,7 @@ include '../sidebar/sidebar.php';
             .page-header p {
                 font-size: 12px;
             }
-            
-            /* Stats - 1 Kolom di Mobile Kecil */
+
             .stats-row {
                 grid-template-columns: 1fr;
                 gap: 10px;
@@ -732,7 +730,6 @@ include '../sidebar/sidebar.php';
             }
         }
         
-        /* Extra Small (< 375px) */
         @media (max-width: 375px) {
             .main-content {
                 padding: 12px 8px;
@@ -1664,7 +1661,7 @@ function submitJadwalInterview() {
     })
     .catch(error => {
         bootstrap.Modal.getInstance(document.getElementById('modalInterview')).hide();
-        Swal.fire({A
+        Swal.fire({
             title: 'Error!',
             text: 'Terjadi kesalahan: ' + error,
             icon: 'error'

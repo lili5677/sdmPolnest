@@ -2,14 +2,14 @@
 session_start();
 require_once '../../config/database.php';
 
-// Cek apakah user sudah login dan merupakan admin
+// Cek user login
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
 }
 
 try {
-    // Query untuk mengambil data pegawai lama dengan TOKEN
+    // mengambil data pegawai lama dengan token
     $query = "SELECT 
                 p.nama_lengkap,
                 p.email,
@@ -35,18 +35,15 @@ try {
         exit();
     }
     
-    // Set header untuk download CSV
+    // download CSV
     $filename = "Data_Pegawai_Lama_" . date('Y-m-d_His') . ".csv";
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     
-    // Buat output stream
     $output = fopen('php://output', 'w');
     
-    // Tulis BOM untuk UTF-8 (agar Excel bisa baca karakter khusus dengan benar)
     fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
     
-    // Tulis header CSV
     $header = [
         'Nama Lengkap',
         'Email',
@@ -57,7 +54,7 @@ try {
     ];
     fputcsv($output, $header);
     
-    // Tulis data pegawai
+    //  data pegawai
     foreach ($pegawai_data as $row) {
         $csv_row = [
             $row['nama_lengkap'],

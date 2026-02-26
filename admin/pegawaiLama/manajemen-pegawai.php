@@ -21,7 +21,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
     $pegawai_id = intval($_GET['id']);
     
     try {
-        // Mulai transaction untuk memastikan semua data terhapus
+        
         $conn->beginTransaction();
         
         // Ambil user_id dari pegawai
@@ -36,12 +36,11 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
             $user_id = $row['user_id'];
             $nama = $row['nama_lengkap'];
             
-            // Hapus user (akan otomatis cascade delete ke pegawai dan relasi lainnya)
+            // Hapus user 
             $query_delete_user = "DELETE FROM users WHERE user_id = ?";
             $stmt_delete = $conn->prepare($query_delete_user);
             $stmt_delete->execute([$user_id]);
-            
-            // Commit transaction
+        
             $conn->commit();
             
             $_SESSION['success'] = "Pegawai '$nama' berhasil dihapus beserta semua data terkait";
@@ -69,7 +68,6 @@ $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $filter_jenis = isset($_GET['jenis']) ? trim($_GET['jenis']) : '';
 $filter_status = isset($_GET['status']) ? trim($_GET['status']) : '';
 
-// Build query with filters
 $where_conditions = ["p.is_pegawai_lama = 1"];
 $params = [];
 
@@ -95,14 +93,14 @@ if (!empty($filter_status)) {
 
 $where_sql = implode(" AND ", $where_conditions);
 
-// Get total records for all (tanpa filter untuk stats)
+// Get total records (tanpa filter untuk stats)
 $query_count_all = "SELECT COUNT(*) as total 
                     FROM pegawai p
                     JOIN users u ON p.user_id = u.user_id
                     WHERE p.is_pegawai_lama = 1";
 $total_all = $conn->query($query_count_all)->fetch(PDO::FETCH_ASSOC)['total'];
 
-// Get total records with filters (untuk pagination)
+// Get total records (untuk pagination)
 $query_count = "SELECT COUNT(*) as total 
                 FROM pegawai p
                 JOIN users u ON p.user_id = u.user_id
@@ -150,6 +148,8 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <!-- Google Fonts - Poppins -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         :root {
@@ -188,24 +188,6 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
 
         .page-header h2 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
         .page-header p  { font-size: 14px; opacity: 0.88; }
-        
-        /* .page-header {
-            color: #1e293b;
-            margin: 0px 0px 30px;
-        }
-
-        .page-header h2 {
-            margin: 0px 0px 8px;
-            font-weight: 700;
-            font-size: 28px;
-        }
-
-        .page-header p {
-            margin: 5px 0 0 0;
-            font-size: 15px;
-            font-weight: 400;
-            color: #64748b;
-        } */
 
         .card {
             border: none;
@@ -582,12 +564,10 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
             vertical-align: middle;
         }
 
-        /* Responsive Button Filter */
         .btn-filter i {
             font-size: 1rem;
         }
 
-        /* Hide text on small screens, show icon only */
         @media (max-width: 991px) {
             .btn-filter .btn-text {
                 display: none;
@@ -598,14 +578,12 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
             }
         }
 
-        /* Show text on larger screens */
         @media (min-width: 992px) {
             .btn-filter .btn-text {
                 display: inline;
             }
         }
 
-        /* Responsive Button Filter */
         .btn-filter {
             display: flex;
             align-items: center;
@@ -613,7 +591,6 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
             gap: 5px;
         }
 
-        /* SweetAlert2 Custom Styling */
         .swal2-popup {
             border-radius: 15px;
         }
@@ -898,11 +875,10 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
                     </li>
                     
                     <?php 
-                    // Improved pagination logic
+                    
                     $start_page = max(1, $page - 2);
                     $end_page = min($total_pages, $page + 2);
                     
-                    // Always show first page
                     if ($start_page > 1): ?>
                         <li class="page-item">
                             <a class="page-link" href="?page=1&search=<?php echo urlencode($search); ?>&jenis=<?php echo urlencode($filter_jenis); ?>&status=<?php echo urlencode($filter_status); ?>">1</a>
@@ -921,7 +897,7 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
                     <?php endfor; ?>
                     
                     <?php 
-                    // Always show last page
+        
                     if ($end_page < $total_pages): ?>
                         <?php if ($end_page < $total_pages - 1): ?>
                             <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -1082,7 +1058,7 @@ $page_title = 'Manajemen Pegawai Lama - POLNEST';
         }
     </script>
     <style>
-        /* Animasi tambahan untuk SweetAlert2 */
+        
         @keyframes fadeInDown {
             from {
                 opacity: 0;

@@ -1,21 +1,21 @@
 <?php
-// STEP 1: Start session
+//Start session
 session_start();
 
-// STEP 2: Cek login
+//Cek login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
     header("Location: ../../auth/login_pegawai.php");
     exit;
 }
 
-// STEP 3: Include helper untuk cek kelengkapan
+//Include helper untuk cek kelengkapan
 require_once '../../config/check_completion.php';
 require_once '../../config/database.php';
 
-// STEP 4: Cek kelengkapan data pegawai
+//Cek kelengkapan data pegawai
 $check_result = checkPegawaiCompletion($conn, $_SESSION['pegawai_id']);
 
-// STEP 5: Jika data belum lengkap, redirect ke administrasi
+//Jika data belum lengkap, redirect ke administrasi
 if (!$check_result['is_complete']) {
     $_SESSION['flash_message'] = [
         'type' => 'warning',
@@ -25,10 +25,10 @@ if (!$check_result['is_complete']) {
     exit;
 }
 
-// STEP 6: Ambil pegawai_id dari session
+//Ambil pegawai_id dari session
 $pegawai_id = $_SESSION['pegawai_id'];
 
-// STEP 7: Ambil data pegawai dari database (KODE ASLI LANJUT DI SINI)
+//Ambil data pegawai dari database (KODE ASLI LANJUT DI SINI)
 $stmt = $conn->prepare("
     SELECT p.*, sk.jabatan, sk.tanggal_mulai_kerja 
     FROM pegawai p 
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_pengajuan'])) {
             $errors[] = "Surat Permohonan harus berformat PDF";
         }
         
-        // Validasi ukuran file (max 5MB = 5120 KB)
+        // Validasi ukuran file
         $file_size_kb = $file['size'] / 1024;
         if ($file_size_kb > 5120) {
             $errors[] = "Ukuran Surat Permohonan maksimal 5 MB";
@@ -146,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_pengajuan'])) {
             $errors[] = "Surat Penerimaan harus berformat PDF";
         }
         
-        // Validasi ukuran file (max 5MB = 5120 KB)
+        // Validasi ukuran file 
         $file_size_kb = $file['size'] / 1024;
         if ($file_size_kb > 5120) {
             $errors[] = "Ukuran Surat Penerimaan maksimal 5 MB";
@@ -219,6 +219,7 @@ if (isset($_SESSION['success_message'])) {
     <title>Pengembangan Sumber Daya Manusia - Politeknik NEST</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * {
@@ -368,7 +369,6 @@ if (isset($_SESSION['success_message'])) {
             line-height: 1.4;
         }
         
-        /* Template Section */
         .template-section {
             background: #f8f3ff;
             border-radius: 12px;
@@ -503,12 +503,10 @@ if (isset($_SESSION['success_message'])) {
             margin-top: 5px;
         }
         
-        /* Smooth scroll */
         html {
             scroll-behavior: smooth;
         }
         
-        /* Buttons */
         .form-actions {
             display: flex;
             gap: 15px;

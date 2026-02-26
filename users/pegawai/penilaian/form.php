@@ -59,7 +59,7 @@ $stmt_check = $conn->prepare("
 $stmt_check->execute([$pegawai_id, $template_id]);
 $existing_penilaian = $stmt_check->fetch(PDO::FETCH_ASSOC);
 
-// Parse nilai yang sudah ada (jika edit mode)
+// Parse nilai yang sudah ada
 $existing_values = [];
 if ($existing_penilaian && !empty($existing_penilaian['nilai_data'])) {
     $nilai_items = explode('|', $existing_penilaian['nilai_data']);
@@ -120,7 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_penilaian'])) {
                 // UPDATE mode
                 $penilaian_id = $existing_penilaian['penilaian_id'];
                 
-                // Update header (jika nama/jabatan/unit kerja berubah, update catatan)
                 $stmt_update = $conn->prepare("
                     UPDATE penilaian_kinerja 
                     SET catatan = ?, updated_at = CURRENT_TIMESTAMP
@@ -179,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['submit_penilaian'])) {
     }
 }
 
-// Ambil success message dari session (jika ada)
+// Ambil success message dari session
 $success_message = null;
 if (isset($_SESSION['success_message'])) {
     $success_message = $_SESSION['success_message'];
@@ -200,6 +199,7 @@ if (isset($_SESSION['error_message'])) {
     <title>Penilaian Kinerja - Politeknik NEST</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * {
@@ -365,8 +365,6 @@ if (isset($_SESSION['error_message'])) {
             border: 1px solid #dee2e6;
         }
         
-        /* Button Options */
-        /* Button Options - Enhanced Colors */
 .btn-option {
     display: inline-block;
     padding: 10px 18px;
@@ -411,7 +409,6 @@ if (isset($_SESSION['error_message'])) {
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* Checked state - full color with gradient */
 input[type="radio"]:checked + .btn-option[data-color="#28a745"] {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     border-color: #28a745;

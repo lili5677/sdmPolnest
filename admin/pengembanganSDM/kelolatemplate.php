@@ -7,7 +7,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
 
 require_once '../../config/database.php';
 
-// Ambil data template surat untuk pengembangan SDM
 $query_template = "SELECT * FROM template_surat 
 WHERE jenis_template IN ('izin_belajar', 'pernyataan_kerja', 'studi_lanjut')
 ORDER BY created_at DESC";
@@ -16,11 +15,9 @@ $stmt_template = $conn->prepare($query_template);
 $stmt_template->execute();
 $template_data = $stmt_template->fetchAll(PDO::FETCH_ASSOC);
 
-// Konstanta untuk upload
-define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB dalam bytes
+define('MAX_FILE_SIZE', 2 * 1024 * 1024); 
 define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
 ?>
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -30,45 +27,36 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Poppins', sans-serif;
-            background-color: #f8f9fa;
-            overflow-x: hidden;
+            background-color: #f5f7fa;
         }
 
         .main-content {
-            margin-left: 280px;
-            padding: 32px;
-            min-height: 100vh;
-            transition: all 0.3s ease;
-            background: #f8fafc;
+            padding: 30px;
+            margin-left: 290px;
+            transition: margin-left 0.3s ease;
         }
 
         .page-header {
-            margin-bottom: 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            margin-bottom: 30px;
         }
 
-        .page-title {
+        .page-header h1 {
             font-size: 28px;
             font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 8px;
+            color: #1a1a1a;
+            margin-bottom: 5px;
         }
 
-        .page-subtitle {
-            font-size: 15px;
-            color: #64748b;
-            font-weight: 400;
+        .page-header p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 16px;
         }
 
         .btn-back {
@@ -95,9 +83,9 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
 
         .content-card {
             background: white;
-            border-radius: 12px;
+            border-radius: 16px;
             padding: 28px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
             margin-bottom: 24px;
         }
 
@@ -140,11 +128,7 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             align-items: end;
         }
 
-        .form-group {
-            flex: 1;
-            min-width: 200px;
-            text-align: left;
-        }
+        .form-group { flex: 1; min-width: 200px; text-align: left; }
 
         .form-group label {
             display: block;
@@ -170,16 +154,8 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             border-color: #3b82f6;
         }
 
-        .file-input-wrapper {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-        }
-
-        .file-input-wrapper input[type="file"] {
-            position: absolute;
-            left: -9999px;
-        }
+        .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+        .file-input-wrapper input[type="file"] { position: absolute; left: -9999px; }
 
         .file-input-label {
             padding: 12px 24px;
@@ -195,10 +171,7 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             align-items: center;
             gap: 8px;
         }
-
-        .file-input-label:hover {
-            background: #eff6ff;
-        }
+        .file-input-label:hover { background: #eff6ff; }
 
         .btn-upload {
             padding: 12px 32px;
@@ -215,16 +188,12 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             align-items: center;
             gap: 8px;
         }
-
-        .btn-upload:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
-        }
+        .btn-upload:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(59,130,246,0.3); }
 
         .section-subtitle {
             font-size: 16px;
             font-weight: 600;
-            color: #1e293b;
+            color: #1a1a1a;
             margin-bottom: 20px;
         }
 
@@ -244,11 +213,7 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             gap: 16px;
             align-items: start;
         }
-
-        .template-card:hover {
-            border-color: #cbd5e1;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
+        .template-card:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 
         .template-icon {
             width: 48px;
@@ -263,27 +228,10 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             flex-shrink: 0;
         }
 
-        .template-info {
-            flex: 1;
-        }
-
-        .template-name {
-            font-size: 15px;
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 4px;
-        }
-
-        .template-meta {
-            font-size: 12px;
-            color: #64748b;
-            margin-bottom: 12px;
-        }
-
-        .template-actions {
-            display: flex;
-            gap: 8px;
-        }
+        .template-info { flex: 1; }
+        .template-name { font-size: 15px; font-weight: 600; color: #1a1a1a; margin-bottom: 4px; }
+        .template-meta { font-size: 12px; color: #666; margin-bottom: 12px; }
+        .template-actions { display: flex; gap: 8px; }
 
         .btn-download {
             padding: 8px 16px;
@@ -300,12 +248,7 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             align-items: center;
             gap: 6px;
         }
-
-        .btn-download:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-            color: white;
-        }
+        .btn-download:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,0.3); color: white; }
 
         .btn-delete {
             padding: 8px 16px;
@@ -318,23 +261,18 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             cursor: pointer;
             transition: all 0.3s ease;
         }
+        .btn-delete:hover { background: #fecaca; }
 
-        .btn-delete:hover {
-            background: #fecaca;
+        @media (max-width: 968px) {
+            .main-content { margin-left: 80px; padding: 24px; }
         }
-
         @media (max-width: 768px) {
-            .upload-form {
-                flex-direction: column;
-            }
-
-            .form-group {
-                width: 100%;
-            }
-
-            .template-grid {
-                grid-template-columns: 1fr;
-            }
+            .upload-form { flex-direction: column; }
+            .form-group { width: 100%; }
+            .template-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .main-content { margin-left: 70px; padding: 16px; }
         }
     </style>
 </head>
@@ -342,11 +280,10 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
     <?php include '../sidebar/sidebar.php'; ?>
 
     <div class="main-content">
+
         <div class="page-header">
-            <div>
-                <h1 class="page-title">Kelola Template Pengajuan</h1>
-                <p class="page-subtitle">Upload dan kelola template surat pengajuan studi lanjut</p>
-            </div>
+            <h1>Kelola Template Pengajuan</h1>
+            <p>Upload dan kelola template surat pengajuan studi lanjut</p>
             <a href="pengembangan-sdm.php" class="btn-back">
                 <i class="fas fa-arrow-left"></i>
                 Kembali ke Pengembangan SDM
@@ -366,11 +303,8 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
             </div>
             <?php else: ?>
             <div class="upload-section">
-                <div class="upload-icon">
-                    <i class="fas fa-cloud-upload-alt"></i>
-                </div>
+                <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
                 <div class="upload-title">Upload Template Baru</div>
-                
                 <form class="upload-form" id="uploadTemplateForm" action="upload.php" method="POST" enctype="multipart/form-data">
                     <div class="form-group">
                         <label>Nama Template</label>
@@ -383,32 +317,24 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
                             <span id="fileName">Pilih File</span>
                         </label>
                     </div>
-                    <button type="submit" class="btn-upload">
-                        <i class="fas fa-upload"></i> Upload
-                    </button>
+                    <button type="submit" class="btn-upload"><i class="fas fa-upload"></i> Upload</button>
                 </form>
-                <div style="text-align: center; margin-top: 12px;">
-                    <small style="color: #1e40af; font-size: 12px;">
-                        <i class="fas fa-info-circle"></i> 
-                        Format: .doc, .docx, .pdf | Maksimal ukuran file: 2MB
+                <div style="text-align:center;margin-top:12px;">
+                    <small style="color:#1e40af;font-size:12px;">
+                        <i class="fas fa-info-circle"></i> Format: .doc, .docx, .pdf | Maksimal ukuran file: 2MB
                     </small>
                 </div>
             </div>
             <?php endif; ?>
 
             <?php if (!empty($template_data) && count($template_data) > 0): ?>
-            
-            <h3 class="section-subtitle" style="margin-top: 40px;">Template Tersedia</h3>
-
+            <h3 class="section-subtitle" style="margin-top:40px;">Template Tersedia</h3>
             <div class="template-grid">
-                <?php foreach ($template_data as $template): 
+                <?php foreach ($template_data as $template):
                     $created_date = date('d M Y', strtotime($template['created_at']));
-                    $file_name = basename($template['path_file']);
                 ?>
                 <div class="template-card">
-                    <div class="template-icon">
-                        <i class="fas fa-file-alt"></i>
-                    </div>
+                    <div class="template-icon"><i class="fas fa-file-alt"></i></div>
                     <div class="template-info">
                         <div class="template-name"><?php echo htmlspecialchars($template['nama_template']); ?></div>
                         <div class="template-meta">Upload: <?php echo $created_date; ?></div>
@@ -424,47 +350,25 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
                 </div>
                 <?php endforeach; ?>
             </div>
-            
             <?php endif; ?>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
     <script>
-        // Validasi file upload
         document.getElementById('uploadTemplateForm')?.addEventListener('submit', function(e) {
-            const fileInput = document.getElementById('templateFile');
-            const file = fileInput.files[0];
-            
+            const file = document.getElementById('templateFile').files[0];
             if (file) {
-                // Validasi ukuran file (2MB = 2 * 1024 * 1024 bytes)
-                const maxSize = 2 * 1024 * 1024;
-                if (file.size > maxSize) {
+                if (file.size > 2 * 1024 * 1024) {
                     e.preventDefault();
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'File Terlalu Besar!',
-                        text: 'Ukuran file maksimal adalah 2MB',
-                        confirmButtonColor: '#3b82f6'
-                    });
+                    Swal.fire({ icon:'error', title:'File Terlalu Besar!', text:'Ukuran file maksimal adalah 2MB', confirmButtonColor:'#3b82f6' });
                     return false;
                 }
-                
-                // Validasi ekstensi file
-                const allowedExtensions = ['doc', 'docx', 'pdf'];
-                const fileName = file.name.toLowerCase();
-                const fileExtension = fileName.split('.').pop();
-                
-                if (!allowedExtensions.includes(fileExtension)) {
+                const ext = file.name.toLowerCase().split('.').pop();
+                if (!['doc','docx','pdf'].includes(ext)) {
                     e.preventDefault();
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Format File Tidak Valid!',
-                        text: 'Hanya file .doc, .docx, dan .pdf yang diperbolehkan',
-                        confirmButtonColor: '#3b82f6'
-                    });
+                    Swal.fire({ icon:'error', title:'Format File Tidak Valid!', text:'Hanya file .doc, .docx, dan .pdf yang diperbolehkan', confirmButtonColor:'#3b82f6' });
                     return false;
                 }
             }
@@ -472,50 +376,28 @@ define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
 
         document.getElementById('templateFile')?.addEventListener('change', function(e) {
             const file = e.target.files[0];
-            if (file) {
-                const fileName = file.name;
-                const fileSize = (file.size / 1024).toFixed(2); // Convert to KB
-                document.getElementById('fileName').textContent = `${fileName} (${fileSize} KB)`;
-            }
+            if (file) document.getElementById('fileName').textContent = `${file.name} (${(file.size/1024).toFixed(2)} KB)`;
         });
 
         function deleteTemplate(id, nama) {
             Swal.fire({
                 title: 'Hapus Template?',
                 html: `Apakah Anda yakin ingin menghapus template:<br><strong>${nama}</strong>`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: '<i class="fas fa-trash"></i> Ya, Hapus',
-                cancelButtonText: 'Batal'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    window.location.href = 'delete.php?id=' + id;
-                }
-            });
+                icon: 'warning', showCancelButton: true,
+                confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280',
+                confirmButtonText: '<i class="fas fa-trash"></i> Ya, Hapus', cancelButtonText: 'Batal'
+            }).then((result) => { if (result.isConfirmed) window.location.href = 'delete.php?id=' + id; });
         }
 
-        // Alert handler untuk notifikasi dari upload/delete
         document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
-            const message = urlParams.get('message');
-            
-            if (status && message) {
-                const icon = status === 'success' ? 'success' : 'error';
-                const title = status === 'success' ? 'Berhasil!' : 'Gagal!';
-                
+            const p = new URLSearchParams(window.location.search);
+            if (p.get('status') && p.get('message')) {
                 Swal.fire({
-                    icon: icon,
-                    title: title,
-                    text: decodeURIComponent(message),
-                    confirmButtonColor: '#3b82f6',
-                    timer: 3000,
-                    timerProgressBar: true
-                }).then(() => {
-                    window.location.href = 'kelolatemplate.php';
-                });
+                    icon: p.get('status') === 'success' ? 'success' : 'error',
+                    title: p.get('status') === 'success' ? 'Berhasil!' : 'Gagal!',
+                    text: decodeURIComponent(p.get('message')),
+                    confirmButtonColor: '#3b82f6', timer: 3000, timerProgressBar: true
+                }).then(() => { window.location.href = 'kelolatemplate.php'; });
             }
         });
     </script>

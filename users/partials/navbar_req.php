@@ -335,7 +335,7 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
             }
         }
 
-        /* Custom SweetAlert2 Styling */
+        /* Custom SweetAlert */
         .swal2-popup {
             border-radius: 15px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -439,7 +439,6 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Tampilkan loading
                     Swal.fire({
                         title: 'Logging out...',
                         text: 'Mohon tunggu sebentar',
@@ -450,7 +449,6 @@ $username = $is_logged_in ? explode('@', $user_email)[0] : '';
                         }
                     });
                     
-                    // Redirect ke halaman logout
                     window.location.href = '<?php echo BASE_URL; ?>auth/logout.php';
                 }
             });

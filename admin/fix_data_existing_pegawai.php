@@ -1,16 +1,11 @@
 <?php
-/**
- * Script untuk Fix Data Existing
- * Menambahkan data pegawai untuk user yang sudah aktif tapi belum ada di tabel pegawai
- */
-
-require_once 'config/database.php'; // Sesuaikan path
+require_once 'config/database.php'; 
 
 echo "<h2>Script Fix Data Pegawai</h2>";
 echo "<hr>";
 
 try {
-    // 1. Cari semua user dengan user_type = pegawai yang belum ada di tabel pegawai
+    // Cari semua user dengan user_type 
     $query = "
         SELECT u.* 
         FROM users u

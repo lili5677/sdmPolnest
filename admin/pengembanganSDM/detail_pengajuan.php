@@ -46,7 +46,6 @@ $tanggal_mulai = $data['tanggal_mulai_studi'] ? date('d F Y', strtotime($data['t
 $created_at = date('d F Y H:i', strtotime($data['created_at']));
 $updated_at = $data['updated_at'] ? date('d F Y H:i', strtotime($data['updated_at'])) : '-';
 
-// Tentukan status badge
 $status_class = '';
 $status_icon = '';
 $status_text = '';
@@ -93,6 +92,9 @@ switch ($data['status_pengajuan']) {
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
+    <style>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Poppins', sans-serif; background-color: #f8f9fa; overflow-x: hidden; }
@@ -136,15 +138,97 @@ switch ($data['status_pengajuan']) {
         .timeline-content { flex: 1; }
         .timeline-title { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 4px; }
         .timeline-date { font-size: 12px; color: #64748b; }
+       /* Responsive untuk sidebar */
         @media (max-width: 968px) {
-            .main-content { margin-left: 80px; padding: 24px; }
-            .detail-container { grid-template-columns: 1fr; }
-            .action-panel { position: relative; top: 0; }
-            .info-grid { grid-template-columns: 1fr; }
+            .main-content { 
+                margin-left: 80px !important; 
+                padding: 24px; 
+            }
+            
+            .detail-container { 
+                grid-template-columns: 1fr; 
+            }
+            
+            .action-panel { 
+                position: relative; 
+                top: 0; 
+            }
+            
+            .info-grid { 
+                grid-template-columns: 1fr; 
+            }
+            
+            .page-title {
+                font-size: 24px;
+            }
         }
+
         @media (max-width: 768px) {
-            .main-content { margin-left: 0; padding: 20px; padding-top: 90px; }
-            .page-title { font-size: 24px; }
+            .main-content { 
+                margin-left: 70px !important; 
+                padding: 20px; 
+            }
+            
+            .page-title { 
+                font-size: 22px; 
+            }
+            
+            .page-subtitle {
+                font-size: 14px;
+            }
+            
+            .detail-card {
+                padding: 20px;
+            }
+            
+            .action-panel {
+                padding: 20px;
+            }
+            
+            .card-title {
+                font-size: 18px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-content {
+                margin-left: 70px !important;
+                padding: 16px;
+            }
+            
+            .page-title {
+                font-size: 20px;
+            }
+            
+            .page-subtitle {
+                font-size: 13px;
+            }
+            
+            .detail-card {
+                padding: 16px;
+            }
+            
+            .action-panel {
+                padding: 16px;
+            }
+            
+            .btn-action {
+                padding: 12px 20px;
+                font-size: 13px;
+            }
+            
+            .status-badge {
+                padding: 6px 16px;
+                font-size: 12px;
+            }
+            
+            .info-value {
+                font-size: 14px;
+            }
+            
+            .section-title {
+                font-size: 15px;
+            }
         }
     </style>
 </head>

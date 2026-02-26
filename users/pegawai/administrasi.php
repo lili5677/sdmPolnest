@@ -1029,7 +1029,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                        style="cursor: help; font-size: 0.9rem;" 
                        data-bs-toggle="tooltip" 
                        data-bs-placement="right" 
-                       title="Hanya admin yang dapat mengubah Status Kepegawaian"></i>
+                       title="Hanya admin yang dapat mengubah Status Kepegawaian, hubungi admin jika ingin melengkapi data"></i>
                 <?php endif; ?>
             </div>
             <div class="card-body">

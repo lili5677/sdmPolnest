@@ -1,20 +1,18 @@
 <?php
 require_once '../../config/database.php';
 
-// Cek apakah koneksi database tersedia
 if (!isset($pdo) && isset($conn)) {
-    $pdo = $conn; // Jika menggunakan variabel $conn
+    $pdo = $conn; 
 }
 
 if (!isset($pdo) && isset($db)) {
-    $pdo = $db; // Jika menggunakan variabel $db
+    $pdo = $db; 
 }
 
-// Jika masih belum ada koneksi, buat koneksi baru
 if (!isset($pdo)) {
     try {
         $host = 'localhost';
-        $dbname = 'nama_database'; // Ganti dengan nama database Anda
+        $dbname = 'sdm_polnest'; 
         $username = 'root';
         $password = '';
         
@@ -25,7 +23,7 @@ if (!isset($pdo)) {
     }
 }
 
-// Query untuk mendapatkan statistik
+// get statistik
 $sertifikasi_list = [];
 $stats = ['total_sertifikat' => 0, 'total_dosen' => 0];
 $error_message = '';
@@ -52,7 +50,7 @@ $offset = ($page - 1) * $per_page;
 // Filter status
 $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
 
-// Query untuk mendapatkan data sertifikasi dengan JOIN ke tabel pegawai
+// data sertifikasi 
 try {
     $query = "SELECT 
                 sd.sertifikasi_id,
@@ -69,7 +67,7 @@ try {
               FROM sertifikasi_dosen sd
               JOIN pegawai p ON sd.pegawai_id = p.pegawai_id";
     
-    // Tambahkan filter jika ada
+    
     if (!empty($status_filter)) {
         $query .= " WHERE sd.status_validasi = :status";
     }
@@ -105,6 +103,8 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
     <title>Sertifikasi Dosen - Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+     <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <style>
         * {
             margin: 0;
@@ -140,23 +140,6 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
 
         .header h2 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
         .header p  { font-size: 14px; opacity: 0.88; }
-
-        /* .header {
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1e293b;
-            margin-bottom: 8px;
-        }
-
-        .header p {
-            font-size: 15px;
-            color: #64748b;
-            font-weight: 400;
-        } */
 
         .stats-container {
             display: grid;
@@ -498,7 +481,6 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
                 min-width: 36px;
             }
 
-            /* Sidebar expanded state - full overlay on mobile */
             body.sidebar-expanded .main-content {
                 margin-left: 0;
             }
@@ -671,7 +653,6 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
 
                    <tbody>
                     <?php if(!empty($error_message)): ?>
-                        <!-- JIKA ADA ERROR -->
                         <tr>
                             <td colspan="9" style="text-align: center; padding: 40px;">
                                 <div style="color: #e74c3c; background: #fee; padding: 20px; border-radius: 8px; margin: 0 auto; max-width: 600px;">
@@ -682,7 +663,7 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
                             </td>
                         </tr>
                     <?php elseif(count($sertifikasi_list) > 0): ?>
-                        <!-- JIKA ADA DATA -->
+                        
                         <?php foreach($sertifikasi_list as $sertifikasi): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($sertifikasi['nama_lengkap']); ?></td>
@@ -739,7 +720,7 @@ $total_pages = $total_records > 0 ? ceil($total_records / $per_page) : 1;
                         </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <!-- JIKA TIDAK ADA DATA -->
+                    
                         <tr>
                             <td colspan="9" style="text-align: center; padding: 40px; color: #999;">
                                 <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>

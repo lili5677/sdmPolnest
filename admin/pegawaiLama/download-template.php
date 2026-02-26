@@ -2,15 +2,15 @@
 session_start();
 require_once '../../config/database.php';
 
-// Cek apakah user sudah login dan merupakan admin
+// Cek user login
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
 }
 
-// Cek apakah PhpSpreadsheet tersedia
+// Cek PhpSpreadsheet
 if (!file_exists('../../vendor/autoload.php')) {
-    // Jika tidak ada PhpSpreadsheet, fallback ke CSV biasa
+    //  fallback ke CSV biasa
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=template_import_pegawai.csv');
     
@@ -61,7 +61,7 @@ $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();
 $sheet->setTitle('Template Import Pegawai');
 
-// ===== BARIS 1: HEADER =====
+// header
 $headers = [
     'nama_lengkap',
     'email',
@@ -77,7 +77,6 @@ $headers = [
 
 $sheet->fromArray($headers, null, 'A1');
 
-// Style untuk header (baris 1)
 $headerStyle = [
     'font' => [
         'bold' => true,
@@ -103,7 +102,7 @@ $headerStyle = [
 $sheet->getStyle('A1:J1')->applyFromArray($headerStyle);
 $sheet->getRowDimension(1)->setRowHeight(25);
 
-// ===== BARIS 2: PETUNJUK/CONTOH =====
+// contoh/petunjuk
 $examples = [
     'Contoh: Ahmad Fauzi',
     'Contoh: ahmad@example.com',
@@ -119,7 +118,6 @@ $examples = [
 
 $sheet->fromArray($examples, null, 'A2');
 
-// Style untuk baris contoh (baris 2)
 $exampleStyle = [
     'font' => [
         'italic' => true,
@@ -145,7 +143,6 @@ $exampleStyle = [
 $sheet->getStyle('A2:J2')->applyFromArray($exampleStyle);
 $sheet->getRowDimension(2)->setRowHeight(20);
 
-// ===== SET LEBAR KOLOM (AUTO WIDTH YANG RAPI) =====
 $columnWidths = [
     'A' => 25,  // nama_lengkap
     'B' => 30,  // email
@@ -163,7 +160,7 @@ foreach ($columnWidths as $column => $width) {
     $sheet->getColumnDimension($column)->setWidth($width);
 }
 
-// ===== TAMBAHKAN BORDER UNTUK BARIS KOSONG (3-12) =====
+// border
 $emptyRowStyle = [
     'borders' => [
         'allBorders' => [
@@ -178,10 +175,9 @@ for ($row = 3; $row <= 12; $row++) {
     $sheet->getRowDimension($row)->setRowHeight(18);
 }
 
-// ===== FREEZE HEADER ROW =====
 $sheet->freezePane('A2');
 
-// ===== TAMBAHKAN NOTES DI BAWAH (OPSIONAL) =====
+// notes
 $noteRow = 14;
 $sheet->setCellValue("A$noteRow", "CATATAN PENTING:");
 $sheet->setCellValue("A" . ($noteRow + 1), "1. Hapus baris 2 (baris contoh) sebelum upload!");
@@ -214,7 +210,7 @@ $sheet->mergeCells("A" . ($noteRow + 5) . ":J" . ($noteRow + 5));
 $sheet->mergeCells("A" . ($noteRow + 6) . ":J" . ($noteRow + 6));
 $sheet->mergeCells("A" . ($noteRow + 7) . ":J" . ($noteRow + 7));
 
-// ===== DOWNLOAD FILE =====
+// download file
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
 header('Content-Disposition: attachment; filename="Template_Import_Pegawai_' . date('Y-m-d') . '.xlsx"');
 header('Cache-Control: max-age=0');

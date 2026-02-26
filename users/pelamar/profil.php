@@ -21,71 +21,76 @@ $stmt = $conn->prepare($query);
 $stmt->execute(['user_id' => $user_id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// Get education history - DIPERBAIKI: tanpa ORDER BY tahun_lulus
-$edu_query = "SELECT * FROM pendidikan_pelamar WHERE lamaran_id = :lamaran_id ORDER BY created_at DESC";
-$edu_stmt = $conn->prepare($edu_query);
-$edu_stmt->execute(['lamaran_id' => $user['lamaran_id']]);
-$education = $edu_stmt->fetchAll(PDO::FETCH_ASSOC);
+$pelamar_id = $user['pelamar_id'] ?? null;
 
-// Get work experience - sesuai struktur tabel pengalaman_pelamar
-$work_query = "SELECT * FROM pengalaman_pelamar WHERE lamaran_id = :lamaran_id ORDER BY created_at DESC LIMIT 1";
-$work_stmt = $conn->prepare($work_query);
-$work_stmt->execute(['lamaran_id' => $user['lamaran_id']]);
-$work_experience = $work_stmt->fetch(PDO::FETCH_ASSOC);
+$education = [];
+if ($pelamar_id) {
+    $edu_query = "SELECT * FROM pendidikan_pelamar WHERE pelamar_id = :pelamar_id ORDER BY created_at DESC";
+    $edu_stmt = $conn->prepare($edu_query);
+    $edu_stmt->execute(['pelamar_id' => $pelamar_id]);
+    $education = $edu_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
-// Get documents - hanya CV, Ijazah, dan Kartu Identitas (ambil 1 per jenis, yang terbaru)
-$doc_query = "SELECT d1.* 
-              FROM dokumen_pelamar d1
-              LEFT JOIN dokumen_pelamar d2 
-                ON d1.jenis_dokumen = d2.jenis_dokumen 
-                AND d1.lamaran_id = d2.lamaran_id
-                AND d1.created_at < d2.created_at
-              WHERE d1.lamaran_id = :lamaran_id 
-                AND d1.jenis_dokumen IN ('cv', 'ijazah', 'kartu_identitas', 'kartu identitas')
-                AND d2.dokumen_id IS NULL
-              ORDER BY 
-                CASE d1.jenis_dokumen
-                    WHEN 'cv' THEN 1
-                    WHEN 'ijazah' THEN 2
-                    WHEN 'kartu_identitas' THEN 3
-                    WHEN 'kartu identitas' THEN 3
-                END";
-$doc_stmt = $conn->prepare($doc_query);
-$doc_stmt->execute(['lamaran_id' => $user['lamaran_id']]);
-$documents = $doc_stmt->fetchAll(PDO::FETCH_ASSOC);
+$work_experience = null;
+if ($pelamar_id) {
+    $work_query = "SELECT * FROM pengalaman_pelamar WHERE pelamar_id = :pelamar_id ORDER BY created_at DESC LIMIT 1";
+    $work_stmt = $conn->prepare($work_query);
+    $work_stmt->execute(['pelamar_id' => $pelamar_id]);
+    $work_experience = $work_stmt->fetch(PDO::FETCH_ASSOC);
+}
 
-// Calculate years of experience - estimasi berdasarkan data yang ada
+// Get documents
+$documents = [];
+if ($pelamar_id) {
+    $doc_query = "SELECT d1.* 
+                  FROM dokumen_pelamar d1
+                  LEFT JOIN dokumen_pelamar d2 
+                    ON d1.jenis_dokumen = d2.jenis_dokumen 
+                    AND d1.pelamar_id = d2.pelamar_id
+                    AND d1.created_at < d2.created_at
+                  WHERE d1.pelamar_id = :pelamar_id 
+                    AND d1.jenis_dokumen IN ('cv', 'ijazah', 'kartu identitas')
+                    AND d2.dokumen_id IS NULL
+                  ORDER BY 
+                    CASE d1.jenis_dokumen
+                        WHEN 'cv' THEN 1
+                        WHEN 'ijazah' THEN 2
+                        WHEN 'kartu identitas' THEN 3
+                    END";
+    $doc_stmt = $conn->prepare($doc_query);
+    $doc_stmt->execute(['pelamar_id' => $pelamar_id]);
+    $documents = $doc_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 $experience_years = 0;
 if ($work_experience && !empty($work_experience['pengalaman_kerja_terakhir'])) {
-    // Estimasi pengalaman berdasarkan pendidikan terakhir
-    $pendidikan_terakhir = isset($user['pendidikan_terakhir']) ? $user['pendidikan_terakhir'] : '';
-    
-    if (!empty($pendidikan_terakhir)) {
-        if ($pendidikan_terakhir == 'S3 Teknik Informatika' || strpos($pendidikan_terakhir, 'S3') !== false) {
+    if (!empty($education)) {
+        $latest_edu = $education[0];
+        $jenjang = $latest_edu['jenjang'] ?? '';
+        
+        if ($jenjang == 'S3') {
             $experience_years = 3;
-        } elseif (strpos($pendidikan_terakhir, 'S2') !== false) {
+        } elseif ($jenjang == 'S2') {
             $experience_years = 2;
         } else {
             $experience_years = 1;
         }
     } else {
-        // Jika tidak ada data pendidikan terakhir, set default 1 tahun
         $experience_years = 1;
     }
 }
 
-// Fungsi untuk format label dokumen
+// label dokumen
 function getDocumentLabel($jenis_dokumen) {
     $labels = [
         'cv' => 'Curriculum Vitae (CV)',
         'ijazah' => 'Ijazah Terakhir',
-        'kartu_identitas' => 'Kartu Identitas (KTP/SIM)',
         'kartu identitas' => 'Kartu Identitas (KTP/SIM)'
     ];
     return $labels[$jenis_dokumen] ?? ucfirst(str_replace('_', ' ', $jenis_dokumen));
 }
 
-// Fungsi untuk icon dokumen
+// icon dokumen
 function getDocumentIcon($jenis_dokumen, $nama_file) {
     // Cek ekstensi file
     $ext = strtolower(pathinfo($nama_file, PATHINFO_EXTENSION));
@@ -102,6 +107,7 @@ function getDocumentIcon($jenis_dokumen, $nama_file) {
 $page_title = 'Profil Saya - Politeknik NEST';
 include '../partials/navbar_req.php';
 ?>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
     <style>
         body {
@@ -349,7 +355,7 @@ include '../partials/navbar_req.php';
             opacity: 0.5;
         }
 
-        /* Custom SweetAlert2 Styling */
+        /* Custom SweetAlert2 */
         .swal2-popup {
             border-radius: 15px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -393,13 +399,15 @@ include '../partials/navbar_req.php';
             <div class="profile-header">
                 <div class="profile-info">
                     <h1><?= htmlspecialchars($user['nama_lengkap'] ?? 'Nama Lengkap') ?></h1>
-                    <?php if (!empty($user['gelar']) || !empty($user['pendidikan_terakhir']) || $experience_years > 0): ?>
+                    <?php if (!empty($user['gelar']) || (!empty($education) && !empty($education[0]['jenjang'])) || $experience_years > 0): ?>
                     <div class="profile-meta">
-                        <?php if (!empty($user['gelar']) || !empty($user['pendidikan_terakhir'])): ?>
-                        <span><?= htmlspecialchars($user['gelar'] ?? $user['pendidikan_terakhir'] ?? '') ?></span>
+                        <?php if (!empty($user['gelar'])): ?>
+                        <span><?= htmlspecialchars($user['gelar']) ?></span>
+                        <?php elseif (!empty($education) && !empty($education[0]['jenjang'])): ?>
+                        <span><?= htmlspecialchars($education[0]['jenjang']) ?> - <?= htmlspecialchars($education[0]['program_studi']) ?></span>
                         <?php endif; ?>
                         
-                        <?php if ((!empty($user['gelar']) || !empty($user['pendidikan_terakhir'])) && $experience_years > 0): ?>
+                        <?php if ((!empty($user['gelar']) || (!empty($education) && !empty($education[0]['jenjang']))) && $experience_years > 0): ?>
                         <span class="dot"></span>
                         <?php endif; ?>
                         
@@ -455,12 +463,6 @@ include '../partials/navbar_req.php';
                     <div class="education-item">
                         <div class="education-degree"><?= htmlspecialchars($edu['jenjang']) ?> - <?= htmlspecialchars($edu['program_studi']) ?></div>
                         <div class="education-school"><?= htmlspecialchars($edu['nama_universitas']) ?></div>
-                        <?php if (!empty($edu['tahun_masuk']) || !empty($edu['tahun_keluar'])): ?>
-                        <div class="education-year">
-                            <?= !empty($edu['tahun_masuk']) ? htmlspecialchars($edu['tahun_masuk']) : '-' ?> - 
-                            <?= !empty($edu['tahun_keluar']) ? htmlspecialchars($edu['tahun_keluar']) : 'Sekarang' ?>
-                        </div>
-                        <?php endif; ?>
                         <?php if (!empty($edu['ipk'])): ?>
                         <div class="education-ipk">IPK: <?= htmlspecialchars($edu['ipk']) ?></div>
                         <?php endif; ?>

@@ -1,21 +1,19 @@
 <?php
-//STEP 1: Start session
 session_start();
 
-// STEP 2: Cek login DULU
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
     header("Location: ../../auth/login_pegawai.php");
     exit;
 }
 
-// STEP 3: Include helper untuk cek kelengkapan
+// Include helper untuk cek kelengkapan
 require_once '../../config/check_completion.php';
 require_once '../../config/database.php';
 
-// STEP 4: Cek kelengkapan data pegawai
+// Cek kelengkapan data pegawai
 $check_result = checkPegawaiCompletion($conn, $_SESSION['pegawai_id']);
 
-// STEP 5: Jika data belum lengkap, redirect ke administrasi
+// Jika data belum lengkap, redirect ke administrasi
 if (!$check_result['is_complete']) {
     $_SESSION['flash_message'] = [
         'type' => 'warning',
@@ -24,13 +22,13 @@ if (!$check_result['is_complete']) {
     header("Location: ../../users/pegawai/administrasi.php");
     exit;
 }
-// STEP 3: Cek login
+// Cek login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
     header("Location: ../../auth/login_pegawai.php");
     exit;
 }
 
-// STEP 4: Ambil pegawai_id dari session
+// Ambil pegawai_id dari session
 $pegawai_id = $_SESSION['pegawai_id'];
 
 $message = '';
@@ -52,13 +50,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 throw new Exception('Tahun sertifikasi tidak valid!');
             }
             
-            // Validasi jenis sertifikasi (SESUAIKAN DENGAN ENUM DATABASE)
+            // Validasi jenis sertifikasi 
             $jenis_valid = ['sertifikasi_pendidik', 'profesi', 'kompetensi'];
             if (!in_array($jenis_sertifikasi, $jenis_valid)) {
                 throw new Exception('Jenis sertifikasi tidak valid!');
             }
             
-            // Validasi kategori (SESUAIKAN DENGAN ENUM DATABASE - huruf kecil)
+            // Validasi kategori
             $kategori_valid = ['nasional', 'internasional'];
             if (!in_array($kategori, $kategori_valid)) {
                 throw new Exception('Kategori tidak valid!');
@@ -159,6 +157,7 @@ $sertifikasi_paged = array_slice($sertifikasi_list, $offset, $per_page);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     
     <style>
         :root {
@@ -177,7 +176,6 @@ $sertifikasi_paged = array_slice($sertifikasi_list, $offset, $per_page);
             color: var(--text-dark);
         }
 
-        /* Navbar Custom */
         .navbar-custom {
             background-color: #ffffff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
@@ -214,7 +212,6 @@ $sertifikasi_paged = array_slice($sertifikasi_list, $offset, $per_page);
             max-width: 800px;
         }
 
-        /* Card Styling */
         .card {
             border: none;
             border-radius: 12px;
@@ -237,7 +234,6 @@ $sertifikasi_paged = array_slice($sertifikasi_list, $offset, $per_page);
             padding: 1.25rem;
         }
 
-        /* Form Styling */
         .form-control, .form-select {
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -680,7 +676,7 @@ $sertifikasi_paged = array_slice($sertifikasi_list, $offset, $per_page);
                     return false;
                 }
                 
-                // Check file size (5 MB = 5 * 1024 * 1024 bytes)
+                // Check file size
                 const maxSize = 5 * 1024 * 1024;
                 if (file.size > maxSize) {
                     alert('Ukuran file maksimal 5 MB!');

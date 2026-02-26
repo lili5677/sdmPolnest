@@ -63,6 +63,7 @@ function getInitials($nama) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Preview - Struktur Organisasi</title>
     
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -155,14 +156,12 @@ function getInitials($nama) {
             margin-bottom: 30px;
         }
 
-        /* Layout khusus untuk Direktur - TUNGGAL DI TENGAH */
         .level-direktur-grid {
             grid-template-columns: 1fr;
             max-width: 380px;
             margin: 0 auto 40px;
         }
 
-        /* Layout khusus untuk Wakil Direktur - BARIS DI BAWAH DIREKTUR */
         .level-wadir-grid {
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             max-width: 1000px;
@@ -170,7 +169,6 @@ function getInitials($nama) {
             gap: 28px;
         }
 
-        /* Layout untuk level 3-7 - 5-6 CARD PER BARIS */
         .level-3-grid, .level-4-grid, .level-5-grid, .level-6-grid, .level-7-grid {
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             max-width: 1400px;
@@ -234,12 +232,10 @@ function getInitials($nama) {
             opacity: 1;
         }
 
-        /* Direktur lebih besar */
         .level-direktur-grid .member-card-preview {
             padding: 40px 32px;
         }
 
-        /* Wakil Direktur ukuran sedang */
         .level-wadir-grid .member-card-preview {
             padding: 36px 28px;
         }
@@ -261,7 +257,6 @@ function getInitials($nama) {
             border: 4px solid white;
         }
 
-        /* Direktur avatar lebih besar */
         .level-direktur-grid .avatar-container {
             width: 180px;
             height: 180px;
@@ -270,7 +265,6 @@ function getInitials($nama) {
             border-width: 5px;
         }
 
-        /* Wakil Direktur avatar sedang */
         .level-wadir-grid .avatar-container {
             width: 160px;
             height: 160px;
@@ -279,7 +273,6 @@ function getInitials($nama) {
             border-width: 4px;
         }
 
-        /* Level 3-7 avatar lebih kecil */
         .level-3-grid .avatar-container,
         .level-4-grid .avatar-container,
         .level-5-grid .avatar-container,

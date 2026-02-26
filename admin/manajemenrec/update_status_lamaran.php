@@ -1,11 +1,5 @@
 <?php
-/**
- * UPDATE STATUS LAMARAN
- * File: update_status_lamaran.php
- * Handler untuk update status lamaran (lolos/tolak/terima)
- */
 
-// Prevent any output before JSON
 ob_start();
 
 // Database connection
@@ -69,6 +63,7 @@ try {
     // Determine catatan based on status
     $catatan_final = $catatan;
     $success_message = 'Status berhasil diupdate';
+    $token_data = null;
 
     switch ($status) {
         case 'lolos_administrasi':
@@ -125,6 +120,108 @@ try {
                 $catatan_final = 'Diterima sebagai pegawai';
             }
             $success_message = 'Pelamar berhasil diterima';
+            
+            // AUTO-GENERATE TOKEN SAAT DITERIMA
+            
+            // 1. Ambil data pelamar dan lowongan
+            $stmtPelamar = $conn->prepare("
+                SELECT 
+                    l.pelamar_id,
+                    p.user_id,
+                    p.email_aktif,
+                    p.nama_lengkap,
+                    lp.jenis_posisi,
+                    lp.posisi
+                FROM lamaran l
+                INNER JOIN pelamar p ON l.pelamar_id = p.pelamar_id
+                INNER JOIN lowongan_pekerjaan lp ON l.lowongan_id = lp.lowongan_id
+                WHERE l.lamaran_id = :lamaran_id
+            ");
+            $stmtPelamar->execute([':lamaran_id' => $lamaran_id]);
+            $pelamarInfo = $stmtPelamar->fetch(PDO::FETCH_ASSOC);
+            
+            if ($pelamarInfo) {
+                // 2. Menentukan role berdasarkan jenis_posisi
+                $role = 'pegawai';
+                $jenis_posisi = $pelamarInfo['jenis_posisi'] ?? null;
+                
+                if (!empty($jenis_posisi) && strtolower($jenis_posisi) === 'dosen') {
+                    $role = 'dosen';
+                }
+                
+                // 3. Cek ketersediaan token aktif
+                $stmtCheckToken = $conn->prepare("
+                    SELECT token, expired_at, is_used, role
+                    FROM activation_tokens
+                    WHERE pelamar_id = :pelamar_id
+                      AND is_used = 0
+                      AND expired_at > NOW()
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ");
+                $stmtCheckToken->execute([':pelamar_id' => $pelamarInfo['pelamar_id']]);
+                $existingToken = $stmtCheckToken->fetch(PDO::FETCH_ASSOC);
+                
+                // 4. Generate token baru jika token belum ada atau sudah expired
+                if (!$existingToken) {
+                    // Generate token unik
+                    $token = 'PGW-' . strtoupper(bin2hex(random_bytes(8)));
+                    $expiredAt = (new DateTime())->modify('+7 days')->format('Y-m-d H:i:s');
+                    
+                    // Insert token baru
+                    $stmtInsertToken = $conn->prepare("
+                        INSERT INTO activation_tokens 
+                        (token, pelamar_id, role, is_used, expired_at, created_at)
+                        VALUES 
+                        (:token, :pelamar_id, :role, 0, :expired_at, NOW())
+                    ");
+                    
+                    $stmtInsertToken->execute([
+                        'token' => $token,
+                        'pelamar_id' => $pelamarInfo['pelamar_id'],
+                        'role' => $role,
+                        'expired_at' => $expiredAt
+                    ]);
+                    
+                    // Update users table dengan token
+                    $stmtUpdateUser = $conn->prepare("
+                        UPDATE users
+                        SET token = :token,
+                            password_changed = 0,
+                            updated_at = NOW()
+                        WHERE user_id = :user_id
+                    ");
+                    
+                    $stmtUpdateUser->execute([
+                        'token' => $token,
+                        'user_id' => $pelamarInfo['user_id']
+                    ]);
+                    
+                    // Store token data for response
+                    $token_data = [
+                        'token' => $token,
+                        'role' => $role,
+                        'jenis_posisi' => $jenis_posisi,
+                        'expired_at' => $expiredAt,
+                        'activation_link' => 'http://sdmpolnest.test/auth/login_pegawai_new.php?email=' . urlencode($pelamarInfo['email_aktif']),
+                        'is_new' => true
+                    ];
+                    
+                    $success_message .= ". Token aktivasi berhasil dibuat.";
+                } else {
+                    // Token sudah ada
+                    $token_data = [
+                        'token' => $existingToken['token'],
+                        'role' => $existingToken['role'],
+                        'expired_at' => $existingToken['expired_at'],
+                        'activation_link' => 'http://sdmpolnest.test/auth/login_pegawai_new.php?email=' . urlencode($pelamarInfo['email_aktif']),
+                        'is_new' => false
+                    ];
+                    
+                    $success_message .= ". Token aktivasi sudah ada sebelumnya.";
+                }
+            }
+            
             break;
 
         case 'psikotes':
@@ -169,9 +266,6 @@ try {
         if ($checkStmt->rowCount() === 0) {
             throw new Exception('Data lamaran tidak ditemukan');
         }
-        
-        // If exists but no rows affected, it means status is already the same
-        // This is OK, we can still return success
     }
 
     // Get pelamar email for notification
@@ -184,15 +278,11 @@ try {
     $stmtEmail->execute([':lamaran_id' => $lamaran_id]);
     $pelamarData = $stmtEmail->fetch(PDO::FETCH_ASSOC);
 
-    // TODO: Send email notification
-    // sendEmailNotification($pelamarData['email_aktif'], $status, $catatan_final);
-
     // Commit transaction
     $conn->commit();
 
-    // Clear output buffer and send success response
-    ob_end_clean();
-    echo json_encode([
+    // Prepare response
+    $response = [
         'success' => true,
         'message' => $success_message,
         'new_status' => $status,
@@ -201,7 +291,16 @@ try {
             'email' => $pelamarData['email_aktif'] ?? '',
             'posisi' => $pelamarData['posisi'] ?? ''
         ]
-    ]);
+    ];
+
+    // Add token data if generated
+    if ($token_data) {
+        $response['token'] = $token_data;
+    }
+
+    // Clear output buffer and send success response
+    ob_end_clean();
+    echo json_encode($response);
 
 } catch (Exception $e) {
     // Rollback on error

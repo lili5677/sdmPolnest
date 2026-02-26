@@ -11,7 +11,9 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Tracking Lamaran - Login Required</title>
         <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.min.css" rel="stylesheet">
+        <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     </head>
+
     <body>
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.all.min.js"></script>
         <script>
@@ -134,14 +136,14 @@ function getStatusBadge($status) {
 function getTimelineSteps($status, $lamaran) {
     $steps = [];
     
-    // Step 1: Lamaran Dikirim (ALWAYS)
+    // Step 1: Lamaran Dikirim
     $steps[] = [
         'name' => 'Lamaran Dikirim',
         'date' => date('d F Y', strtotime($lamaran['tanggal_daftar'])),
         'completed' => true
     ];
     
-    // Step 2: Verifikasi Administrasi (HANYA kalau belum ada keputusan)
+    // Step 2: Verifikasi Administrasi 
     if ($status == 'seleksi_administrasi') {
         $steps[] = [
             'name' => 'Verifikasi Administrasi',
@@ -414,7 +416,7 @@ function getNextStepInstruction($status) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <style>
         * {
             font-family: 'Poppins', sans-serif;

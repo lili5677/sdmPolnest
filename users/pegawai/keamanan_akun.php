@@ -2,9 +2,6 @@
 session_start();
 require_once '../../config/database.php';
 
-/* ===============================
-   AUTH CHECK
-================================ */
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../auth/login-pegawai.php");
     exit();
@@ -18,10 +15,8 @@ if (!in_array($_SESSION['user_type'], ['pegawai', 'dosen'])) {
 $user_id = $_SESSION['user_id'];
 $success_message = '';
 $error_message = '';
-
-/* ===============================
-   CEK FIRST LOGIN
-================================ */
+   
+// CEK FIRST LOGIN
 $query_check = "SELECT password, password_changed FROM users WHERE user_id = ?";
 $stmt_check = $conn->prepare($query_check);
 $stmt_check->execute([$user_id]);
@@ -29,9 +24,8 @@ $user_data = $stmt_check->fetch(PDO::FETCH_ASSOC);
 
 $is_first_login = ($user_data['password_changed'] == 0);
 
-/* ===============================
-   HANDLE FORM
-================================ */
+
+//    HANDLE FORM
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $current_password = $_POST['current_password'] ?? '';
@@ -103,6 +97,7 @@ include '../../users/partials/navbar.php';
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
 <!-- SweetAlert2 CDN -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -263,7 +258,7 @@ body { background:#f5f5f5; }
     color: #c62828;
 }
 
-/* Custom SweetAlert2 Styling */
+/* SweetAlert2 */
 .swal2-popup {
     font-family: 'Poppins', sans-serif !important;
 }
@@ -370,9 +365,8 @@ body { background:#f5f5f5; }
 </div>
 
 <script>
-// ========================================
+
 // SHOW SUCCESS/ERROR MESSAGE ON LOAD
-// ========================================
 <?php if ($success_message === 'first_login_success'): ?>
 Swal.fire({
     icon: 'success',
@@ -383,7 +377,7 @@ Swal.fire({
     showConfirmButton: false,
     allowOutsideClick: false,
     willClose: () => {
-        window.location.href = '../index.php';
+        window.location.href = '../../index.php';
     }
 });
 <?php elseif ($success_message && $success_message !== 'first_login_success'): ?>
@@ -406,9 +400,7 @@ Swal.fire({
 });
 <?php endif; ?>
 
-// ========================================
 // TOGGLE PASSWORD VISIBILITY
-// ========================================
 function togglePassword(fieldId) {
     const input = document.getElementById(fieldId);
     const icon = document.getElementById(fieldId + '_icon');
@@ -424,9 +416,7 @@ function togglePassword(fieldId) {
     }
 }
 
-// ========================================
 // REAL-TIME PASSWORD VALIDATION
-// ========================================
 document.getElementById('new_password').addEventListener('input', function() {
     const password = this.value;
     
@@ -501,9 +491,7 @@ document.getElementById('new_password').addEventListener('input', function() {
     }
 });
 
-// ========================================
 // FORM VALIDATION BEFORE SUBMIT
-// ========================================
 document.getElementById('passwordForm').addEventListener('submit', function(e) {
     const newPassword = document.getElementById('new_password').value;
     const confirmPassword = document.getElementById('confirm_password').value;

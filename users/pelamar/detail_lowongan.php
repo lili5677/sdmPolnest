@@ -1,8 +1,10 @@
 <?php
-// Include konfigurasi database
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once '../../config/database.php';
 
-// Get lowongan ID dari URL
 $lowongan_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if ($lowongan_id == 0) {
@@ -10,7 +12,7 @@ if ($lowongan_id == 0) {
     exit;
 }
 
-// Query untuk mengambil detail lowongan
+// Query detail lowongan
 $query = "
     SELECT 
         lowongan_id,
@@ -35,6 +37,11 @@ if (!$lowongan) {
     header('Location: lowongan_pekerjaan.php');
     exit;
 }
+
+// Cek apakah user sudah login
+$is_logged_in = isset($_SESSION['user_id']) && 
+                isset($_SESSION['user_type']) && 
+                $_SESSION['user_type'] == 'pelamar';
 
 // Parse tanggung jawab dan kualifikasi
 $tanggung_jawab_items = [];
@@ -63,12 +70,12 @@ $is_active = strtotime($lowongan['deadline_lamaran']) >= time() && $lowongan['st
 $page_title = $lowongan['posisi'] . ' - Politeknik NEST';
 include '../partials/navbar_req.php';
 ?>
+<link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <style>
-        /* Back Button */
         .back-link {
-            max-width: 1000px;
+            max-width: 1300px;
             margin: 15px auto 10px;
-            padding: 0 20px;
+            padding: 0 5px;
         }
 
         .back-link a {
@@ -92,7 +99,7 @@ include '../partials/navbar_req.php';
         .container {
             max-width: 1000px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 5px;
         }
 
         .detail-wrapper {
@@ -347,16 +354,13 @@ include '../partials/navbar_req.php';
     <!-- Main Content -->
     <div class="container">
         <div class="detail-wrapper">
-            <!-- Left Column: Job Details -->
+            <!-- Job Details -->
             <div class="detail-card">
                 <div class="detail-header">
                     <div>
                         <h1 class="job-title"><?= htmlspecialchars($lowongan['posisi']) ?></h1>
                     </div>
                     <div class="action-icons">
-                        <div class="icon-btn" title="Bagikan" onclick="shareJob()">
-                            <i class="bi bi-share-fill"></i>
-                        </div>
                         <div class="icon-btn" title="Print" onclick="window.print()">
                             <i class="bi bi-printer-fill"></i>
                         </div>
@@ -407,7 +411,7 @@ include '../partials/navbar_req.php';
                 <?php endif; ?>
             </div>
 
-            <!-- Right Column: Apply Section (Sticky) -->
+            <!-- Apply Section (Sticky) -->
             <div class="sidebar-sticky">
                 <div class="apply-section">
                     <div class="apply-title">Siap untuk melamar?</div>
@@ -415,9 +419,19 @@ include '../partials/navbar_req.php';
                     <?php if ($is_active): ?>
                         <div class="apply-status">Active</div>
                     <?php endif; ?>
-                    <button class="apply-btn" onclick="window.location.href='../../auth/login_pelamar.php?redirect=apply&lowongan_id=<?= $lowongan['lowongan_id'] ?>'">
-                        <i class="bi bi-send-fill"></i> Lamar Sekarang
-                    </button>
+                    
+                    <?php if ($is_logged_in): ?>
+                        <!-- Sudah login - langsung ke form_cv.php -->
+                        <button class="apply-btn" onclick="window.location.href='../pelamar/form_cv.php?lowongan_id=<?= $lowongan['lowongan_id'] ?>'">
+                            <i class="bi bi-send-fill"></i> Lamar Sekarang
+                        </button>
+                    <?php else: ?>
+                        <!-- Belum login - ke login dulu -->
+                        <button class="apply-btn" onclick="window.location.href='../../auth/login_pelamar.php?redirect=apply&lowongan_id=<?= $lowongan['lowongan_id'] ?>'">
+                            <i class="bi bi-send-fill"></i> Lamar Sekarang
+                        </button>
+                    <?php endif; ?>
+                    
                     <div class="contact-link">
                         Mengalami kendala? <a href="mailto:info@politekniknest.ac.id">Hubungi Kami</a>
                     </div>
@@ -426,75 +440,5 @@ include '../partials/navbar_req.php';
         </div>
     </div>
 
-    <script>
-        // Function untuk share job
-        function shareJob() {
-            const jobTitle = '<?= addslashes(htmlspecialchars($lowongan['posisi'])) ?>';
-            const jobUrl = window.location.href;
-            
-            console.log('Share button clicked');
-            console.log('Job Title:', jobTitle);
-            console.log('Job URL:', jobUrl);
-
-            // Cek apakah browser support Web Share API
-            if (navigator.share) {
-                console.log('Using Web Share API');
-                navigator.share({
-                    title: jobTitle + ' - Politeknik NEST',
-                    text: 'Lowongan pekerjaan: ' + jobTitle,
-                    url: jobUrl
-                })
-                .then(() => {
-                    console.log('Berhasil dibagikan');
-                })
-                .catch((error) => {
-                    console.log('Error sharing:', error);
-                    // Jika user cancel, fallback ke copy
-                    if (error.name !== 'AbortError') {
-                        copyToClipboard(jobUrl);
-                    }
-                });
-            } else {
-                console.log('Web Share API not supported, using clipboard');
-                copyToClipboard(jobUrl);
-            }
-        }
-
-        // Function untuk copy ke clipboard
-        function copyToClipboard(text) {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text)
-                    .then(() => {
-                        alert('✅ Link lowongan berhasil disalin!\n\n' + text);
-                    })
-                    .catch((err) => {
-                        console.error('Clipboard error:', err);
-                        fallbackCopy(text);
-                    });
-            } else {
-                fallbackCopy(text);
-            }
-        }
-
-        // Fallback copy method untuk browser lama
-        function fallbackCopy(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            textArea.style.position = 'fixed';
-            textArea.style.left = '-999999px';
-            document.body.appendChild(textArea);
-            textArea.select();
-            
-            try {
-                document.execCommand('copy');
-                alert('✅ Link lowongan berhasil disalin!\n\n' + text);
-            } catch (err) {
-                console.error('Fallback copy failed:', err);
-                prompt('Salin link ini:', text);
-            }
-            
-            document.body.removeChild(textArea);
-        }
-    </script>
-
+    
 <?php include '../partials/footer.php'; ?>

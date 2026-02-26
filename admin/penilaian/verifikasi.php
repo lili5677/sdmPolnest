@@ -7,10 +7,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     exit();
 }
 
-// Handle verification action
+// Handle verification 
 if (isset($_POST['action']) && $_POST['action'] === 'verify') {
     $penilaian_id = (int)$_POST['penilaian_id'];
-    $status = $_POST['status']; // 'sudah_dilihat' or 'belum_dilihat'
+    $status = $_POST['status']; 
     
     try {
         if ($status === 'sudah_dilihat') {
@@ -34,7 +34,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'verify') {
         $_SESSION['error'] = "Gagal mengupdate status: " . $e->getMessage();
     }
     
-    // Redirect back
+    // Redirect kembali
     if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'detail.php') !== false) {
         header("Location: detail.php?id=" . $penilaian_id);
     } else {
@@ -43,7 +43,6 @@ if (isset($_POST['action']) && $_POST['action'] === 'verify') {
     exit();
 }
 
-// If no action, redirect back
 header("Location: penilaianKinerja.php");
 exit();
 ?>

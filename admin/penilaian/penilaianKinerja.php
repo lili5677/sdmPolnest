@@ -27,7 +27,6 @@ $stmt_templates = $conn->prepare("
 $stmt_templates->execute();
 $templates = $stmt_templates->fetchAll(PDO::FETCH_ASSOC);
 
-// Build WHERE
 $where_clauses = ["1=1"];
 $params = [];
 
@@ -47,7 +46,6 @@ if (!empty($search)) {
 
 $where_sql = implode(' AND ', $where_clauses);
 
-// Count
 $stmt_count = $conn->prepare("
     SELECT COUNT(*) as total
     FROM penilaian_kinerja pk
@@ -84,7 +82,7 @@ $stmt_penilaian = $conn->prepare("
 $stmt_penilaian->execute($params);
 $penilaian_list = $stmt_penilaian->fetchAll(PDO::FETCH_ASSOC);
 
-// Statistik ringkasan (belum dilihat vs sudah dilihat)
+// Statistikbelum dilihat & sudah dilihat
 $stmt_stat = $conn->query("
     SELECT 
         COUNT(*) as total,
@@ -94,7 +92,6 @@ $stmt_stat = $conn->query("
 ");
 $stat_global = $stmt_stat->fetch(PDO::FETCH_ASSOC);
 
-// Handle mark as viewed
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_viewed'])) {
     $pid = (int)$_POST['penilaian_id'];
     $stmt_update = $conn->prepare("
@@ -125,6 +122,8 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
     <title>Manajemen Penilaian Kinerja - Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+     <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -140,7 +139,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             min-height: 100vh;
         }
 
-        /* Page Header */
         .page-header {
             background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
             padding: 28px 32px;
@@ -153,24 +151,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
         .page-header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
         .page-header p  { font-size: 14px; opacity: 0.88; }
 
-        /* Header biasa */
-         /* .page-header {
-            margin-bottom: 30px;
-        }
-
-        .page-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 8px;
-        }
-
-        .page-header p {
-            color: #6b7280;
-            font-size: 15px;
-            margin: 0;
-        } */
-        /* Alert */
         .alert {
             padding: 14px 18px;
             border-radius: 10px;
@@ -190,7 +170,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
         .alert-success { background: #d4edda; border-left: 4px solid #28a745; color: #155724; }
         .alert-danger  { background: #f8d7da; border-left: 4px solid #dc3545; color: #721c24; }
 
-        /* Summary Cards */
         .summary-cards {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -374,7 +353,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             color: #333;
         }
 
-        /* Badges */
         .status-badge {
             display: inline-flex;
             align-items: center;
@@ -456,7 +434,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 
     <div class="main-content">
 
-        <!-- Page Header -->
         <div class="page-header">
             <h1><i class=""></i> Manajemen Penilaian Kinerja</h1>
             <p>Kelola dan pantau hasil penilaian kinerja seluruh pegawai</p>
@@ -476,7 +453,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             </div>
         <?php endif; ?>
 
-        <!-- Summary Cards -->
         <div class="summary-cards">
             <div class="summary-card sc-total">
                 <div class="sc-icon"><i class="bi bi-clipboard-data"></i></div>

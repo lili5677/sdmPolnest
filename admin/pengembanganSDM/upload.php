@@ -1,23 +1,12 @@
 <?php
-/**
- * File: admin/pengembanganSDM/upload.php
- * Proses upload template dokumen
- */
-
-// session_start();
-// if (!isset($_SESSION['admin_logged_in'])) {
-//     header('Location: ../login.php');
-//     exit();
-// }
 
 require_once '../../config/database.php';
 
-// Konstanta
-define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
+define('MAX_FILE_SIZE', 2 * 1024 * 1024); 
 define('ALLOWED_EXTENSIONS', ['doc', 'docx', 'pdf']);
 define('UPLOAD_DIR', '../../uploads/templates/');
 
-// Fungsi untuk redirect dengan notifikasi
+// Fungsi untuk redirect 
 function redirect($success, $message) {
     $status = $success ? 'success' : 'error';
     header("Location: pengembangan-sdm.php?tab=template&status=$status&message=" . urlencode($message));
@@ -76,7 +65,7 @@ if (!file_exists(UPLOAD_DIR)) {
 // Generate nama file unik
 $file_name = 'template_' . time() . '_' . uniqid() . '.' . $file_extension;
 $file_path = UPLOAD_DIR . $file_name;
-$file_path_db = 'uploads/templates/' . $file_name; // Path untuk disimpan di database
+$file_path_db = 'uploads/templates/' . $file_name; 
 
 // Upload file
 if (!move_uploaded_file($file['tmp_name'], $file_path)) {
@@ -85,9 +74,9 @@ if (!move_uploaded_file($file['tmp_name'], $file_path)) {
 
 // Simpan ke database
 try {
-    $ukuran_file = round($file['size'] / 1024, 2); // Konversi ke KB
-    $jenis_template = 'izin_belajar'; // Default jenis template
-    $admin_id = 1; // Temporary - akan diubah saat implementasi login
+    $ukuran_file = round($file['size'] / 1024, 2); 
+    $jenis_template = 'izin_belajar'; 
+    $admin_id = 1; 
     
     $query = "INSERT INTO template_surat 
           (nama_template, jenis_template, path_file, ukuran_file, upload_by, created_at) 
@@ -106,7 +95,7 @@ try {
     redirect(true, 'Template berhasil diupload');
     
 } catch (PDOException $e) {
-    // Hapus file jika gagal simpan ke database
+   
     if (file_exists($file_path)) {
         unlink($file_path);
     }
