@@ -199,6 +199,7 @@ $page_title = 'Detail Pelamar - ' . $data['nama_lengkap'];
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     
     <style>
         * {
@@ -206,11 +207,12 @@ $page_title = 'Detail Pelamar - ' . $data['nama_lengkap'];
         }
         body {
             background: #f5f7fa;
-            padding: 30px 0;
+            padding: 20px 0;
         }
         .container-detail {
             max-width: 1200px;
             margin: 0 auto;
+            padding: 0 15px; /* Added padding for mobile */
         }
         .header-detail {
             background: linear-gradient(135deg, #ec4899, #f472b6);
@@ -265,6 +267,7 @@ $page_title = 'Detail Pelamar - ' . $data['nama_lengkap'];
             font-size: 15px;
             color: #1a1a1a;
             font-weight: 600;
+            word-wrap: break-word;
         }
         .divider {
             height: 1px;
@@ -356,9 +359,268 @@ $page_title = 'Detail Pelamar - ' . $data['nama_lengkap'];
             font-size: 20px;
         }
         
+        /* RESPONSIVE STYLES */
+        
+        /* Tablet (iPad) - 768px to 1024px */
+        @media (max-width: 1024px) {
+            .container-detail {
+                padding: 0 20px;
+            }
+            
+            .header-detail {
+                padding: 25px 20px;
+            }
+            
+            .header-detail h1 {
+                font-size: 24px;
+            }
+            
+            .header-detail p {
+                font-size: 14px;
+            }
+            
+            .section-content {
+                padding: 25px 20px;
+            }
+            
+            .section-title {
+                padding: 18px 20px;
+                font-size: 16px;
+            }
+            
+            .document-card {
+                margin-bottom: 15px;
+            }
+        }
+        
+        /* Mobile - up to 767px */
+        @media (max-width: 767px) {
+            body {
+                padding: 15px 0;
+            }
+            
+            .container-detail {
+                padding: 0 15px;
+            }
+            
+            .header-detail {
+                padding: 20px 15px;
+                border-radius: 12px 12px 0 0;
+            }
+            
+            .header-detail h1 {
+                font-size: 20px;
+                line-height: 1.4;
+            }
+            
+            .header-detail h1 i {
+                font-size: 20px;
+            }
+            
+            .header-detail p {
+                font-size: 13px;
+                line-height: 1.6;
+            }
+            
+            .header-detail p .ms-4 {
+                margin-left: 0 !important;
+                display: block;
+                margin-top: 5px;
+            }
+            
+            .content-detail {
+                border-radius: 0 0 12px 12px;
+            }
+            
+            .section-title {
+                padding: 15px;
+                font-size: 15px;
+                flex-wrap: wrap;
+            }
+            
+            .section-title i {
+                font-size: 20px;
+            }
+            
+            .section-content {
+                padding: 20px 15px;
+            }
+            
+            .info-group {
+                margin-bottom: 20px;
+            }
+            
+            .info-label {
+                font-size: 12px;
+            }
+            
+            .info-value {
+                font-size: 14px;
+            }
+            
+            .divider {
+                margin: 20px 0;
+            }
+            
+            /* Buttons responsive */
+            .back-btn {
+                padding: 8px 15px;
+                font-size: 14px;
+                margin-bottom: 15px;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .print-btn {
+                padding: 8px 15px;
+                font-size: 14px;
+                margin-bottom: 15px;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .float-end {
+                float: none !important;
+            }
+            
+            /* Document cards stack properly */
+            .document-card {
+                margin-bottom: 15px;
+                padding: 15px;
+            }
+            
+            .document-card i {
+                font-size: 36px;
+            }
+            
+            .document-card h6 {
+                font-size: 14px;
+            }
+            
+            /* Table responsive */
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .table-saudara {
+                font-size: 13px;
+            }
+            
+            .table-saudara th,
+            .table-saudara td {
+                padding: 10px 8px;
+            }
+            
+            /* Timeline boxes */
+            .timeline-box {
+                padding: 15px;
+            }
+            
+            .timeline-box h6 {
+                font-size: 14px;
+            }
+            
+            .timeline-box .row {
+                font-size: 13px;
+            }
+            
+            /* Alert sections */
+            .alert-section {
+                padding: 12px 15px;
+                font-size: 13px;
+            }
+            
+            /* File display boxes */
+            .alert-success,
+            .alert-warning,
+            .alert-info {
+                font-size: 13px;
+                padding: 12px 15px;
+            }
+            
+            /* Badge sizes */
+            .badge {
+                font-size: 12px !important;
+                padding: 4px 8px !important;
+            }
+            
+            /* Empty state */
+            .empty-data {
+                padding: 30px 15px;
+            }
+            
+            .empty-data i {
+                font-size: 36px;
+            }
+            
+            .empty-data h5 {
+                font-size: 16px;
+            }
+            
+            .empty-data p {
+                font-size: 13px;
+            }
+        }
+        
+        /* Small mobile - up to 480px */
+        @media (max-width: 480px) {
+            .header-detail h1 {
+                font-size: 18px;
+            }
+            
+            .header-detail p {
+                font-size: 12px;
+            }
+            
+            .section-title {
+                font-size: 14px;
+                padding: 12px;
+            }
+            
+            .section-content {
+                padding: 15px 12px;
+            }
+            
+            .info-label {
+                font-size: 11px;
+            }
+            
+            .info-value {
+                font-size: 13px;
+            }
+            
+            .document-card {
+                padding: 12px;
+            }
+            
+            .btn-sm {
+                font-size: 12px;
+                padding: 5px 10px;
+            }
+        }
+        
+        /* Make tables scrollable on mobile */
+        @media (max-width: 767px) {
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -15px;
+                padding: 0 15px;
+            }
+        }
+        
         @media print {
             .back-btn, .print-btn {
                 display: none !important;
+            }
+            
+            body {
+                padding: 0;
+            }
+            
+            .container-detail {
+                padding: 0;
             }
         }
     </style>
@@ -637,24 +899,26 @@ $page_title = 'Detail Pelamar - ' . $data['nama_lengkap'];
             
             <?php if (count($saudaraKandung) > 0): ?>
             <h6 class="mb-3">Saudara Kandung</h6>
-            <table class="table table-bordered table-saudara">
-                <thead>
-                    <tr>
-                        <th width="50">No</th>
-                        <th>Nama Saudara</th>
-                        <th>Pekerjaan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($saudaraKandung as $idx => $saudara): ?>
-                    <tr>
-                        <td class="text-center"><?= $idx + 1 ?></td>
-                        <td><?= htmlspecialchars($saudara['nama_saudara']) ?></td>
-                        <td><?= htmlspecialchars($saudara['pekerjaan_saudara']) ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <div class="table-wrapper">
+                <table class="table table-bordered table-saudara">
+                    <thead>
+                        <tr>
+                            <th width="50">No</th>
+                            <th>Nama Saudara</th>
+                            <th>Pekerjaan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($saudaraKandung as $idx => $saudara): ?>
+                        <tr>
+                            <td class="text-center"><?= $idx + 1 ?></td>
+                            <td><?= htmlspecialchars($saudara['nama_saudara']) ?></td>
+                            <td><?= htmlspecialchars($saudara['pekerjaan_saudara']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
             <?php else: ?>
             <div class="alert alert-secondary">Tidak ada data saudara kandung</div>
             <?php endif; ?>

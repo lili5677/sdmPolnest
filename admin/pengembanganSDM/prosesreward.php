@@ -8,10 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
 
 require_once '../../config/database.php';
 
-// ============================
-// FOLDER UPLOAD - PERBAIKAN PATH
-// ============================
-// Coba beberapa kemungkinan path
+// folder upload
 $possible_paths = [
     __DIR__ . "/../../uploads/reward/",
     __DIR__ . "/../uploads/reward/",
@@ -28,7 +25,6 @@ foreach ($possible_paths as $path) {
     }
 }
 
-// Fallback: gunakan path pertama
 if (!$upload_dir) {
     $upload_dir = __DIR__ . "/../../uploads/reward/";
 }
@@ -45,9 +41,7 @@ if (!is_writable($upload_dir)) {
     chmod($upload_dir, 0777);
 }
 
-// ============================
-// FUNCTION UPLOAD FILE
-// ============================
+// upload file
 function uploadFile($file)
 {
     global $upload_dir;
@@ -60,7 +54,6 @@ function uploadFile($file)
         throw new Exception("Upload error kode: " . $file['error']);
     }
 
-    // max 5MB
     if ($file['size'] > 5 * 1024 * 1024) {
         throw new Exception("Ukuran file maksimal 5MB");
     }
@@ -89,9 +82,7 @@ function redirectBack($msg, $type="success"){
     exit();
 }
 
-// =====================================================
-// TAMBAH
-// =====================================================
+// tambah
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'tambah') {
     try {
         // Validasi input
@@ -141,9 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'tambah') {
     }
 }
 
-// =====================================================
-// EDIT
-// =====================================================
+// edit
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'edit') {
     try {
         // Validasi input
@@ -209,9 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'edit') {
     }
 }
 
-// =====================================================
-// HAPUS
-// =====================================================
+// hapus
 if (isset($_GET['action']) && $_GET['action'] == 'hapus') {
     try {
         if (empty($_GET['id'])) {
@@ -247,5 +234,4 @@ if (isset($_GET['action']) && $_GET['action'] == 'hapus') {
     }
 }
 
-// Jika sampai sini berarti akses tidak valid
 redirectBack("Akses tidak valid", "error");

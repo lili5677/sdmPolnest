@@ -4,7 +4,7 @@
 
 require_once '../../config/database.php';
 
-// SECTION 1: CSS STYLES
+
 if (isset($_GET['get']) && $_GET['get'] === 'css') {
     header('Content-Type: text/css');
     ?>
@@ -302,7 +302,7 @@ if (isset($_GET['get']) && $_GET['get'] === 'css') {
     exit();
 }
 
-// SECTION 2: JAVASCRIPT
+
 if (isset($_GET['get']) && $_GET['get'] === 'js') {
     header('Content-Type: application/javascript');
     ?>
@@ -416,7 +416,7 @@ function timeAgo(datetime) {
     exit();
 }
 
-// SECTION 3: LOAD NOTIFICATIONS (HALAMAN BIASA - RENDER HTML)
+//  LOAD NOTIFICATIONS 
 if (isset($_GET['action']) && $_GET['action'] === 'load') {
     try {
         $last_check = isset($_GET['last_check']) ? $_GET['last_check'] : null;
@@ -427,7 +427,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
         $notifikasi_baru = 0;
         $notif_types_from_table = [];
         
-        // STEP 1: Ambil dari tabel notifikasi_admin (hasil stored procedure)
+        //Ambil dari tabel notifikasi_admin 
         $query_table = "SELECT * FROM notifikasi_admin WHERE is_read = 0 ORDER BY created_at DESC";
         $stmt = $conn->query($query_table);
         $table_notifs = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -492,9 +492,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-        // STEP 2: Query real-time untuk notifikasi yang TIDAK ada di tabel (fallback)
         
-        // 1. LAMARAN BARU
+        //  LAMARAN BARU
         if (!in_array('verifikasi_pegawai', $notif_types_from_table)) {
             $query_lamaran = "
                 SELECT 
@@ -524,7 +523,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-        // 2. KONTRAK AKAN HABIS
+        // KONTRAK AKAN HABIS
         if (!in_array('kontrak_habis', $notif_types_from_table)) {
             $query_kontrak = "
                 SELECT 
@@ -562,7 +561,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-        // 3. PENGAJUAN STUDI LANJUT
+        // PENGAJUAN STUDI LANJUT
         if (!in_array('pengajuan_studi', $notif_types_from_table)) {
             $query_studi = "
                 SELECT 
@@ -592,7 +591,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-        // 4. SERTIFIKASI PENDING VALIDASI
+        //  SERTIFIKASI PENDING VALIDASI
         if (!in_array('sertifikasi_dosen', $notif_types_from_table)) {
             $query_sertif = "
                 SELECT 
@@ -622,7 +621,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             }
         }
         
-        // 5. SERTIFIKASI AKAN HABIS (selalu real-time)
+        // SERTIFIKASI AKAN HABIS 
         $query_sertif_habis = "
             SELECT 
                 COUNT(*) as count,
@@ -661,7 +660,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             $total_notifikasi += (int)$result['count'];
         }
         
-        // 6. RESET PASSWORD REQUEST (selalu real-time)
+        // RESET PASSWORD REQUEST 
         $query_reset = "
             SELECT 
                 COUNT(*) as count,
@@ -735,9 +734,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
             return $past->format('d M Y');
         }
         
-        // RENDER HTML
         ?>
-        <!-- Hidden data attributes untuk JavaScript -->
         <div data-badge="<?php echo $total_notifikasi; ?>" style="display:none;"></div>
         <div data-timestamp="<?php echo date('Y-m-d H:i:s'); ?>" style="display:none;"></div>
         

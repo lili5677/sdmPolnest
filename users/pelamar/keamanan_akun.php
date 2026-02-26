@@ -18,17 +18,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['change_password'])) {
     $stmt->execute(['user_id' => $user_id]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (password_verify($old_password, $user['password'])) {
+    if (!password_verify($old_password, $user['password'])) {
+        $error = "Password lama tidak sesuai!";
+    } elseif (strlen($new_password) < 8) {
+        $error = "Password minimal 8 karakter!";
+    } elseif (!preg_match('/[A-Z]/', $new_password)) {
+        $error = "Password harus mengandung minimal 1 huruf besar!";
+    } elseif (!preg_match('/[a-z]/', $new_password)) {
+        $error = "Password harus mengandung minimal 1 huruf kecil!";
+    } elseif (!preg_match('/[0-9]/', $new_password)) {
+        $error = "Password harus mengandung minimal 1 angka!";
+    } elseif (!preg_match('/[!@#$%^&*()]/', $new_password)) {
+        $error = "Password harus mengandung minimal 1 simbol (!@#$%^&*)!";
+    } else {
         $hashed = password_hash($new_password, PASSWORD_DEFAULT);
         $update = "UPDATE users SET password = :password WHERE user_id = :user_id";
         $update_stmt = $conn->prepare($update);
         if ($update_stmt->execute(['password' => $hashed, 'user_id' => $user_id])) {
             $success = "Password berhasil diubah!";
         }
-    } else {
-        $error = "Password lama tidak sesuai!";
     }
 }
+
 // Get user data
 $query = "SELECT u.*, p.* FROM users u LEFT JOIN pelamar p ON u.user_id = p.user_id WHERE u.user_id = :user_id";
 $stmt = $conn->prepare($query);
@@ -37,6 +48,7 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 $page_title = 'Keamanan Akun - Politeknik NEST';
 include '../partials/navbar_req.php';
 ?>
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -93,6 +105,7 @@ include '../partials/navbar_req.php';
         }
         .form-group {
             margin-bottom: 20px;
+            position: relative;
         }
         .form-label {
             display: block;
@@ -103,7 +116,7 @@ include '../partials/navbar_req.php';
         }
         .form-control {
             width: 100%;
-            padding: 12px 15px;
+            padding: 12px 45px 12px 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 14px;
@@ -111,6 +124,16 @@ include '../partials/navbar_req.php';
         .form-control:focus {
             outline: none;
             border-color: #0d47a1;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 38px;
+            background: none;
+            border: none;
+            color: #546e7a;
+            cursor: pointer;
+            font-size: 18px;
         }
         .btn-update {
             padding: 12px 30px;
@@ -237,7 +260,44 @@ include '../partials/navbar_req.php';
             padding: 10px 30px !important;
             font-weight: 600 !important;
         }
+        /* Password Requirements */
+        .password-requirements {
+            margin-top: 10px;
+            background: #f8f9fc;
+            border: 1px solid #e3e8f0;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        .req-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #546e7a;
+            margin-bottom: 8px;
+        }
+        .req-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .req-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            color: #78909c;
+            transition: color 0.25s;
+        }
+        .req-item.pass {
+            color: #2e7d32;
+        }
+        .req-item .req-icon {
+            font-size: 13px;
+            width: 15px;
+            flex-shrink: 0;
+            transition: all 0.25s;
+        }
     </style>
+
 </head>
 <body>
     <div class="profile-container">
@@ -267,14 +327,46 @@ include '../partials/navbar_req.php';
                     <i class="bi bi-exclamation-triangle-fill"></i> <?= $error ?>
                 </div>
                 <?php endif; ?>
-                <form method="POST" class="password-form">
+                <form method="POST" class="password-form" id="passwordForm">
                     <div class="form-group">
                         <label class="form-label">Kata Sandi Lama</label>
-                        <input type="password" name="old_password" class="form-control" placeholder="Masukkan kata sandi lama" required>
+                        <input type="password" name="old_password" id="old_password" class="form-control" placeholder="Masukkan kata sandi lama" required>
+                        <button type="button" class="password-toggle" onclick="toggle('old_password', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Kata Sandi Baru</label>
-                        <input type="password" name="new_password" class="form-control" placeholder="Masukkan kata sandi baru" required>
+                        <input type="password" name="new_password" id="new_password" class="form-control" placeholder="Masukkan kata sandi baru" required>
+                        <button type="button" class="password-toggle" onclick="toggle('new_password', this)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <!-- Password Requirements (selalu tampil) -->
+                        <div class="password-requirements">
+                            <div class="req-title">Syarat kata sandi baru:</div>
+                            <div class="req-list">
+                                <div class="req-item" id="chk-len">
+                                    <i class="req-icon bi bi-circle"></i>
+                                    Minimal 8 karakter
+                                </div>
+                                <div class="req-item" id="chk-upper">
+                                    <i class="req-icon bi bi-circle"></i>
+                                    Minimal 1 huruf besar (A-Z)
+                                </div>
+                                <div class="req-item" id="chk-lower">
+                                    <i class="req-icon bi bi-circle"></i>
+                                    Minimal 1 huruf kecil (a-z)
+                                </div>
+                                <div class="req-item" id="chk-num">
+                                    <i class="req-icon bi bi-circle"></i>
+                                    Minimal 1 angka (0-9)
+                                </div>
+                                <div class="req-item" id="chk-sym">
+                                    <i class="req-icon bi bi-circle"></i>
+                                    Minimal 1 simbol (!@#$%^&amp;*)
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <button type="submit" name="change_password" class="btn-update">Update Kata Sandi</button>
                 </form>
@@ -282,4 +374,71 @@ include '../partials/navbar_req.php';
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
+    <script>
+        function toggle(id, btn) {
+            const field = document.getElementById(id);
+            const icon = btn.querySelector('i');
+            if (field.type === 'password') {
+                field.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+            } else {
+                field.type = 'password';
+                icon.className = 'bi bi-eye';
+            }
+        }
+
+        // Password Requirements Logic
+        const newPasswordInput = document.getElementById('new_password');
+
+        const checks = {
+            len:   { el: document.getElementById('chk-len'),   test: p => p.length >= 8 },
+            upper: { el: document.getElementById('chk-upper'), test: p => /[A-Z]/.test(p) },
+            lower: { el: document.getElementById('chk-lower'), test: p => /[a-z]/.test(p) },
+            num:   { el: document.getElementById('chk-num'),   test: p => /[0-9]/.test(p) },
+            sym:   { el: document.getElementById('chk-sym'),   test: p => /[!@#$%^&*()]/.test(p) },
+        };
+
+        newPasswordInput.addEventListener('input', function () {
+            const val = this.value;
+            for (const key in checks) {
+                const ok = checks[key].test(val);
+                checks[key].el.classList.toggle('pass', ok);
+                const icon = checks[key].el.querySelector('.req-icon');
+                icon.className = ok
+                    ? 'req-icon bi bi-check-circle-fill'
+                    : 'req-icon bi bi-circle';
+            }
+        });
+
+        // Form Submit Validation
+        document.getElementById('passwordForm').addEventListener('submit', function(e) {
+            const pass = document.getElementById('new_password').value;
+
+            if (pass.length < 8) {
+                e.preventDefault();
+                alert('Password minimal 8 karakter!');
+                return;
+            }
+            if (!/[A-Z]/.test(pass)) {
+                e.preventDefault();
+                alert('Password harus mengandung minimal 1 huruf besar!');
+                return;
+            }
+            if (!/[a-z]/.test(pass)) {
+                e.preventDefault();
+                alert('Password harus mengandung minimal 1 huruf kecil!');
+                return;
+            }
+            if (!/[0-9]/.test(pass)) {
+                e.preventDefault();
+                alert('Password harus mengandung minimal 1 angka!');
+                return;
+            }
+            if (!/[!@#$%^&*()]/.test(pass)) {
+                e.preventDefault();
+                alert('Password harus mengandung minimal 1 simbol (!@#$%^&*)!');
+                return;
+            }
+        });
+    </script>
 <?php include '../partials/footer.php'; ?>

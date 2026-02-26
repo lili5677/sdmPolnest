@@ -27,11 +27,11 @@ function generateUniqueToken($conn, $length = 16) {
     return $token;
 }
 
-// Fungsi untuk generate NIK dummy 16 digit yang unik
+// Fungsi untuk generate NIK 
 function generateUniqueNIK($conn) {
     do {
-        // Generate NIK 16 digit
-        $nik = (string)random_int(1, 9); // Digit pertama 1-9
+        
+        $nik = (string)random_int(1, 9); 
         
         for ($i = 1; $i < 16; $i++) {
             $nik .= (string)random_int(0, 9);
@@ -75,17 +75,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
         exit();
     }
     
-    // Skip BOM (Byte Order Mark) jika ada
     $bom = fread($csv_file, 3);
     if ($bom !== "\xEF\xBB\xBF") {
         rewind($csv_file);
     }
     
-    // Deteksi delimiter otomatis
     $first_line = fgets($csv_file);
     rewind($csv_file);
     
-    // Skip BOM lagi setelah rewind jika ada
     if ($bom === "\xEF\xBB\xBF") {
         fread($csv_file, 3);
     }
@@ -107,10 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
     try {
         $conn->beginTransaction();
         
-        // Skip header row
         $header = fgetcsv($csv_file, 0, $delimiter);
         
-        // Validasi header
         if (!$header || count($header) < 3) {
             throw new Exception("Format CSV tidak valid. Header harus memiliki minimal 3 kolom.");
         }
@@ -118,19 +113,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
         while (($data = fgetcsv($csv_file, 0, $delimiter)) !== false) {
             $row_number++;
             
-            // Skip baris kosong
             if (empty(array_filter($data))) {
                 continue;
             }
             
-            // Validasi jumlah kolom minimal
             if (count($data) < 3) {
                 $error_messages[] = "Baris $row_number: Data tidak lengkap (minimal 3 kolom)";
                 $error_count++;
                 continue;
             }
             
-            // ===== AMBIL DATA WAJIB =====
+            // ambil data wajib
             $nama_lengkap = preg_replace('/\s+/', ' ', trim($data[0]));
             $nama_lengkap = preg_replace('/[\x00-\x1F\x7F]/u', '', $nama_lengkap);
             
@@ -145,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             $jenis_pegawai = strtolower($jenis_pegawai);
             $jenis_pegawai = preg_replace('/[\x00-\x1F\x7F]/u', '', $jenis_pegawai);
             
-            // ===== AMBIL DATA STATUS KEPEGAWAIAN (OPSIONAL) =====
+            // ambil data status kepegawiaan
             $jabatan = isset($data[3]) ? trim($data[3]) : null;
             $jenis_kepegawaian = isset($data[4]) ? strtolower(trim($data[4])) : 'tetap';
             $status_aktif = isset($data[5]) ? strtolower(trim($data[5])) : 'aktif';
@@ -180,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                 continue;
             }
             
-            // Normalisasi jenis pegawai
+            // jenis pegawai
             $jenis_mapping = [
                 'staf' => 'staff',
                 'staff' => 'staff',
@@ -261,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             // Generate token unik
             $token = generateUniqueToken($conn);
             
-            // Generate password ter-hash
+            // Generate password hash
             $default_password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
             
             // Tentukan user_type
@@ -284,9 +277,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                 $pegawai_id = $conn->lastInsertId();
                 
                 // Insert ke tabel status_kepegawaian
-                // PERBAIKAN: Gunakan INSERT ... ON DUPLICATE KEY UPDATE untuk handle unique constraint
-                // Insert ke tabel status_kepegawaian
-                // SELALU insert status_kepegawaian dengan nilai default
                 $query_status = "INSERT INTO status_kepegawaian 
                                 (pegawai_id, jabatan, jenis_kepegawaian, masa_kontrak_mulai, 
                                 masa_kontrak_selesai, status_aktif, unit_kerja, tanggal_mulai_kerja, created_by) 
@@ -305,12 +295,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                 $stmt_status = $conn->prepare($query_status);
                 $stmt_status->execute([
                     $pegawai_id,
-                    $jabatan,  // bisa NULL
-                    $jenis_kepegawaian,  // sudah ada default 'tetap'
+                    $jabatan,  
+                    $jenis_kepegawaian,  
                     !empty($masa_kontrak_mulai) ? $masa_kontrak_mulai : null,
                     !empty($masa_kontrak_selesai) ? $masa_kontrak_selesai : null,
-                    $status_aktif,  // sudah ada default 'aktif'
-                    $unit_kerja,  // bisa NULL
+                    $status_aktif,  
+                    $unit_kerja,  
                     !empty($tanggal_mulai_kerja) ? $tanggal_mulai_kerja : null,
                     $_SESSION['user_id']
                 ]);
@@ -325,8 +315,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
         }
         
         fclose($csv_file);
-        
-        // Commit transaction
+    
         if ($success_count > 0) {
             $conn->commit();
             
@@ -369,7 +358,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
     exit();
 }
 
-// Jika bukan POST request, redirect ke halaman utama
 header("Location: manajemen-pegawai.php");
 exit();
 ?>

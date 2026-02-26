@@ -1,14 +1,13 @@
 <?php
-// Koneksi Database
 require_once '../../config/database.php';
 
-// Check if user is logged in
+// Cek user login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     header('Location: ' . BASE_URL . 'auth/login_pegawai.php');
     exit();
 }
 
-// ================== PROSES TAMBAH LOWONGAN ==================
+// proses tambah lowongan
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Ambil & bersihkan input gaji
@@ -16,12 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $gaji_range = preg_replace('/[^0-9\-]/', '', $gaji_range);
     $gaji = explode('-', $gaji_range);
 
-    // FIX: izinkan kosong → NULL (DB nullable)
+    // db null
     $gaji_min = (isset($gaji[0]) && $gaji[0] !== '') ? (int)$gaji[0] : null;
     $gaji_max = (isset($gaji[1]) && $gaji[1] !== '') ? (int)$gaji[1] : null;
 
     if ($gaji_min !== null || $gaji_max !== null) {
-        // Kalau salah satu diisi, keduanya harus valid
+        // validasi
         if ($gaji_min === null || $gaji_max === null || $gaji_min <= 0 || $gaji_max <= 0) {
             $error = "Jika rentang gaji diisi, kedua nilai harus valid dan lebih dari 0";
         } elseif ($gaji_min > $gaji_max) {
@@ -29,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // FIX: deadline boleh kosong → NULL
+    // deadline NULL
     $deadline = $_POST['deadline_lamaran'] ?? '';
     if ($deadline !== '' && strtotime($deadline) < strtotime(date('Y-m-d'))) {
         $error = "Deadline lamaran tidak boleh tanggal yang sudah lewat";
@@ -89,8 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <title>Tambah Lowongan Baru</title>
 
+    <title>Tambah Lowongan - Sistem SDM Polnest</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+     <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }

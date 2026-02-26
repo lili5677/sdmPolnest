@@ -1,18 +1,14 @@
 <?php
-// STEP 1: Start session
-session_start();
 
-// STEP 2: Include database
+session_start();
 require_once '../../config/database.php';
 
-// STEP 3: Cek login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
     header("Location: ../../auth/login_pegawai.php");
     exit;
 }
 
-// STEP 4: Ambil pegawai_id
-// Kalau admin akses dengan ?pegawai_id=X, kalau pegawai biasa pakai session
+// Ambil pegawai_id
 if ($_SESSION['user_type'] === 'admin' && isset($_GET['pegawai_id'])) {
     $pegawai_id = (int)$_GET['pegawai_id'];
 } else {
@@ -20,12 +16,12 @@ if ($_SESSION['user_type'] === 'admin' && isset($_GET['pegawai_id'])) {
     $pegawai_id = $_SESSION['pegawai_id'];
 }
 
-// STEP 5: Security check - pegawai biasa tidak boleh akses data orang lain
+// Security check - pegawai biasa tidak boleh akses data orang lain
 if ($_SESSION['user_type'] !== 'admin' && isset($_GET['pegawai_id']) && (int)$_GET['pegawai_id'] !== $_SESSION['pegawai_id']) {
     header("Location: administrasi.php");
     exit;
 }
-// Query Data Pegawai dengan Status Kepegawaian - DIPERBAIKI
+// Query Data Pegawai dengan Status Kepegawaian
 $stmt = $conn->prepare("
     SELECT 
         p.pegawai_id,
@@ -49,7 +45,8 @@ $stmt = $conn->prepare("
         sk.unit_kerja, 
         sk.tanggal_mulai_kerja,
         sk.masa_kontrak_mulai,
-        sk.masa_kontrak_selesai
+        sk.masa_kontrak_selesai,
+        sk.ptkp
     FROM pegawai p
     LEFT JOIN status_kepegawaian sk ON p.pegawai_id = sk.pegawai_id
     WHERE p.pegawai_id = ?
@@ -112,7 +109,6 @@ if (!empty($pegawai['masa_kontrak_mulai']) && !empty($pegawai['masa_kontrak_sele
         
         $sisa_kontrak_text = !empty($parts) ? implode(', ', $parts) : 'Hari ini terakhir';
         
-        // Tentukan warna badge berdasarkan sisa waktu
         $total_bulan = ($tahun * 12) + $bulan;
         if ($total_bulan <= 1) {
             $badge_kontrak = 'badge-danger';
@@ -129,16 +125,7 @@ if (!empty($pegawai['masa_kontrak_mulai']) && !empty($pegawai['masa_kontrak_sele
 
 // Mapping jenis dokumen berdasarkan jenis pegawai
 if ($is_dosen) {
-    $jenis_dokumen_label = [
-        'cv' => 'Curriculum Vitae (CV)',
-        'ktp' => 'KTP (Kartu Tanda Penduduk)',
-        'npwp' => 'NPWP (Nomor Pokok Wajib Pajak)',
-        'ijazah' => 'Ijazah/Sertifikat Pendidikan',
-        'surat_sehat' => 'Surat Keterangan Sehat',
-        'surat_kerja_sebelumnya' => 'Surat Keterangan Kerja Sebelumnya'
-    ];
-    $page_title = 'Administrasi Kepegawaian - Dosen';
-} else {
+    // Dosen: 8 dokumen (termasuk SKCK dan Surat Bebas Napza)
     $jenis_dokumen_label = [
         'cv' => 'Curriculum Vitae (CV)',
         'ktp' => 'KTP (Kartu Tanda Penduduk)',
@@ -148,6 +135,17 @@ if ($is_dosen) {
         'surat_kerja_sebelumnya' => 'Surat Keterangan Kerja Sebelumnya',
         'skck' => 'SKCK (Surat Keterangan Catatan Kepolisian)',
         'surat_bebas_napza' => 'Surat Keterangan Bebas Napza'
+    ];
+    $page_title = 'Administrasi Kepegawaian - Dosen';
+} else {
+    // Staff/Tendik: 6 dokumen (tanpa SKCK dan Surat Bebas Napza)
+    $jenis_dokumen_label = [
+        'cv' => 'Curriculum Vitae (CV)',
+        'ktp' => 'KTP (Kartu Tanda Penduduk)',
+        'npwp' => 'NPWP (Nomor Pokok Wajib Pajak)',
+        'ijazah' => 'Ijazah/Sertifikat Pendidikan',
+        'surat_sehat' => 'Surat Keterangan Sehat',
+        'surat_kerja_sebelumnya' => 'Surat Keterangan Kerja Sebelumnya'
     ];
     $page_title = 'Administrasi Kepegawaian - Pegawai';
 }
@@ -159,9 +157,8 @@ $message_type = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'update_pegawai') {
         try {
-            // Helper function untuk handle empty string -> NULL
+            // Helper function untuk handle empty string
             function emptyToNull($value) {
-                // PERBAIKAN: Cek null dulu sebelum trim
                 if ($value === null || $value === '') {
                     return null;
                 }
@@ -170,11 +167,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             
             // Process data - convert empty to NULL
-            // PERBAIKAN: Gunakan isset() untuk cek keberadaan key
             $nik = emptyToNull($_POST['nik'] ?? null);
             $nip = emptyToNull($_POST['nip'] ?? null);
-            $nidn = emptyToNull($_POST['nidn'] ?? null); // Bisa null jika bukan dosen
-            $prodi = emptyToNull($_POST['prodi'] ?? null); // Bisa null jika bukan dosen
+            $nidn = emptyToNull($_POST['nidn'] ?? null);
+            $prodi = emptyToNull($_POST['prodi'] ?? null);
             $nama_lengkap = emptyToNull($_POST['nama_lengkap'] ?? null);
             $jenis_pegawai = emptyToNull($_POST['jenis_pegawai'] ?? null);
             $tempat_lahir = emptyToNull($_POST['tempat_lahir'] ?? null);
@@ -185,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $alamat_domisili = emptyToNull($_POST['alamat_domisili'] ?? null);
             $alamat_ktp = emptyToNull($_POST['alamat_ktp'] ?? null);
             
-            // ===== VALIDASI DATA WAJIB =====
+            //VALIDASI DATA WAJIB
             $errors = [];
             
             if (empty($nama_lengkap)) {
@@ -204,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $errors[] = 'Jenis pegawai tidak valid!';
             }
             
-            // ===== VALIDASI OPSIONAL (JIKA DIISI) =====
+            //VALIDASI OPSIONAL (JIKA DIISI)
             
             // Validasi NIK jika diisi
             if (!empty($nik)) {
@@ -259,12 +255,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
             }
             
-            // ===== JIKA ADA ERROR, TAMPILKAN =====
+            // ADA ERROR
             if (!empty($errors)) {
                 $message = implode('<br>', $errors);
                 $message_type = 'danger';
             } 
-            // ===== JIKA TIDAK ADA ERROR, LAKUKAN UPDATE =====
+            // JIKA TIDAK ADA ERROR
             else {
                 $sql = "UPDATE pegawai SET 
                         nik = ?,
@@ -443,6 +439,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     
     <style>
         :root {
@@ -461,7 +458,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             color: var(--text-dark);
         }
 
-        /* Navbar Custom */
         .navbar-custom {
             background-color: #ffffff;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
@@ -474,7 +470,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             color: var(--text-dark) !important;
         }
 
-        /* Header Simple */
         .header-section {
             background-color: transparent;
             padding: 2rem 0 1rem 0;
@@ -516,11 +511,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             border-radius: 12px 12px 0 0 !important;
         }
 
+        .card-header .bi-info-circle {
+            opacity: 0.6;
+            transition: opacity 0.2s ease;
+        }
+
+        .card-header .bi-info-circle:hover {
+            opacity: 1;
+        }
+
         .card-body {
             padding: 1.25rem;
         }
 
-        /* Info Row Styling */
         .info-grid {
             display: grid;
             gap: 0.75rem;
@@ -579,7 +582,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             color: #ffffff;
         }
 
-        /* Form Styling */
         .form-control, .form-select {
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -802,6 +804,123 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             color: #991b1b;
         }
 
+        /* Custom Notification */
+        .custom-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            min-width: 350px;
+            max-width: 450px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            padding: 1.25rem;
+            z-index: 9999;
+            animation: slideInRight 0.4s ease-out;
+            border-left: 4px solid #ef4444;
+        }
+
+        .custom-notification.success {
+            border-left-color: #10b981;
+        }
+
+        .custom-notification-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .custom-notification-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .custom-notification.error .custom-notification-icon {
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+
+        .custom-notification.success .custom-notification-icon {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+
+        .custom-notification-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+            flex: 1;
+        }
+
+        .custom-notification-close {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1.25rem;
+            line-height: 1;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .custom-notification-close:hover {
+            background-color: #f1f5f9;
+            color: #475569;
+        }
+
+        .custom-notification-body {
+            color: #64748b;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .custom-notification-body ul {
+            margin: 0.5rem 0 0 0;
+            padding-left: 1.25rem;
+        }
+
+        .custom-notification-body li {
+            margin-bottom: 0.375rem;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .custom-notification.hiding {
+            animation: slideOutRight 0.3s ease-in forwards;
+        }
+
         @media (max-width: 768px) {
             .document-item {
                 flex-direction: column;
@@ -821,6 +940,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             .info-value {
                 text-align: left;
                 margin-top: 0.25rem;
+            }
+
+            .custom-notification {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                min-width: auto;
+                max-width: none;
+            }
+
+            @keyframes slideInRight {
+                from {
+                    transform: translateY(-100px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideOutRight {
+                from {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+                to {
+                    transform: translateY(-100px);
+                    opacity: 0;
+                }
             }
         }
     </style>
@@ -873,8 +1022,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
        <!-- Status Kepegawaian -->
         <div class="card">
-            <div class="card-header">
-                Status Kepegawaian
+            <div class="card-header d-flex align-items-center">
+                <span>Status Kepegawaian</span>
+                <?php if ($_SESSION['user_type'] !== 'admin'): ?>
+                    <i class="bi bi-info-circle text-muted ms-2" 
+                       style="cursor: help; font-size: 0.9rem;" 
+                       data-bs-toggle="tooltip" 
+                       data-bs-placement="right" 
+                       title="Hanya admin yang dapat mengubah Status Kepegawaian, hubungi admin jika ingin melengkapi data"></i>
+                <?php endif; ?>
             </div>
             <div class="card-body">
                 <div class="info-grid">
@@ -891,6 +1047,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         <span class="info-label">Jenis Kepegawaian</span>
                         <span class="info-value">
                             <span class="badge badge-info"><?= ucfirst($pegawai['jenis_kepegawaian'] ?? 'Staff') ?></span>
+                        </span>
+                    </div>
+                    
+                    <!-- PTKP (Status Pajak) -->
+                    <div class="info-item">
+                        <span class="info-label">PTKP (Status Pajak)</span>
+                        <span class="info-value">
+                            <?= htmlspecialchars($pegawai['ptkp'] ?? '-') ?>
                         </span>
                     </div>
                     
@@ -953,7 +1117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <button class="btn btn-outline-secondary btn-sm me-2" id="btnEdit" onclick="toggleEdit()">
                         <i class="bi bi-pencil me-1"></i>Edit Data
                     </button>
-                    <button class="btn btn-success btn-sm" id="btnSave" style="display: none;" onclick="document.getElementById('formPegawai').submit()">
+                    <button class="btn btn-success btn-sm" id="btnSave" style="display: none;" type="button" onclick="submitFormPegawai()">
                         <i class="bi bi-check2 me-1"></i>Simpan Perubahan
                     </button>
                 </div>
@@ -969,8 +1133,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                    value="<?= !empty($pegawai['nik']) ? htmlspecialchars($pegawai['nik']) : '' ?>" 
                                    placeholder="-"
                                    maxlength="16" 
-                                   pattern="[0-9]{16}" 
-                                   title="NIK harus 16 digit angka"
                                    disabled>
                             <small class="text-muted">Format: 16 digit angka</small>
                         </div>
@@ -981,8 +1143,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                    value="<?= !empty($pegawai['nip']) ? htmlspecialchars($pegawai['nip']) : '' ?>" 
                                    placeholder="-"
                                    maxlength="18" 
-                                   pattern="[0-9]{18}" 
-                                   title="NIP harus 18 digit angka"
                                    disabled>
                             <small class="text-muted">Format: 18 digit angka</small>
                         </div>
@@ -992,7 +1152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             <input type="text" name="nama_lengkap" class="form-control editable" 
                                    value="<?= !empty($pegawai['nama_lengkap']) ? htmlspecialchars($pegawai['nama_lengkap']) : '' ?>" 
                                    placeholder="-"
-                                   disabled required>
+                                   disabled>
                         </div>
 
                         <div class="col-12 mb-3">
@@ -1055,7 +1215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             <input type="email" name="email" class="form-control editable" 
                                    value="<?= !empty($pegawai['email']) ? htmlspecialchars($pegawai['email']) : '' ?>" 
                                    placeholder="-"
-                                   disabled required>
+                                   disabled>
                         </div>
                         
                         <div class="col-12 mb-3">
@@ -1249,6 +1409,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // Custom Notification Function
+        function showNotification(title, messages, type = 'error') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.custom-notification');
+            existingNotifications.forEach(notif => notif.remove());
+
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `custom-notification ${type}`;
+            
+            // Icon based on type
+            const iconClass = type === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-circle-fill';
+            
+            // Build message body
+            let messageBody = '';
+            if (Array.isArray(messages) && messages.length > 0) {
+                messageBody = '<ul>';
+                messages.forEach(msg => {
+                    messageBody += `<li>${msg}</li>`;
+                });
+                messageBody += '</ul>';
+            } else if (typeof messages === 'string') {
+                messageBody = `<p style="margin: 0;">${messages}</p>`;
+            }
+            
+            notification.innerHTML = `
+                <div class="custom-notification-header">
+                    <div class="custom-notification-icon">
+                        <i class="bi ${iconClass}"></i>
+                    </div>
+                    <div class="custom-notification-title">${title}</div>
+                    <button class="custom-notification-close" onclick="closeNotification(this)">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <div class="custom-notification-body">
+                    ${messageBody}
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Auto dismiss after 5 seconds
+            setTimeout(() => {
+                closeNotification(notification.querySelector('.custom-notification-close'));
+            }, 5000);
+        }
+
+        function closeNotification(button) {
+            const notification = button.closest('.custom-notification');
+            if (notification) {
+                notification.classList.add('hiding');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }
+        }
+
+        // Initialize Bootstrap Tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+
         // Toggle Edit Mode
         function toggleEdit() {
             const editables = document.querySelectorAll('.editable');
@@ -1273,14 +1499,118 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
+        // Toggle Dosen Fields
+        function toggleDosenFields() {
+            const jenisPegawai = document.getElementById('jenis_pegawai_select').value;
+            const dosenFields = document.getElementById('dosenFields');
+            
+            if (jenisPegawai === 'dosen') {
+                dosenFields.style.display = 'block';
+            } else {
+                dosenFields.style.display = 'none';
+            }
+        }
+
+        // Submit Form dengan Validasi
+        function submitFormPegawai() {
+            const form = document.getElementById('formPegawai');
+            const nikInput = document.querySelector('input[name="nik"]');
+            const nipInput = document.querySelector('input[name="nip"]');
+            const nidnInput = document.querySelector('input[name="nidn"]');
+            const namaLengkapInput = document.querySelector('input[name="nama_lengkap"]');
+            const emailInput = document.querySelector('input[name="email"]');
+            
+            const nik = nikInput.value.trim();
+            const nip = nipInput.value.trim();
+            const nidn = nidnInput ? nidnInput.value.trim() : '';
+            const namaLengkap = namaLengkapInput.value.trim();
+            const email = emailInput.value.trim();
+            
+            let errors = [];
+            
+            // Reset semua border merah
+            [nikInput, nipInput, nidnInput, namaLengkapInput, emailInput].forEach(input => {
+                if (input) {
+                    input.style.borderColor = '';
+                }
+            });
+            
+            // Validasi NIK jika diisi
+            if (nik !== '' && nik.length !== 16) {
+                errors.push('NIK harus 16 digit angka');
+                nikInput.style.borderColor = '#ef4444';
+            }
+            
+            // Validasi NIP jika diisi
+            if (nip !== '' && nip.length !== 18) {
+                errors.push('NIP harus 18 digit angka');
+                nipInput.style.borderColor = '#ef4444';
+            }
+            
+            // Validasi NIDN jika diisi
+            if (nidn !== '' && !/^\d+$/.test(nidn)) {
+                errors.push('NIDN harus berisi angka saja');
+                if (nidnInput) nidnInput.style.borderColor = '#ef4444';
+            }
+            
+            // Validasi Nama Lengkap (wajib)
+            if (namaLengkap === '') {
+                errors.push('Nama lengkap wajib diisi');
+                namaLengkapInput.style.borderColor = '#ef4444';
+            }
+            
+            // Validasi Email (wajib)
+            if (email === '') {
+                errors.push('Email wajib diisi');
+                emailInput.style.borderColor = '#ef4444';
+            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                errors.push('Format email tidak valid');
+                emailInput.style.borderColor = '#ef4444';
+            }
+            
+            // Jika ada error, tampilkan notifikasi
+            if (errors.length > 0) {
+                showNotification('Validasi Gagal', errors, 'error');
+                return false;
+            }
+            
+            // Jika valid, submit form
+            form.submit();
+        }
+
         // Validasi NIK - hanya angka dan maksimal 16 digit
-        document.querySelector('input[name="nik"]').addEventListener('input', function(e) {
+        const nikInput = document.querySelector('input[name="nik"]');
+        nikInput.addEventListener('input', function(e) {
             this.value = this.value.replace(/[^0-9]/g, '').slice(0, 16);
+            this.style.borderColor = ''; // Reset border color saat user mengetik
         });
 
         // Validasi NIP - hanya angka dan maksimal 18 digit
-        document.querySelector('input[name="nip"]').addEventListener('input', function(e) {
+        const nipInput = document.querySelector('input[name="nip"]');
+        nipInput.addEventListener('input', function(e) {
             this.value = this.value.replace(/[^0-9]/g, '').slice(0, 18);
+            this.style.borderColor = ''; // Reset border color saat user mengetik
+        });
+
+        // Validasi NIDN - hanya angka
+        const nidnInput = document.querySelector('input[name="nidn"]');
+        if (nidnInput) {
+            nidnInput.addEventListener('input', function(e) {
+                this.value = this.value.replace(/[^0-9]/g, '');
+                this.style.borderColor = ''; // Reset border color saat user mengetik
+            });
+        }
+
+        // Reset border color untuk Nama Lengkap saat user mengetik
+        const namaLengkapInput = document.querySelector('input[name="nama_lengkap"]');
+        namaLengkapInput.addEventListener('input', function() {
+            this.style.borderColor = '';
+        });
+
+        // Reset border color untuk Email saat user mengetik
+        const emailInput = document.querySelector('input[name="email"]');
+        emailInput.addEventListener('input', function() {
+            this.style.borderColor = '';
         });
 
         // Open Upload Modal
@@ -1297,15 +1627,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if (file) {
                 // Check file type
                 if (file.type !== 'application/pdf') {
-                    alert('Hanya file PDF yang diperbolehkan!');
+                    showNotification('File Tidak Valid', ['Hanya file PDF yang diperbolehkan'], 'error');
                     input.value = '';
                     return false;
                 }
                 
-                // Check file size (5 MB = 5 * 1024 * 1024 bytes)
+                // Check file size
                 const maxSize = 5 * 1024 * 1024;
                 if (file.size > maxSize) {
-                    alert('Ukuran file maksimal 5 MB!');
+                    showNotification('Ukuran File Terlalu Besar', ['Ukuran file maksimal 5 MB'], 'error');
                     input.value = '';
                     return false;
                 }

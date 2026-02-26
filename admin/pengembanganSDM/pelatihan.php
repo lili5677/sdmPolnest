@@ -1,8 +1,5 @@
 <?php
-// =====================================================
-// QUERY DATA
-// =====================================================
-
+//data
 $query_pelatihan = "SELECT * FROM pelatihan ORDER BY created_at DESC";
 $stmt_pelatihan = $conn->prepare($query_pelatihan);
 $stmt_pelatihan->execute();
@@ -24,7 +21,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
 ?>
 
 <style>
-    /* Page Header */
     .page-header-section {
         display: flex;
         justify-content: space-between;
@@ -45,7 +41,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         margin: 0;
     }
 
-    /* Tombol Tambah (Pojok Kanan) */
     .btn-tambah-pelatihan {
         padding: 12px 24px;
         background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
@@ -68,7 +63,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
     }
 
-    /* Form Section (Tersembunyi) */
+    /* Form Section  */
     .form-section-pelatihan {
         display: none;
         background: white;
@@ -282,7 +277,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         background: #fecaca;
     }
 
-    /* Empty State */
     .empty-state {
         text-align: center;
         padding: 60px 20px;
@@ -401,11 +395,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         text-decoration: underline;
     }
 
-    /* =====================================================
-   RESPONSIVE PELATIHAN
-===================================================== */
-
-/* ===== TABLET ===== */
+/* responsive */
 @media (max-width: 1024px) {
     .page-header-section h2 {
         font-size: 20px;
@@ -423,7 +413,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     }
 }
 
-/* ===== MOBILE ===== */
+
 @media (max-width: 768px) {
 
     /* Header */
@@ -474,7 +464,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     }
 }
 
-/* ===== SMALL MOBILE ===== */
 @media (max-width: 576px) {
 
     .page-header-section h2 {
@@ -513,7 +502,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     }
 }
 
-/* Responsive Table Container */
 .table-container.responsive-table {
     width: 100%;
     overflow-x: auto;
@@ -523,7 +511,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
-/* TABLET RESPONSIVENESS (768px - 1024px) */
 @media screen and (max-width: 1024px) {
     .table-pelatihan thead th {
         padding: 14px 10px;
@@ -538,7 +525,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     }
 }
 
-/* MOBILE RESPONSIVENESS - CARD LAYOUT (≤ 768px) */
+
 @media screen and (max-width: 768px) {
     .table-container.responsive-table {
         overflow-x: visible;
@@ -558,7 +545,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         width: 100%;
     }
     
-    /* Transform each row into a card */
     .table-pelatihan tbody tr {
         margin-bottom: 20px;
         border: 1px solid #e2e8f0;
@@ -574,7 +560,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         box-shadow: 0 4px 12px rgba(0,0,0,0.12);
     }
     
-    /* Style each cell as a row inside card */
     .table-pelatihan tbody td {
         position: relative;
         padding: 14px 16px;
@@ -593,7 +578,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         padding: 16px;
     }
     
-    /* Show label using data-label attribute */
     .table-pelatihan tbody td::before {
         content: attr(data-label);
         font-weight: 600;
@@ -606,20 +590,17 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         margin-right: 12px;
     }
     
-    /* Content alignment */
     .table-pelatihan tbody td > * {
         flex: 1;
         text-align: right;
     }
     
-    /* Strong text styling in mobile */
     .table-pelatihan tbody td strong {
         font-size: 15px;
         line-height: 1.5;
         display: block;
     }
     
-    /* Special styling for NO column - centered badge */
     .table-pelatihan tbody td[data-label="NO"]::before {
         flex: 1;
     }
@@ -633,7 +614,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         padding: 12px;
     }
     
-    /* Action buttons in mobile */
     .table-pelatihan tbody td.td-actions {
         display: flex;
         flex-wrap: nowrap;
@@ -660,7 +640,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     }
 }
 
-/* SMALL MOBILE RESPONSIVENESS (≤ 480px) */
 @media screen and (max-width: 480px) {
     .table-container.responsive-table {
         margin: 15px -10px;
@@ -685,7 +664,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         font-size: 14px;
     }
     
-    /* Stack action buttons vertically on very small screens */
     .table-pelatihan tbody td.td-actions {
         flex-direction: column;
         gap: 8px;
@@ -699,12 +677,10 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     }
 }
 
-/* Smooth transitions */
 .table-pelatihan * {
     transition: all 0.2s ease;
 }
 
-/* Print styles */
 @media print {
     .table-pelatihan tbody td::before {
         font-weight: bold;
@@ -717,7 +693,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
 </style>
 
 <div class="content-card">
-    <!-- Page Header dengan Tombol di Kanan -->
+    
     <div class="page-header-section">
         <div>
             <h2>Manajemen Pelatihan</h2>
@@ -729,11 +705,10 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
         </button>
     </div>
 
-    <!-- Form Tambah/Edit Pelatihan (Tersembunyi) -->
+    <!-- Form Tambah/Edit Pelatihan -->
     <div class="form-section-pelatihan <?php echo $edit_mode ? 'show' : ''; ?>" id="formPelatihan">
         <h3><?php echo $edit_mode ? 'Edit Pelatihan' : 'Form Tambah Pelatihan Baru'; ?></h3>
         
-        <!-- PERHATIKAN: Action diarahkan ke pelatihanhandler.php -->
         <form method="POST" action="pelatihanhandler.php" enctype="multipart/form-data" id="pelatihanForm">
             <input type="hidden" name="action" value="<?php echo $edit_mode ? 'edit' : 'tambah'; ?>">
             <?php if ($edit_mode): ?>
@@ -1013,7 +988,6 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
     });
     <?php endif; ?>
 
-    // Close modal when clicking outside
     const modalDetail = document.getElementById('modalDetail');
     if (modalDetail) {
         modalDetail.addEventListener('click', function(e) {

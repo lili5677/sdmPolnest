@@ -1,17 +1,13 @@
 <?php
-// Koneksi Database
 require_once '../../config/database.php';
 
-// Check if user is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     header('Location: ' . BASE_URL . 'auth/login_pegawai.php');
     exit();
 }
 
-// Ambil lowongan_id dari URL
 $lowongan_id = $_GET['id'] ?? 0;
 
-// Fetch data lowongan
 $stmt = $conn->prepare("SELECT * FROM lowongan_pekerjaan WHERE lowongan_id = ?");
 $stmt->execute([$lowongan_id]);
 $lowongan = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -21,47 +17,20 @@ if (!$lowongan) {
     exit;
 }
 
-// Jumlah pendaftar (lamaran) untuk lowongan ini
 $stmt_pendaftar = $conn->prepare("SELECT COUNT(*) as jumlah FROM lamaran WHERE lowongan_id = ?");
 $stmt_pendaftar->execute([$lowongan_id]);
 $jumlah_pendaftar = $stmt_pendaftar->fetchColumn();
 
-// Guard NULL deadline
 $deadline_display = !empty($lowongan['deadline_lamaran'])
     ? date('d F Y', strtotime($lowongan['deadline_lamaran']))
     : null;
 
-// Guard NULL gaji
 $gaji_display = null;
 if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
     $gaji_display = 'Rp ' . number_format($lowongan['gaji_min'], 0, ',', '.') . ' – ' . number_format($lowongan['gaji_max'], 0, ',', '.');
 }
 
 $status_class = 'status-' . strtolower($lowongan['status']);
-
-// Jenis posisi badge
-$jenis_posisi = $lowongan['jenis_posisi'] ?? 'staff';
-$jenis_badge_class = '';
-$jenis_icon = '';
-$jenis_role_info = '';
-
-switch ($jenis_posisi) {
-    case 'dosen':
-        $jenis_badge_class = 'badge-dosen';
-        $jenis_icon = 'fa-chalkboard-teacher';
-        $jenis_role_info = 'Pegawai yang diterima akan mendapat role "Dosen"';
-        break;
-    case 'tendik':
-        $jenis_badge_class = 'badge-tendik';
-        $jenis_icon = 'fa-tools';
-        $jenis_role_info = 'Pegawai yang diterima akan mendapat role "Pegawai" dengan kategori Tendik';
-        break;
-    default:
-        $jenis_badge_class = 'badge-staff';
-        $jenis_icon = 'fa-user-tie';
-        $jenis_role_info = 'Pegawai yang diterima akan mendapat role "Pegawai" dengan kategori Staff';
-        break;
-}
 ?>
 
 <!DOCTYPE html>
@@ -71,6 +40,7 @@ switch ($jenis_posisi) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detail Lowongan - <?= htmlspecialchars($lowongan['posisi']) ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -107,32 +77,10 @@ switch ($jenis_posisi) {
         .info-value { font-size: 14px; color: #1e293b; font-weight: 500; line-height: 1.5; }
         .text-muted { color: #94a3b8; font-style: italic; }
 
-        .badge { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; gap: 5px; }
+        .badge { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
         .status-aktif { background-color: #d1fae5; color: #065f46; }
         .status-ditutup { background-color: #fee2e2; color: #991b1b; }
         .status-draft { background-color: #f1f5f9; color: #475569; }
-        
-        /* Badge jenis posisi */
-        .badge-dosen { background-color: #dbeafe; color: #1e40af; }
-        .badge-staff { background-color: #d1fae5; color: #065f46; }
-        .badge-tendik { background-color: #fef3c7; color: #92400e; }
-
-        .role-info-box {
-            background: #f0f9ff;
-            border-left: 4px solid #3b82f6;
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-top: 12px;
-            font-size: 13px;
-            color: #1e3a8a;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .role-info-box i {
-            font-size: 18px;
-            color: #3b82f6;
-        }
 
         .text-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-size: 14px; color: #334155; line-height: 1.7; white-space: pre-wrap; }
         .text-block.empty { color: #94a3b8; font-style: italic; background: #fafafa; }
@@ -166,7 +114,6 @@ switch ($jenis_posisi) {
             <div class="content-wrapper">
                 <a href="manajemen-loker.php" class="back-button"><i class="fas fa-arrow-left"></i> Kembali ke Daftar Lowongan</a>
 
-                <!-- Header -->
                 <div class="header-card">
                     <h1><?= htmlspecialchars($lowongan['posisi']) ?></h1>
                     <div class="header-meta">
@@ -187,7 +134,6 @@ switch ($jenis_posisi) {
                     </div>
                 </div>
 
-                <!-- Stats -->
                 <div class="stats-row">
                     <div class="stat-box">
                         <div class="stat-value"><?= $lowongan['formasi'] ?></div>
@@ -205,7 +151,6 @@ switch ($jenis_posisi) {
                     </div>
                 </div>
 
-                <!-- Info umum -->
                 <div class="info-card">
                     <div class="card-header"><i class="fas fa-briefcase"></i> Informasi Lowongan</div>
                     <div class="card-body">
@@ -213,17 +158,6 @@ switch ($jenis_posisi) {
                             <div class="info-item">
                                 <div class="info-label">Posisi</div>
                                 <div class="info-value"><?= htmlspecialchars($lowongan['posisi']) ?></div>
-                            </div>
-                            <div class="info-item">
-                                <div class="info-label">
-                                    <i class="fas fa-user-tag"></i> Jenis Posisi
-                                </div>
-                                <div class="info-value">
-                                    <span class="badge <?= $jenis_badge_class ?>">
-                                        <i class="fas <?= $jenis_icon ?>"></i>
-                                        <?= ucfirst($jenis_posisi) ?>
-                                    </span>
-                                </div>
                             </div>
                             <div class="info-item">
                                 <div class="info-label">Formasi</div>
@@ -246,16 +180,9 @@ switch ($jenis_posisi) {
                                 <div class="info-value"><?= $lowongan['created_at'] ? date('d F Y, H:i', strtotime($lowongan['created_at'])) : '-' ?></div>
                             </div>
                         </div>
-                        
-                        <!-- Role Info Box -->
-                        <div class="role-info-box">
-                            <i class="fas fa-info-circle"></i>
-                            <span><strong>Catatan:</strong> <?= $jenis_role_info ?></span>
-                        </div>
                     </div>
                 </div>
 
-                <!-- Deskripsi -->
                 <div class="info-card">
                     <div class="card-header"><i class="fas fa-file-alt"></i> Deskripsi Pekerjaan</div>
                     <div class="card-body">
@@ -266,7 +193,6 @@ switch ($jenis_posisi) {
                     </div>
                 </div>
 
-                <!-- Tanggung Jawab -->
                 <div class="info-card">
                     <div class="card-header"><i class="fas fa-list-check"></i> Tanggung Jawab</div>
                     <div class="card-body">
@@ -277,7 +203,6 @@ switch ($jenis_posisi) {
                     </div>
                 </div>
 
-                <!-- Kualifikasi -->
                 <div class="info-card">
                     <div class="card-header"><i class="fas fa-user-check"></i> Kualifikasi</div>
                     <div class="card-body">
@@ -288,7 +213,6 @@ switch ($jenis_posisi) {
                     </div>
                 </div>
 
-                <!-- Aksi -->
                 <div class="action-row">
                     <a href="editloker.php?id=<?= $lowongan_id ?>" class="btn btn-primary">
                         <i class="fas fa-pen"></i> Edit Lowongan

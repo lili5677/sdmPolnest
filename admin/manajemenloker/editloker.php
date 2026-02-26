@@ -1,14 +1,12 @@
 <?php
-// Koneksi Database
 require_once '../../config/database.php';
 
-// Check if user is logged in
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     header('Location: ' . BASE_URL . 'auth/login_pegawai.php');
     exit();
 }
 
-// ================== AMBIL DATA LOWONGAN ==================
+//  mengambil data lowongan
 $lowongan_id = $_GET['id'] ?? 0;
 
 $stmt = $conn->prepare("SELECT * FROM lowongan_pekerjaan WHERE lowongan_id = ?");
@@ -20,20 +18,18 @@ if (!$lowongan) {
     exit;
 }
 
-// ================== PROSES UPDATE ==================
+// proses update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // Ambil & bersihkan input gaji
+    // ambil gaji
     $gaji_range = $_POST['gaji_range'] ?? '';
     $gaji_range = preg_replace('/[^0-9\-]/', '', $gaji_range);
     $gaji = explode('-', $gaji_range);
 
-    // FIX: izinkan kosong → NULL (DB nullable). Validasi hanya kalau ada isi.
     $gaji_min = (isset($gaji[0]) && $gaji[0] !== '') ? (int)$gaji[0] : null;
     $gaji_max = (isset($gaji[1]) && $gaji[1] !== '') ? (int)$gaji[1] : null;
 
     if ($gaji_min !== null || $gaji_max !== null) {
-        // Kalau salah satu diisi, keduanya harus valid
         if ($gaji_min === null || $gaji_max === null || $gaji_min <= 0 || $gaji_max <= 0) {
             $error = "Jika rentang gaji diisi, kedua nilai harus valid dan lebih dari 0";
         } elseif ($gaji_min > $gaji_max) {
@@ -41,7 +37,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // FIX: deadline boleh kosong → NULL
     $deadline = $_POST['deadline_lamaran'] ?? '';
     if ($deadline !== '' && strtotime($deadline) < strtotime(date('Y-m-d'))) {
         $error = "Deadline lamaran tidak boleh tanggal yang sudah lewat";
@@ -93,7 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Siapkan nilai gaji untuk ditampilkan — guard NULL
 $gaji_display = '';
 if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
     $gaji_display = number_format($lowongan['gaji_min'], 0, ',', '.') . ' - ' . number_format($lowongan['gaji_max'], 0, ',', '.');
@@ -105,9 +99,11 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
 <head>
     <meta charset="UTF-8">
     <title>Edit Lowongan</title>
-
+    
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+     <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
@@ -257,7 +253,6 @@ if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
 
 <script>
     document.querySelector('input[name="gaji_range"]').addEventListener('input', function (e) {
-        // Izinkan angka, titik (separator), spasi, dan minus
         e.target.value = e.target.value.replace(/[^0-9\.\-\s]/g, '');
     });
 </script>

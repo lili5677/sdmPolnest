@@ -154,6 +154,7 @@ if ($is_pegawai) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.5/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     
     <style>
         .hero-section {
@@ -261,7 +262,7 @@ if ($is_pegawai) {
             align-items: flex-start;
             justify-content: center;
             padding: 35px 25px;
-            transition: background 0.3s ease;
+            transition: background-color 0.3s ease;
         }
 
         .service-card:hover:not(.locked) .service-card-overlay {

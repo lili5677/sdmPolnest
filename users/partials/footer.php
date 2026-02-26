@@ -1,5 +1,5 @@
 <?php
-// Auto-detect base URL untuk path yang dinamis
+// Auto-detect base URL
 if (!defined('BASE_URL')) {
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
@@ -8,7 +8,7 @@ if (!defined('BASE_URL')) {
     $script_path = dirname($_SERVER['SCRIPT_NAME']);
     $base_path = '/';
     
-    // Cari folder root project (sdmPolnest atau nama folder lainnya)
+    // Cari folder root project
     if (preg_match('#^(.*?/[^/]+)/#', $script_path, $matches)) {
         $base_path = $matches[1] . '/';
     } elseif ($script_path !== '/') {
@@ -155,7 +155,7 @@ if (!defined('BASE_URL')) {
         opacity: 1;
     }
 
-    /* Slide Animations - Perbaikan Bug Animasi */
+    /* Slide Animations */
     .animate-item[data-animation="slide-right"] {
         transform: translateX(-60px);
     }
@@ -424,7 +424,7 @@ if (!defined('BASE_URL')) {
             justify-content: center;
         }
 
-        /* Mobile: semua animasi dari bawah */
+        /* Mobile */
         .animate-item[data-animation="slide-right"],
         .animate-item[data-animation="slide-left"],
         .animate-item[data-animation="slide-up"] {
@@ -503,7 +503,7 @@ if (!defined('BASE_URL')) {
         const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
         const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 
-        // Intersection Observer for animations
+        // Intersection Observer  animations
         const observerOptions = {
             threshold: 0.1,
             rootMargin: '0px 0px -30px 0px'
@@ -515,7 +515,7 @@ if (!defined('BASE_URL')) {
                     // Add stagger delay
                     setTimeout(() => {
                         entry.target.classList.add('visible');
-                    }, index * 120); // 120ms delay antara setiap elemen
+                    }, index * 120); 
                     
                     observer.unobserve(entry.target);
                 }

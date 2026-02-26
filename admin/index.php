@@ -1,16 +1,14 @@
-index.php
 <?php
-// Koneksi database
 require_once '../config/database.php';
 
-// Check if user is logged in
+// cek user login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     header('Location: ' . BASE_URL . 'auth/login_pegawai.php');
     exit();
 }
 
 try {
-    // ===== 1. TOTAL PEGAWAI AKTIF (HANYA YANG STATUS AKTIF!) =====
+    // total pegawai dnegan status aktif =====
     $query_total = "
         SELECT COUNT(DISTINCT p.pegawai_id) as total
         FROM pegawai p
@@ -29,7 +27,7 @@ try {
     $stmt_total = $conn->query($query_total);
     $total_pegawai = $stmt_total->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     
-    // ===== 2. PEGAWAI KONTRAK (HANYA YANG STATUS AKTIF!) =====
+    //statisktik status pegawai aktik (kontrak)
     $query_kontrak = "
         SELECT COUNT(DISTINCT p.pegawai_id) as total
         FROM pegawai p
@@ -49,7 +47,7 @@ try {
     $stmt_kontrak = $conn->query($query_kontrak);
     $pegawai_kontrak = $stmt_kontrak->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     
-    // ===== 3. KONTRAK AKAN HABIS (30 HARI, HANYA YANG STATUS AKTIF!) =====
+    // statsitik kontrak akan habis(30 hari dnegan status aktif)
     $query_habis = "
         SELECT COUNT(DISTINCT p.pegawai_id) as total
         FROM pegawai p
@@ -71,7 +69,7 @@ try {
     $stmt_habis = $conn->query($query_habis);
     $kontrak_habis = $stmt_habis->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
     
-    // ===== 4. LAMARAN BARU MENUNGGU VERIFIKASI =====
+    // statistik lamaran
     $query_lamaran = "
         SELECT COUNT(*) as total 
         FROM lamaran 
@@ -80,7 +78,7 @@ try {
     $stmt_lamaran = $conn->query($query_lamaran);
     $lamaran_baru = $stmt_lamaran->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
 
-    // ===== 5. SERTIFIKASI DOSEN AKAN HABIS (TAHUN INI DAN TAHUN DEPAN) =====
+    // statistik sertifikasi
     $query_sertifikasi = "
         SELECT COUNT(DISTINCT s.sertifikasi_id) as total
         FROM sertifikasi_dosen s
@@ -103,7 +101,7 @@ try {
     $stmt_sertifikasi = $conn->query($query_sertifikasi);
     $sertifikasi_habis = $stmt_sertifikasi->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
 
-    // ===== 6. PIE CHART STATUS PEGAWAI (HANYA YANG AKTIF!) =====
+    // chart pegawai aktif
     $query_status = "
         SELECT 
             LOWER(COALESCE(latest_sk.jenis_kepegawaian, 'tetap')) as jenis_kepegawaian,
@@ -155,6 +153,8 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- favicon -->
+     <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     
     <!-- Load Notification CSS -->
     <link rel="stylesheet" href="api/notifications.php?get=css">
@@ -181,17 +181,14 @@ try {
             margin-bottom: 30px;
         }
 
-        /* stats tampil 1 baris rapi */
         .stats-grid {
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         }
 
-        /* rapatkan header & stats */
         .header {
             margin-bottom: 20px;
         }
 
-        /* ===== HEADER WITH NOTIFICATION BELL ===== */
         .header {
             margin-bottom: 30px;
             display: flex;
@@ -216,7 +213,6 @@ try {
             color: #666;
         }
 
-        /* ===== STATS GRID ===== */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -291,7 +287,6 @@ try {
             color: white;
         }
 
-        /* ===== CONTENT GRID ===== */
         .content-grid {
           grid-template-columns: 1fr;
         }
@@ -345,7 +340,6 @@ try {
     <div class="main-content">
 
     <div class="dashboard-top">
-        <!-- HEADER -->
         <div class="header">
             <div class="header-left">
                 <h1>Dashboard Admin</h1>
@@ -374,7 +368,6 @@ try {
             </div>
         </div>
 
-        <!-- STATS -->
         <div class="stats-grid">
             <a href="administrasi/administrasiKepegawaian.php" class="stat-card">
                 <div class="stat-info">
@@ -427,7 +420,7 @@ try {
             </a>
         </div>
 
-        <!-- PIE CHART STATUS PEGAWAI (Full Width) -->
+        <!-- chart -->
         <div class="content-grid">
             <div class="card">
                 <div class="card-header">
@@ -447,10 +440,10 @@ try {
         </div>
     </div>
 
-    <!-- NOTIFICATION JAVASCRIPT -->
+    <!-- notifikasi -->
     <script src="api/notifications.php?get=js"></script>
 
-    <!-- PIE CHART SCRIPT -->
+    <!-- script chart -->
     <script>
         <?php if (!empty($data_status)): ?>
         const ctx = document.getElementById('statusChart');

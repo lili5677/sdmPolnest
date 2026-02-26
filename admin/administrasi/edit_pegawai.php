@@ -40,8 +40,6 @@ if(!$pegawai) {
 // Proses Form Submit
 if($_SERVER['REQUEST_METHOD'] == 'POST') {
     $errors = [];
-    
-    // ===== VALIDASI SEMUA FIELD WAJIB =====
 
     if(empty(trim($_POST['jabatan'] ?? ''))) {
         $errors[] = 'Jabatan wajib diisi';
@@ -83,9 +81,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
     
-    // Jika tidak ada error, proses update
     if(empty($errors)) {
-        // Helper function untuk handle empty string -> NULL
+        // Helper function untuk handle empty string
         function emptyToNull($value) {
             return (empty($value)) ? null : $value;
         }
@@ -186,6 +183,7 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Google Fonts - Poppins -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     
     <style>
         body {
@@ -399,7 +397,7 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
             <?php endif; ?>
 
             <form method="POST" action="" id="formEditPegawai" novalidate>
-                <!-- Data Pribadi (READ ONLY) -->
+                <!-- Data Pribadi -->
                 <div class="form-section">
                     <div class="form-section-title">
                         <i class="fas fa-user"></i>
@@ -630,7 +628,7 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
                 kontrakFields.style.display = 'none';
                 kontrakInputs.forEach(input => {
                     input.removeAttribute('required');
-                    input.value = ''; // kosongkan nilai jika bukan kontrak
+                    input.value = ''; 
                     input.classList.remove('is-invalid');
                 });
             }
@@ -642,7 +640,7 @@ $data = $_SERVER['REQUEST_METHOD'] == 'POST' ? array_merge($pegawai, $_POST) : $
             const fields = this.querySelectorAll('[required]');
 
             fields.forEach(function(field) {
-                // Lewati field yang tersembunyi (kontrak fields saat bukan kontrak)
+                // Lewati field yang tersembunyi
                 if (field.closest('#kontrakFields') && field.closest('#kontrakFields').style.display === 'none') {
                     return;
                 }

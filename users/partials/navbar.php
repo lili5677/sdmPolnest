@@ -1,5 +1,5 @@
 <?php
-// Check session untuk navbar
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -8,11 +8,11 @@ if (session_status() === PHP_SESSION_NONE) {
 $is_logged_in = isset($_SESSION['user_id']) && isset($_SESSION['logged_in']);
 $user_type = $is_logged_in ? ($_SESSION['user_type'] ?? '') : '';
 $is_pegawai_dosen = ($user_type == 'pegawai' || $user_type == 'dosen');
-$is_dosen = ($user_type === 'dosen'); // Khusus dosen
+$is_dosen = ($user_type === 'dosen');
 $user_email = $is_logged_in ? $_SESSION['email'] : '';
 $username = $is_logged_in ? explode('@', $user_email)[0] : '';
 
-// ===== CEK KELENGKAPAN DATA PEGAWAI =====
+//CEK KELENGKAPAN DATA PEGAWAI
 $data_complete = true;
 $completion_message = '';
 
@@ -58,7 +58,6 @@ if ($is_pegawai_dosen && isset($_SESSION['pegawai_id'])) {
             background-color: #f5f5f5;
         }
 
-        /* Navbar Styling */
         .navbar-custom {
             background: linear-gradient(135deg, #F19BB8 0%, #F6C35A 100%);
             padding: 12px 0;
@@ -77,7 +76,6 @@ if ($is_pegawai_dosen && isset($_SESSION['pegawai_id'])) {
             align-items: center;
         }
 
-        /* Logo Section */
         .navbar-brand {
             display: flex;
             align-items: center;
@@ -100,14 +98,12 @@ if ($is_pegawai_dosen && isset($_SESSION['pegawai_id'])) {
             margin: 0;
         }
 
-        /* Right Section */
         .navbar-right {
             display: flex;
             align-items: center;
             gap: 35px;
         }
 
-        /* Navigation Menu */
         .navbar-menu {
             display: flex;
             gap: 35px;
@@ -243,16 +239,6 @@ if ($is_pegawai_dosen && isset($_SESSION['pegawai_id'])) {
             cursor: not-allowed;
             position: relative;
         }
-
-        /* HAPUS BAGIAN INI - YANG MENAMBAHKAN ICON LOCK DUPLIKAT */
-        /* .dropdown-layanan-item.locked::after {
-            content: '\F23E';
-            font-family: 'bootstrap-icons';
-            position: absolute;
-            right: 20px;
-            font-size: 16px;
-            color: white;
-        } */
 
         .dropdown-layanan-item.locked:hover {
             background: rgba(255, 255, 255, 0.1);
@@ -751,7 +737,7 @@ if ($is_pegawai_dosen && isset($_SESSION['pegawai_id'])) {
         }
     });
 
-    // ===== ALERT UNTUK DATA BELUM LENGKAP =====
+    //ALERT UNTUK DATA BELUM LENGKAP
     function showIncompleteAlert(event) {
         event.preventDefault();
         event.stopPropagation();

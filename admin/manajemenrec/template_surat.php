@@ -11,7 +11,6 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
     exit();
 }
 
-// Define BASE_URL if not defined
 if (!defined('BASE_URL')) {
     $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
     $host = $_SERVER['HTTP_HOST'];
@@ -22,18 +21,14 @@ if (!defined('BASE_URL')) {
 
 // Handle upload
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
-    // PERBAIKAN 1: Tambahkan output buffering untuk mencegah output apapun sebelum JSON
     ob_start();
     
-    // PERBAIKAN 2: Sembunyikan error PHP agar tidak muncul di output
     ini_set('display_errors', 0);
     error_reporting(E_ALL);
     
-    // Set JSON header
     header('Content-Type: application/json');
     
     try {
-        // PERBAIKAN 3: Clear any previous output
         if (ob_get_length()) ob_clean();
         
         // Check file upload
@@ -68,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
             throw new Exception('Ukuran file maksimal 5 MB. File Anda: ' . round($file_size_mb, 2) . ' MB');
         }
         
-        // PERBAIKAN 4: Validasi file adalah PDF yang valid
+        // Validasi file
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mime_type = finfo_file($finfo, $file['tmp_name']);
         finfo_close($finfo);
@@ -83,16 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
             if (!mkdir($upload_dir, 0755, true)) {
                 throw new Exception('Gagal membuat direktori upload. Periksa permission folder.');
             }
-            // Set permission
             @chmod($upload_dir, 0755);
         }
         
-        // PERBAIKAN 5: Cek apakah direktori writable
+        // Cek apakah direktori writable
         if (!is_writable($upload_dir)) {
             throw new Exception('Direktori upload tidak dapat ditulis. Hubungi administrator.');
         }
         
-        // Set filename
         $filename = 'surat_pernyataan_template.pdf';
         $file_path = $upload_dir . $filename;
         
@@ -100,7 +93,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
         if (file_exists($file_path)) {
             $backup_name = 'surat_pernyataan_template_backup_' . date('YmdHis') . '.pdf';
             if (!@rename($file_path, $upload_dir . $backup_name)) {
-                // Jika gagal backup, hapus file lama
                 @unlink($file_path);
             }
         }
@@ -113,21 +105,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
         // Set permission file
         @chmod($file_path, 0644);
         
-        // Try to save to database (optional, won't fail if database unavailable)
         $db_saved = false;
         try {
             if (isset($conn) && $conn instanceof PDO) {
                 $db_path = '/assets/templates/' . $filename;
                 $file_size_kb = round($file['size'] / 1024);
-                
-                // Check if template already exists
                 $check_query = "SELECT template_id FROM template_surat WHERE jenis_template = 'surat_pernyataan_pelamar'";
                 $check_stmt = $conn->prepare($check_query);
                 $check_stmt->execute();
                 $existing = $check_stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($existing) {
-                    // Update existing template
                     $update_query = "UPDATE template_surat 
                                    SET nama_template = ?,
                                        path_file = ?, 
@@ -159,14 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
                 $db_saved = true;
             }
         } catch (Exception $db_error) {
-            // Database save failed, but file upload succeeded - that's ok
             error_log('Database save failed: ' . $db_error->getMessage());
         }
-        
-        // PERBAIKAN 6: Clear output buffer sebelum echo JSON
+
         if (ob_get_length()) ob_clean();
         
-        // Success response
         echo json_encode([
             'success' => true,
             'message' => 'Template berhasil diupload!' . ($db_saved ? '' : ' (File tersimpan, database tidak terupdate)'),
@@ -175,10 +160,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
         ], JSON_UNESCAPED_UNICODE);
         
     } catch (Exception $e) {
-        // PERBAIKAN 7: Clear output buffer jika ada error
         if (ob_get_length()) ob_clean();
         
-        // Log error untuk debugging
         error_log('Upload error: ' . $e->getMessage());
         
         echo json_encode([
@@ -187,12 +170,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_template'])) {
         ], JSON_UNESCAPED_UNICODE);
     }
     
-    // PERBAIKAN 8: Flush output dan exit
     ob_end_flush();
     exit();
 }
 
-// Check template file
 $template_file = __DIR__ . '/../../assets/templates/surat_pernyataan_template.pdf';
 $template_exists = file_exists($template_file);
 $template_info = null;
@@ -220,6 +201,9 @@ include '../sidebar/sidebar.php';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link rel="icon" href="/sdmPolnest/users/assets/logo.png?v=1">
+
+
     
     <style>
         * {
@@ -228,10 +212,13 @@ include '../sidebar/sidebar.php';
         body {
             background: #f5f7fa;
         }
-        .main-content {
-            margin-left: 290px;
-            padding: 30px 40px;
-            min-height: 100vh;
+        
+        /* END OVERRIDE SIDEBAR */
+        
+            .main-content{
+            margin-left:290px;
+            padding:30px 40px;
+            min-height:100vh;
         }
         .page-header {
             margin-bottom: 30px;
@@ -381,10 +368,17 @@ include '../sidebar/sidebar.php';
             margin-bottom: 8px;
         }
         
-        @media (max-width: 992px) {
-            .main-content {
-                margin-left: 0;
-                padding: 20px;
+            @media (max-width: 968px){
+            .main-content{
+                margin-left:80px;
+                padding:24px;
+            }
+        }
+                
+            @media (max-width: 480px){
+            .main-content{
+                margin-left:70px;
+                padding:16px;
             }
         }
     </style>
@@ -392,7 +386,7 @@ include '../sidebar/sidebar.php';
 <body>
     <div class="main-content">
         <div class="page-header">
-            <h1><i class="bi bi-file-earmark-text me-3"></i>Kelola Template Surat</h1>
+            <h1><i class="bi bi-file-earmark-text me-2"></i>Kelola Template Surat</h1>
             <p>Upload dan kelola template surat pernyataan untuk pelamar</p>
         </div>
 
@@ -576,7 +570,7 @@ include '../sidebar/sidebar.php';
         function clearFile() {
             fileInput.value = '';
             document.getElementById('uploadContent').innerHTML = `
-                <i class="bi bi-cloud-arrow-up" style="font-size: 64px; color: #ec4899;"></i>
+                <i class="bi bi-cloud-arrow-up" style="font-size: 64px; color: #2563eb;"></i>
                 <h5 class="mt-3 mb-2">Klik atau Drag & Drop File</h5>
                 <p class="text-muted mb-0">Format: PDF | Maksimal: 5 MB</p>
             `;

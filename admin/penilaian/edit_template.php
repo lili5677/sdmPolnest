@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_template'])) {
                 $stmt_del->execute([$template_id]);
             }
 
-            // Update atau insert indikator
+            // Update indikator
             $stmt_update = $conn->prepare("
                 UPDATE penilaian_indikator 
                 SET nama_indikator = ?, keterangan = ?, urutan = ?
@@ -98,10 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_template'])) {
                     $ind_id = $indikator_ids[$i] ?? null;
 
                     if ($ind_id && is_numeric($ind_id)) {
-                        // Update existing
                         $stmt_update->execute([$name, $ket, $urutan, $ind_id]);
                     } else {
-                        // Insert new
                         $stmt_insert->execute([$template_id, $name, $ket, $urutan]);
                     }
                     $urutan++;
@@ -124,7 +122,6 @@ $success_message = $_SESSION['success_message'] ?? null;
 $error_message   = $_SESSION['error_message']   ?? null;
 unset($_SESSION['success_message'], $_SESSION['error_message']);
 
-// Format periode untuk input month
 $periode_input = date('Y-m', strtotime($template['periode']));
 ?>
 <!DOCTYPE html>
@@ -135,6 +132,8 @@ $periode_input = date('Y-m', strtotime($template['periode']));
     <title>Edit Template Penilaian - Admin</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+     <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -150,7 +149,6 @@ $periode_input = date('Y-m', strtotime($template['periode']));
             min-height: 100vh;
         }
 
-        /* Page Header */
         .page-header {
             background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
             padding: 28px 32px;
@@ -171,24 +169,6 @@ $periode_input = date('Y-m', strtotime($template['periode']));
             opacity: 0.9;
             font-weight: 400;
         }
-
-        /* Header biasa */
-         /* .page-header {
-            margin-bottom: 30px;
-        }
-
-        .page-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 8px;
-        }
-
-        .page-header p {
-            color: #6b7280;
-            font-size: 15px;
-            margin: 0;
-        } */
 
         /* Alert */
         .alert {
@@ -249,7 +229,7 @@ $periode_input = date('Y-m', strtotime($template['periode']));
         .btn-secondary { background: #6c757d; color: white; }
         .btn-secondary:hover { background: #5a6268; }
 
-        /* Card / Form Section */
+        /* Card */
         .card {
             background: white;
             border-radius: 16px;
@@ -411,7 +391,6 @@ $periode_input = date('Y-m', strtotime($template['periode']));
 
     <div class="main-content">
 
-        <!-- Page Header -->
         <div class="page-header">
             <h1><i class=""></i> Edit Template Penilaian</h1>
             <p>Perbarui informasi template dan indikator penilaian</p>
@@ -506,13 +485,6 @@ $periode_input = date('Y-m', strtotime($template['periode']));
                         <i class="bi bi-plus-circle"></i> Tambah Indikator
                     </button>
 
-                    <!-- <div class="scale-info-box">
-                        <i class="bi bi-info-circle-fill" style="flex-shrink:0;"></i>
-                        <span>
-                            <strong>Skala penilaian tetap:</strong>
-                            Sangat Baik, Baik, Cukup, Kurang
-                        </span>
-                    </div> -->
                 </div>
 
                 <div style="display: flex; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid #f1f5f9;">

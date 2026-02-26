@@ -1,5 +1,4 @@
 <style>
-    /* STYLING UNTUK DATA PEGAWAI */
     /* Input Group Custom */
     .input-group-text {
         border-right: 0;
@@ -730,12 +729,11 @@
 
 <script>
     // ===== VARIABEL GLOBAL PEGAWAI =====
-    let allDataPegawai = [];         // semua data dari server
-    let filteredDataPegawai = [];    // setelah filter diterapkan
+    let allDataPegawai = [];  
+    let filteredDataPegawai = []; 
     let currentPagePegawai = 1;
     const PAGE_SIZE_PEGAWAI = 10;
 
-    // ===== HELPER: Cek kelengkapan data kepegawaian =====
     function isDataKepegawaianLengkap(pegawai) {
         // 1. Cek Jabatan
         if (!pegawai.jabatan || pegawai.jabatan.trim() === '') return false;

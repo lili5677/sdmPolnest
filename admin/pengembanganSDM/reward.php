@@ -1204,7 +1204,7 @@ if (isset($_GET['edit']) && isset($_GET['id'])) {
 
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 5 * 1024 * 1024; 
 
         // Validasi size
         if (file.size > maxSize) {

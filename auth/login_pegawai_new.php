@@ -1,16 +1,4 @@
 <?php
-/**
- * AKTIVASI AKUN PEGAWAI BARU - FINAL FIXED VERSION
- * File: auth/login_pegawai.php
- * 
- * FIXED: Role otomatis sesuai jenis_posisi lowongan yang dilamar
- * 
- * UPDATE LOG:
- * - Ambil jenis_posisi dari lowongan yang dilamar
- * - Auto-set jenis_pegawai sesuai jenis_posisi lowongan
- * - Fallback ke NIDN/Prodi jika jenis_posisi NULL
- * - Auto-insert ke tabel pegawai saat aktivasi
- */
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -18,9 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once '../config/database.php';
 
-// ========================================
 // REDIRECT IF ALREADY LOGGED IN
-// ========================================
 if (isset($_SESSION['user_id']) && isset($_SESSION['user_type'])) {
     if (in_array($_SESSION['user_type'], ['pegawai', 'dosen'])) {
         header('Location: ../users/pegawai/administrasi.php');
@@ -38,9 +24,7 @@ $nama_pegawai = '';
 $role_pegawai = '';
 $data_loaded = false;
 
-// ========================================
 // AUTO-LOAD EMAIL & TOKEN FROM URL
-// ========================================
 $url_email = isset($_GET['email']) ? trim($_GET['email']) : '';
 
 if ($url_email) {
@@ -80,17 +64,13 @@ if ($url_email) {
     }
 }
 
-// ========================================
-// PROSES AKTIVASI - WITH AUTO INSERT TO PEGAWAI TABLE
-// ========================================
+
+// PROSES AKTIVASI 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
     $input_email = trim($_POST['email'] ?? '');
     $input_token = trim($_POST['token'] ?? '');
 
     try {
-        // ========================================
-        // GET DATA TOKEN & PELAMAR
-        // ========================================
         $stmtToken = $conn->prepare("
             SELECT 
                 at.*,
@@ -125,9 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
             $conn->beginTransaction();
             
             try {
-                // ========================================
                 // 1. UPDATE TOKEN → HANGUS
-                // ========================================
                 $stmtUpdateToken = $conn->prepare("
                     UPDATE activation_tokens 
                     SET is_used = 1, 
@@ -135,10 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                     WHERE token = :token
                 ");
                 $stmtUpdateToken->execute(['token' => $input_token]);
-                
-                // ========================================
                 // 2. AMBIL JENIS_POSISI DARI LOWONGAN YANG DILAMAR
-                // ========================================
                 $stmtLowongan = $conn->prepare("
                     SELECT 
                         lp.jenis_posisi, 
@@ -153,16 +128,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                 ");
                 $stmtLowongan->execute(['pelamar_id' => $tokenData['pelamar_id']]);
                 $lowonganData = $stmtLowongan->fetch(PDO::FETCH_ASSOC);
-                
-                // ========================================
                 // 3. TENTUKAN JENIS_PEGAWAI DAN USER_TYPE
                 // PRIORITAS:
                 // 1. jenis_posisi dari lowongan (PRIORITAS UTAMA)
                 // 2. NIDN + Prodi (fallback)
                 // 3. Deteksi dari nama posisi (fallback terakhir)
-                // ========================================
-                $jenis_pegawai = 'staff'; // Default
-                $user_type = 'pegawai';   // Default
+
+                $jenis_pegawai = 'staff'; 
+                $user_type = 'pegawai';  
                 $is_dosen_nest = 0;
                 
                 if ($lowonganData && !empty($lowonganData['jenis_posisi'])) {
@@ -190,10 +163,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                 ) {
                     $is_dosen_nest = 1;
                 }
-                
-                // ========================================
+
                 // 4. UPDATE USER → SET USER_TYPE
-                // ========================================
                 $stmtUpdateUser = $conn->prepare("
                     UPDATE users 
                     SET user_type = :user_type,
@@ -206,20 +177,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                     'user_type' => $user_type,
                     'user_id' => $tokenData['user_id']
                 ]);
-                
-                // ========================================
+
                 // 5. UPDATE PELAMAR → IS_PEGAWAI = 1
-                // ========================================
                 $stmtUpdatePelamar = $conn->prepare("
                     UPDATE pelamar 
                     SET is_pegawai = 1
                     WHERE pelamar_id = :pelamar_id
                 ");
                 $stmtUpdatePelamar->execute(['pelamar_id' => $tokenData['pelamar_id']]);
-                
-                // ========================================
+
                 // 6. INSERT KE TABEL PEGAWAI
-                // ========================================
                 // Cek dulu apakah sudah ada di tabel pegawai
                 $stmtCheckPegawai = $conn->prepare("
                     SELECT pegawai_id FROM pegawai WHERE user_id = :user_id
@@ -283,15 +250,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                     $existingPegawai = $stmtCheckPegawai->fetch(PDO::FETCH_ASSOC);
                     $pegawai_id = $existingPegawai['pegawai_id'];
                 }
-                
-                // ========================================
+
                 // 7. COMMIT TRANSACTION
-                // ========================================
                 $conn->commit();
                 
-                // ========================================
                 // 8. SET SESSION
-                // ========================================
                 $_SESSION['user_id']      = $tokenData['user_id'];
                 $_SESSION['pegawai_id']   = $pegawai_id;
                 $_SESSION['email']        = $tokenData['email_login'];
@@ -299,9 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $data_loaded) {
                 $_SESSION['nama_lengkap'] = $tokenData['nama_lengkap'];
                 $_SESSION['first_login']  = true;
 
-                // ========================================
                 // 9. REDIRECT KE KEAMANAN AKUN
-                // ========================================
                 header('Location: ../users/pegawai/keamanan_akun.php?first_login=1');
                 exit;
                 
@@ -320,6 +281,8 @@ include '../users/partials/navbar.php';
 ?>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+<link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
+
 <style>
     * {
         margin: 0;
@@ -339,7 +302,6 @@ include '../users/partials/navbar.php';
         min-height: calc(100vh - 80px);
     }
 
-    /* LEFT SIDE - IMAGE */
     .left-side {
         background: linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)),
             url('<?php echo BASE_URL; ?>users/assets/nest.jpg') center/cover;
@@ -359,7 +321,6 @@ include '../users/partials/navbar.php';
         background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
     }
 
-    /* RIGHT SIDE - FORM */
     .right-side {
         background: #f8f9fa;
         display: flex;

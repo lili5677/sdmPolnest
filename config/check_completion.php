@@ -1,8 +1,4 @@
 <?php
-/**
- * Helper untuk mengecek kelengkapan data pegawai
- * File ini berisi fungsi untuk validasi apakah semua data wajib sudah lengkap
- */
 
 /**
  * Cek apakah data pegawai sudah lengkap

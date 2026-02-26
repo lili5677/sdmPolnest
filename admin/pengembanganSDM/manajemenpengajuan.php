@@ -1,8 +1,8 @@
 <?php
-// ===== PAGINATION CONFIGURATION =====
-$items_per_page = 9; // Ubah menjadi 9 (kelipatan 3) agar pas dengan grid 3 kolom
+// pagination
+$items_per_page = 9; 
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$current_page = max(1, $current_page); // Minimal halaman 1
+$current_page = max(1, $current_page); 
 $offset = ($current_page - 1) * $items_per_page;
 
 // Hitung total data
@@ -34,7 +34,6 @@ $stmt_pengajuan->execute();
 ?>
 
 <style>
-    /* ===== CONTENT CARD HEADER ===== */
     .content-card-header {
         display: flex;
         justify-content: space-between;
@@ -42,6 +41,7 @@ $stmt_pengajuan->execute();
         margin-bottom: 20px;
         padding-bottom: 16px;
         border-bottom: 2px solid #f1f5f9;
+        gap: 12px;
     }
 
     .content-card-title {
@@ -52,11 +52,8 @@ $stmt_pengajuan->execute();
         align-items: center;
         gap: 8px;
         margin: 0;
-    }
-
-    .content-card-title i {
-        color: #3b82f6;
-        font-size: 18px;
+        flex: 1;
+        min-width: 0;
     }
 
     .btn-kelola-template {
@@ -74,6 +71,8 @@ $stmt_pengajuan->execute();
         gap: 6px;
         text-decoration: none;
         box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+        white-space: nowrap;
+        flex-shrink: 0;
     }
 
     .btn-kelola-template:hover {
@@ -82,7 +81,7 @@ $stmt_pengajuan->execute();
         color: white;
     }
 
-    /* ===== SEARCH & FILTER ===== */
+    /* search dan filter  */
     .controls-row {
         display: flex;
         gap: 10px;
@@ -138,7 +137,7 @@ $stmt_pengajuan->execute();
         border-color: #3b82f6;
     }
 
-    /* ===== PENGAJUAN CARDS - GRID 3 KOLOM ===== */
+    /* card pengajuan */
     .pengajuan-list {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -348,7 +347,7 @@ $stmt_pengajuan->execute();
         font-weight: 500;
     }
 
-    /* ===== PAGINATION ===== */
+    /* paginasi */
     .pagination-wrapper {
         display: flex;
         justify-content: space-between;
@@ -414,7 +413,7 @@ $stmt_pengajuan->execute();
         pointer-events: none;
     }
 
-    /* ===== RESPONSIVE ===== */
+    /* responsif*/
     @media (max-width: 1440px) {
         .pengajuan-list {
             grid-template-columns: repeat(3, 1fr);
@@ -436,6 +435,11 @@ $stmt_pengajuan->execute();
             flex-direction: column;
             align-items: flex-start;
             gap: 10px;
+        }
+
+        .btn-kelola-template {
+            width: 100%;
+            justify-content: center;
         }
 
         .btn-custom {
@@ -461,14 +465,11 @@ $stmt_pengajuan->execute();
 </style>
 
 <div class="content-card">
-    <!-- Header with Button -->
     <div class="content-card-header">
         <h3 class="content-card-title">
-            <i class="fas fa-table"></i>
             Data Pengajuan Studi Lanjut
         </h3>
         <a href="kelolatemplate.php" class="btn-kelola-template">
-            <i class="fas fa-file-alt"></i>
             Kelola Template
         </a>
     </div>
@@ -493,7 +494,7 @@ $stmt_pengajuan->execute();
         $pengajuan_data = $stmt_pengajuan->fetchAll(PDO::FETCH_ASSOC);
         if (count($pengajuan_data) > 0) {
             foreach ($pengajuan_data as $row) {
-                // Tentukan status badge
+                
                 $status_class = '';
                 $status_icon = '';
                 $status_text = '';
@@ -635,7 +636,7 @@ $stmt_pengajuan->execute();
 </div>
 
 <script>
-    // Search functionality
+    // fungsi search 
     document.getElementById('searchInput')?.addEventListener('input', function(e) {
         const searchTerm = e.target.value.toLowerCase();
         const cards = document.querySelectorAll('.pengajuan-card');
@@ -652,7 +653,7 @@ $stmt_pengajuan->execute();
         });
     });
 
-    // Filter by status
+    // Filter dnegan status
     document.getElementById('filterStatus')?.addEventListener('change', function(e) {
         const status = e.target.value;
         const cards = document.querySelectorAll('.pengajuan-card');

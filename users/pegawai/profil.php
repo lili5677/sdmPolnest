@@ -2,7 +2,6 @@
 require_once '../../includes/check_login.php';
 require_once '../../config/database.php';
 
-// Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
     header('Location: ../../auth/login.php');
     exit;
@@ -145,7 +144,9 @@ function getJenisKepegawaianLabel($jenis_kepegawaian) {
 $page_title = 'Profil Saya - Politeknik NEST';
 include '../partials/navbar.php';
 ?>
+<head>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
     <style>
         body {
             background: #f5f5f5;
@@ -158,7 +159,6 @@ include '../partials/navbar.php';
             padding: 0 20px;
         }
 
-        /* Profile Card */
         .profile-card {
             background: white;
             border-radius: 15px;

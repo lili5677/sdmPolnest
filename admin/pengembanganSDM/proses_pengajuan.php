@@ -1,9 +1,4 @@
 <?php
-/**
- * File: admin/pengembanganSDM/proses_pengajuan.php
- * Proses approve/reject pengajuan izin belajar
- */
-
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
     header('Location: ../login.php');
@@ -12,18 +7,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] != 'admin') {
 
 require_once '../../config/database.php';
 
-/**
- * Fungsi untuk redirect dengan notifikasi
- */
+// redirect
 function redirect($success, $message, $return_to = 'pengembangan-sdm.php') {
     $status = $success ? 'success' : 'error';
     header("Location: $return_to?status=$status&message=" . urlencode($message));
     exit();
 }
 
-/**
- * Validasi input dasar
- */
 if (!isset($_GET['action']) || !isset($_GET['id'])) {
     redirect(false, 'Parameter tidak lengkap');
 }
@@ -41,7 +31,6 @@ if ($pengajuan_id <= 0) {
     redirect(false, 'ID pengajuan tidak valid');
 }
 
-// Untuk reject, wajib ada reason
 if ($action === 'reject') {
     if (!isset($_GET['reason']) || empty(trim($_GET['reason']))) {
         redirect(false, 'Alasan penolakan harus diisi', "detail_pengajuan.php?id=$pengajuan_id");
@@ -95,7 +84,6 @@ try {
         $new_status = 'disetujui';
         $catatan = 'Pengajuan disetujui oleh admin';
         
-        // ✅ UPDATE SESUAI STRUKTUR DATABASE - kolom catatan_hrd
         $query_update = "UPDATE pengajuan_studi 
                         SET status_pengajuan = :status,
                             catatan_hrd = :catatan,
@@ -115,8 +103,7 @@ try {
         // REJECT PENGAJUAN
         $new_status = 'ditolak';
         $catatan = "Pengajuan ditolak. Alasan: " . $reason;
-        
-        // ✅ UPDATE SESUAI STRUKTUR DATABASE - kolom catatan_hrd
+       
         $query_update = "UPDATE pengajuan_studi 
                         SET status_pengajuan = :status,
                             catatan_hrd = :catatan,
@@ -138,8 +125,7 @@ try {
         $conn->rollBack();
         redirect(false, 'Gagal memproses pengajuan. Tidak ada perubahan data');
     }
-    
-    // Commit transaksi
+
     $conn->commit();
     
     // Redirect dengan pesan sukses
@@ -151,7 +137,7 @@ try {
         $conn->rollBack();
     }
     
-    // Log error (opsional)
+    // Log error 
     error_log("Error processing pengajuan: " . $e->getMessage());
     
     redirect(false, 'Terjadi kesalahan sistem. Silakan coba lagi.', "detail_pengajuan.php?id=$pengajuan_id");

@@ -1,5 +1,4 @@
 <style>
-    /* STYLING UNTUK STRUKTUR ORGANISASI */
     .content-card {
         background: white;
         border-radius: 12px;
@@ -35,7 +34,7 @@
         margin: 0;
     }
 
-    /* Info Alert - Biru Simple */
+    /* Info Alert*/
     .info-alert {
         background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
         border: 1px solid #93c5fd;
@@ -557,7 +556,7 @@
     const PAGE_SIZE_STRUKTUR = 10;
     let strukturInitialized = false;
 
-    // ===== INISIALISASI STRUKTUR - HANYA SAAT TAB AKTIF =====
+    // ===== INISIALISASI STRUKTUR =====
     function initializeStrukturOrganisasi() {
         if (strukturInitialized) return;
         
@@ -676,7 +675,6 @@
         }
     }
 
-    // ===== RENDER CARDS + PAGINATION =====
     function renderCardsStruktur() {
         const container = document.getElementById('level-content-container');
         if (!container) return;
@@ -751,7 +749,7 @@
         }
     }
 
-    // ===== RENDER TOMBOL PAGINATION (Struktur) =====
+    // ===== RENDER TOMBOL PAGINATION =====
     function renderPaginationButtonsStruktur(containerId, currentPage, totalPages) {
         const container = document.getElementById(containerId);
         if (!container) return;

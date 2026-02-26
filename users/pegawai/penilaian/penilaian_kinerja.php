@@ -1,34 +1,30 @@
 <?php
-// STEP 1: Start session
 session_start();
 
-// STEP 2: Cek login
+//Cek login
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['pegawai_id'])) {
-    header("Location: ../../../auth/login_pegawai.php"); // ⚠️ sesuaikan path
+    header("Location: ../../../auth/login_pegawai.php");
     exit;
 }
 
-// STEP 3: Include helper untuk cek kelengkapan
-require_once '../../../config/check_completion.php'; // ⚠️ sesuaikan path
+require_once '../../../config/check_completion.php'; 
 require_once '../../../config/database.php';
-
-// STEP 4: Cek kelengkapan data pegawai
 $check_result = checkPegawaiCompletion($conn, $_SESSION['pegawai_id']);
 
-// STEP 5: Jika data belum lengkap, redirect ke administrasi
+//Jika data belum lengkap, redirect ke administrasi
 if (!$check_result['is_complete']) {
     $_SESSION['flash_message'] = [
         'type' => 'warning',
         'message' => 'Anda harus melengkapi data administrasi kepegawaian terlebih dahulu sebelum mengakses halaman ini.'
     ];
-    header("Location: ../../../users/pegawai/administrasi.php"); // ⚠️ sesuaikan path
+    header("Location: ../../../users/pegawai/administrasi.php");
     exit;
 }
 
-// STEP 6: Ambil pegawai_id dari session
+//Ambil pegawai_id
 $pegawai_id = $_SESSION['pegawai_id'];
 
-// STEP 7: Ambil template penilaian (KODE ASLI LANJUT DI SINI)
+//Ambil template penilaian 
 $stmt_templates = $conn->prepare("
     SELECT 
         pt.*,
@@ -66,6 +62,7 @@ if (isset($_SESSION['error_message'])) {
     <title>Penilaian Kinerja - Politeknik NEST</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * {

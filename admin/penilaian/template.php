@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     exit;
 }
 
-// Handle Create Template
+// Handle tambah Template
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_template'])) {
     $nama_template          = trim($_POST['nama_template']);
     $periode                = $_POST['periode'];
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_template'])) {
     }
 }
 
-// Handle Delete Template (UPDATED - menggunakan POST)
+// Handle Delete Template 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_template'])) {
     $del_id = (int)$_POST['template_id'];
 
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_template'])) {
     exit;
 }
 
-// Ambil semua template beserta statistik lengkap
+// Ambil semua template + statistik lngkap
 $stmt = $conn->prepare("
     SELECT 
         pt.*,
@@ -118,6 +118,8 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+     <!-- favicon -->
+    <link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -133,7 +135,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             min-height: 100vh;
         }
 
-        /* Page Header */
         .page-header {
             background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%);
             padding: 28px 32px;
@@ -154,24 +155,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             opacity: 0.9;
             font-weight: 400;
         }
-
-        /* Header biasa */
-         /* .page-header {
-            margin-bottom: 30px;
-        }
-
-        .page-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 8px;
-        }
-
-        .page-header p {
-            color: #6b7280;
-            font-size: 15px;
-            margin: 0;
-        } */
 
         /* Alert */
         .alert {
@@ -243,12 +226,10 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 
         .btn-sm { padding: 7px 14px; font-size: 13px; }
 
-        /* Action bar */
         .action-bar {
             margin-bottom: 22px;
         }
 
-        /* Layout Container */
         .layout-container {
             display: grid;
             grid-template-columns: 480px 1fr;
@@ -256,7 +237,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             align-items: start;
         }
 
-        /* Card / Form Section */
+        /* Card  */
         .card {
             background: white;
             border-radius: 16px;
@@ -460,7 +441,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             gap: 6px;
         }
 
-        /* Stats inside template item */
         .template-stats {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -520,7 +500,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             border-top: 1px solid #f1f5f9;
         }
 
-        /* Empty state */
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -546,7 +525,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             color: #94a3b8; 
         }
 
-        /* Responsive */
+       /* Responsive untuk sidebar */
         @media (max-width: 1200px) {
             .layout-container {
                 grid-template-columns: 1fr;
@@ -556,12 +535,106 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             }
         }
 
-        @media (max-width: 768px) {
-            .main-content { margin-left: 0; padding: 15px; }
-            .template-stats { grid-template-columns: 1fr; }
+        @media (max-width: 968px) {
+            .main-content {
+                margin-left: 80px !important;
+                padding: 20px;
+            }
+            
+            .page-header {
+                padding: 20px 24px;
+            }
+            
+            .page-header h1 {
+                font-size: 20px;
+            }
+            
+            .layout-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-sticky {
+                position: static;
+            }
         }
 
-        /* Custom SweetAlert2 Styling */
+        @media (max-width: 768px) {
+            .main-content { 
+                margin-left: 70px !important;
+                padding: 15px; 
+            }
+            
+            .page-header {
+                padding: 18px 20px;
+            }
+            
+            .page-header h1 {
+                font-size: 18px;
+            }
+            
+            .page-header p {
+                font-size: 13px;
+            }
+            
+            .template-stats { 
+                grid-template-columns: 1fr; 
+            }
+            
+            .layout-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-sticky {
+                position: static;
+            }
+            
+            .template-footer {
+                flex-wrap: wrap;
+            }
+            
+            .btn-sm {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            
+            .action-bar {
+                margin-bottom: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-content {
+                margin-left: 70px !important;
+                padding: 12px;
+            }
+            
+            .page-header {
+                padding: 16px;
+                margin-bottom: 20px;
+            }
+            
+            .page-header h1 {
+                font-size: 16px;
+            }
+            
+            .page-header p {
+                font-size: 12px;
+            }
+            
+            .template-item {
+                padding: 16px;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .btn {
+                font-size: 13px;
+                padding: 8px 16px;
+            }
+        }
+
         .swal2-popup {
             font-family: 'Inter', sans-serif !important;
             border-radius: 16px !important;
@@ -598,7 +671,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 
     <div class="main-content">
 
-        <!-- Page Header -->
         <div class="page-header">
             <h1><i class=""></i> Kelola Template Penilaian</h1>
             <p>Buat template baru dan kelola daftar template penilaian kinerja pegawai</p>
@@ -632,17 +704,15 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             </div>
         <?php endif; ?>
 
-        <!-- Action Bar -->
         <div class="action-bar">
             <a href="penilaianKinerja.php" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Kembali ke Daftar Penilaian
             </a>
         </div>
 
-        <!-- Layout: Form (Kiri) + List (Kanan) -->
         <div class="layout-container">
             
-            <!-- FORM CREATE TEMPLATE (KIRI) -->
+            <!-- form template kiri -->
             <div class="card card-sticky">
                 <h2 class="card-title">
                     <i class=""></i> Buat Template Baru
@@ -697,13 +767,6 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                             <i class="bi bi-plus-circle"></i> Tambah Indikator
                         </button>
 
-                        <!-- <div class="scale-info-box">
-                            <i class="bi bi-info-circle-fill" style="flex-shrink:0;"></i>
-                            <span>
-                                <strong>Skala penilaian tetap:</strong>
-                                Sangat Baik, Baik, Cukup, Kurang
-                            </span>
-                        </div> -->
                     </div>
 
                     <div style="display: flex; gap: 12px; margin-top: 10px;">
@@ -717,7 +780,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                 </form>
             </div>
 
-            <!-- DAFTAR TEMPLATE (KANAN) -->
+            <!-- daftar template (kanan) -->
             <div>
                 <div class="card" style="margin-bottom: 16px;">
                     <h2 class="card-title">
@@ -744,7 +807,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                                     </div>
                                 </div>
 
-                                <!-- Statistik Utama -->
+                                <!-- Statistik -->
                                 <div class="template-stats">
                                     <div class="tstat">
                                         <div class="tstat-value"><?php echo $tpl['jumlah_indikator']; ?></div>
@@ -787,7 +850,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
                                        title="Edit Template">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <!-- UPDATED: Button dengan onclick untuk custom alert -->
+                                   
                                     <button type="button" 
                                             class="btn btn-danger btn-sm"
                                             onclick="confirmDelete(<?php echo $tpl['template_id']; ?>, '<?php echo addslashes($tpl['nama_template']); ?>')"
@@ -811,7 +874,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
 
     </div>
 
-    <!-- Hidden Form untuk Delete -->
+    <!--  Form untuk Delete -->
     <form id="deleteForm" method="POST" style="display: none;">
         <input type="hidden" name="delete_template" value="1">
         <input type="hidden" name="template_id" id="deleteTemplateId">
@@ -891,7 +954,7 @@ unset($_SESSION['success_message'], $_SESSION['error_message']);
             document.getElementById('templateForm').reset();
         }
 
-        // Custom Delete Confirmation dengan SweetAlert2
+        // Delete Confirmation 
         function confirmDelete(templateId, templateName) {
             Swal.fire({
                 title: 'Hapus Template?',

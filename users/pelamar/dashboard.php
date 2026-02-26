@@ -1,25 +1,22 @@
 <?php
 
-// STEP 1: Start session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// STEP 2: CEK STATUS LOGIN
+// CEK STATUS LOGIN
 $is_logged_in = isset($_SESSION['user_id']) && isset($_SESSION['user_type']) && $_SESSION['user_type'] == 'pelamar';
 
-// STEP 3: Ambil data user jika login
 if ($is_logged_in) {
     $user_id = $_SESSION['user_id'];
     $email = $_SESSION['email'];
     $username = explode('@', $email)[0];
 } else {
-    // Guest user
     $username = 'Guest';
     $email = '';
 }
 
-// STEP 4: Database
+// Database
 require_once '../../config/database.php';
 
 try {
@@ -34,8 +31,6 @@ try {
         SET lp.jumlah_diterima = COALESCE(l.total, 0)
     ");
     
-    // Auto-close lowongan yang expired atau penuh
-    // Penuh = jumlah_diterima >= formasi (bukan jumlah pendaftar!)
     $conn->exec("
         UPDATE lowongan_pekerjaan
         SET status = 'ditutup'
@@ -47,14 +42,9 @@ try {
         )
     ");
 } catch (Exception $e) {
-    // Silent fail
 }
 
-// STEP 6: Get lowongan HANYA yang aktif
-// Kondisi:
-// - status = 'aktif'
-// - deadline >= hari ini
-// - jumlah_diterima < formasi
+// Get lowongan HANYA yang aktif
 $query = "SELECT *, 
           (jumlah_diterima >= formasi) as is_full,
           (deadline_lamaran < CURDATE()) as is_expired
@@ -68,7 +58,6 @@ $stmt = $conn->prepare($query);
 $stmt->execute();
 $lowongan_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// STEP 7: Jika user sudah login, ambil data lamaran
 $user_applications = [];
 if ($is_logged_in) {
     // Get pelamar_id dari user_id
@@ -95,6 +84,7 @@ if ($is_logged_in) {
 $page_title = 'Dashboard - Politeknik NEST';
 include '../partials/navbar_req.php';
 ?>
+<link rel="icon" type="image/png" href="<?php echo BASE_URL; ?>users/assets/logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
     * {
@@ -352,7 +342,6 @@ include '../partials/navbar_req.php';
 </head>
 <body>
     <div class="container">
-        <!-- Welcome Card -->
         <div class="welcome-card">
             <?php if ($is_logged_in): ?>
                 <h1 class="welcome-title">Selamat Datang, <?= htmlspecialchars(ucfirst($username)) ?>!</h1>
@@ -380,7 +369,7 @@ include '../partials/navbar_req.php';
         <?php if (count($lowongan_list) > 0): ?>
             <?php foreach ($lowongan_list as $lowongan): ?>
                 <?php
-                // Format gaji
+                // Gaji
                 $gaji_text = 'Gaji Kompetitif';
                 if (!empty($lowongan['gaji_min']) && !empty($lowongan['gaji_max'])) {
                     $gaji_text = 'Rp ' . number_format($lowongan['gaji_min'], 0, ',', '.') . ' - Rp ' . number_format($lowongan['gaji_max'], 0, ',', '.');
@@ -393,7 +382,7 @@ include '../partials/navbar_req.php';
                 // Check if already applied
                 $already_applied = in_array($lowongan['lowongan_id'], $user_applications);
                 
-                // Hitung sisa slot
+                // Sisa slot
                 $sisa_slot = $lowongan['formasi'] - $lowongan['jumlah_diterima'];
                 $is_almost_full = $sisa_slot <= 2 && $sisa_slot > 0;
                 ?>
